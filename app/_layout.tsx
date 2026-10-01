@@ -1,7 +1,10 @@
 // Import each weight by its own path: the package root pulls in all 18 Inter files.
+// These are the four weights the website uses (400 / 500 / 600 / 700).
 import { InstrumentSerif_400Regular_Italic } from "@expo-google-fonts/instrument-serif/400Regular_Italic";
 import { Inter_400Regular } from "@expo-google-fonts/inter/400Regular";
+import { Inter_500Medium } from "@expo-google-fonts/inter/500Medium";
 import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";
+import { Inter_700Bold } from "@expo-google-fonts/inter/700Bold";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
@@ -13,7 +16,6 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { connectQueryClientToApp, queryClient } from "@/api/query-client";
 import { SessionProvider, useSession } from "@/auth/session";
-import { OfflineBanner } from "@/components/ui";
 import { useTheme } from "@/theme";
 
 // A1: keep the native splash up until fonts are in and the session is known.
@@ -25,7 +27,9 @@ const SPLASH_MAX_MS = 8_000;
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
+    Inter_500Medium,
     Inter_600SemiBold,
+    Inter_700Bold,
     InstrumentSerif_400Regular_Italic,
   });
 
@@ -73,7 +77,6 @@ function Root({ ready }: { ready: boolean }) {
           animation: "slide_from_right",
         }}
       />
-      <OfflineBanner />
     </>
   );
 }

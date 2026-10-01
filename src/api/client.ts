@@ -53,10 +53,22 @@ async function readError(res: Response): Promise<ApiError> {
 
 async function readBody<T>(res: Response): Promise<T> {
   if (res.status === 204) return undefined as T;
-  const text = await res.text();
+  let text: string;
+  try {
+    text = await res.text();
+  } catch (err) {
+    // The connection dropped part-way through the answer.
+    throw new ApiError("network", res.status, err instanceof Error ? err.message : "Connection lost");
+  }
   if (!text) return undefined as T;
   const type = res.headers.get("content-type") ?? "";
-  return (type.includes("json") ? JSON.parse(text) : text) as T;
+  if (!type.includes("json")) return text as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    // Truncated, or a proxy's page wearing a JSON content type.
+    throw new ApiError("http", res.status, "The server's answer could not be read");
+  }
 }
 
 export function createApiClient(deps: ApiClientDeps): ApiClient {

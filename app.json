@@ -9,6 +9,7 @@
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
     "backgroundColor": "#100e0c",
+    "primaryColor": "#c08b4e",
     "ios": {
       "bundleIdentifier": "com.gridstore.huevistaa",
       "supportsTablet": false

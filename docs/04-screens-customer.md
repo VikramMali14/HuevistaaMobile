@@ -355,18 +355,25 @@ near you** (→ C32), **Back to my rooms** · the shade disclaimer.
 **Copy link** · **More…** · when a link exists: its expiry and **Stop sharing**
 (confirm).
 
-**API:** `POST /api/projects/{id}/share { days, brands }` (creates, or refreshes the same
-link) · `DELETE /api/projects/{id}/share`.
+**API:** `POST /api/projects/{id}/share?days=10&brands=asian-paints,berger` — days and
+brands are **query parameters**, not a JSON body (`brands` is a comma-separated list;
+leave it out for every company). Creates the link, or refreshes the same one, up to 10
+days. `DELETE /api/projects/{id}/share` withdraws it.
 
 ### C18 · The walls are wrong
 
 **Route** `room/[projectId]/report.tsx` (sheet) · **Phase** 3 · **Web reference** `components/atelier/report-dialog.tsx`
 
-Choices: Walls in the wrong place · A wall is missing · The clean-up spoiled my photo ·
-Something else — and a note. **Send** → "Thanks. We'll redraw the walls, usually
+Tick what went wrong (one or more), mapped to the backend's issue codes:
+**The walls are in the wrong place or missing** (`MASK_NOT_GENERATED_PROPERLY`) · **The
+clean-up spoiled my photo** (`IMAGE_NOT_CLEANED_PROPERLY`) · **Something else**
+(`OTHER`) — and an optional note. **Send** → "Thanks. We'll redraw the walls, usually
 within a day." Reporting again updates the open report.
 
-**API:** `POST /api/projects/{id}/mask-reports` · `GET …/mask-reports/latest`.
+**API:** `POST /api/projects/{id}/mask-reports { issues: [...], note? }` ·
+`GET /api/projects/{id}/mask-reports/latest` (204 when the room was never reported).
+Status `NEW`/`IN_REVIEW` → "being redrawn"; `FIXED` → "fixed, here is what changed";
+`RESOLVED` → closed without a redraw.
 
 ---
 

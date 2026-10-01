@@ -97,7 +97,7 @@ gets the whole screen. The system back gesture always goes one step back.
 |---|---|
 | **Home** | P1 |
 | **Points** | P2, P10, P11 |
-| **Scan** (raised, centre) | P3 → P6, P7, P8 |
+| **Scan** (a brass capsule, centre) | P3 → P6, P7, P8 |
 | **Rewards** | P4, P9 |
 | **Nearby** | P5 |
 

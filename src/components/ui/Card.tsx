@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 
-import { useTheme } from "@/theme";
+import { hairline, useTheme } from "@/theme";
 
 export interface CardProps {
   children: ReactNode;
@@ -20,8 +20,7 @@ export function Card({ children, onPress, accessibilityLabel, lit = false, style
     borderRadius: radius.md,
     borderColor: colors.rule,
     borderTopColor: lit ? colors.accent : colors.rule,
-    borderTopWidth: lit ? 1 : StyleSheet.hairlineWidth,
-    padding: space.md,
+    padding: space.lg,
   };
 
   if (!onPress) return <View style={[styles.card, base, style]}>{children}</View>;
@@ -44,5 +43,5 @@ export function Card({ children, onPress, accessibilityLabel, lit = false, style
 }
 
 const styles = StyleSheet.create({
-  card: { borderWidth: StyleSheet.hairlineWidth, gap: 8 },
+  card: { borderWidth: hairline, gap: 8 },
 });

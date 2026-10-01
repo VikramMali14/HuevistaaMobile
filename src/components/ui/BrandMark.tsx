@@ -13,7 +13,7 @@ import { useTheme } from "@/theme";
  */
 export function BrandMark({ size = 48, color }: { size?: number; color?: string }) {
   const { colors } = useTheme();
-  const fill = color ?? colors.accentSoft;
+  const fill = color ?? colors.mark;
   const u = size / 64;
   const box = (x: number, y: number, w: number, h: number, opacity = 1) => ({
     position: "absolute" as const,

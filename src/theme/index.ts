@@ -34,13 +34,22 @@ export const radius = {
   pill: 999,
 } as const;
 
+/** Durations and easing from the website (--dur-fast / --dur / --dur-slow, --ease, --ease-out). */
 export const motion = {
-  /** cubic-bezier(.2,.7,.2,1) */
+  /** cubic-bezier(.2,.7,.2,1) — every state change */
   easing: [0.2, 0.7, 0.2, 1] as const,
-  fast: 160,
-  normal: 200,
-  slow: 240,
+  /** cubic-bezier(.16,1,.3,1) — things arriving */
+  easingOut: [0.16, 1, 0.3, 1] as const,
+  /** a state change: a press, a colour swap */
+  fast: 140,
+  /** an element: a sheet opening, a chevron turning */
+  normal: 240,
+  /** an entrance: something arriving on the screen */
+  slow: 420,
 } as const;
+
+/** The website's --hairline. 1dp — not StyleSheet.hairlineWidth, which is thinner than the site's line. */
+export const hairline = 1;
 
 /** Minimum touch target, whatever the visible size. */
 export const minTouch = 48;

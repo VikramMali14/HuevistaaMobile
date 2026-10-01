@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import {
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   View,
@@ -10,7 +9,9 @@ import {
 } from "react-native";
 import { SafeAreaView, type Edge } from "react-native-safe-area-context";
 
-import { useTheme } from "@/theme";
+import { hairline, useTheme } from "@/theme";
+
+import { OfflineBanner } from "./OfflineBanner";
 
 export interface ScreenProps {
   children: ReactNode;
@@ -24,6 +25,12 @@ export interface ScreenProps {
   edges?: Edge[];
   /** The deep ground behind the studio canvas instead of the page colour. */
   deep?: boolean;
+  /**
+   * X1: show the slim "you're offline" bar at the top of the page while there is no
+   * connection. It sits IN the page and pushes the content down, so it never hides a
+   * back button. Turn off only for full-bleed canvas screens that show their own.
+   */
+  offlineBanner?: boolean;
   contentStyle?: StyleProp<ViewStyle>;
 }
 
@@ -35,6 +42,7 @@ export function Screen({
   footer,
   edges = ["top", "bottom"],
   deep = false,
+  offlineBanner = true,
   contentStyle,
 }: ScreenProps) {
   const { colors, space } = useTheme();
@@ -56,10 +64,10 @@ export function Screen({
       edges={edges}
       style={[styles.fill, { backgroundColor: deep ? colors.bgDeep : colors.bg }]}
     >
-      <KeyboardAvoidingView
-        style={styles.fill}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+      {/* Android draws edge-to-edge (Expo SDK 54+), so the window no longer resizes for
+          the keyboard by itself — both platforms need the padding behaviour. */}
+      <KeyboardAvoidingView style={styles.fill} behavior="padding">
+        {offlineBanner ? <OfflineBanner /> : null}
         {body}
         {footer ? (
           <View style={[styles.footer, { paddingHorizontal: space.gutter, borderTopColor: colors.rule }]}>
@@ -74,5 +82,5 @@ export function Screen({
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingBottom: 32 },
-  footer: { paddingTop: 12, paddingBottom: 8, gap: 8, borderTopWidth: StyleSheet.hairlineWidth },
+  footer: { paddingTop: 12, paddingBottom: 8, gap: 8, borderTopWidth: hairline },
 });

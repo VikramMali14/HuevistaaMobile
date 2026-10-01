@@ -93,4 +93,20 @@ describe("createApiClient", () => {
     });
     await expect(client.request("x")).rejects.toMatchObject({ kind: "network", status: 0 });
   });
+
+  it("turns a garbled JSON answer into an ApiError, not a raw parse error", async () => {
+    const { client } = setup(
+      () => new Response("<html>proxy error", { status: 200, headers: { "Content-Type": "application/json" } }),
+    );
+    await expect(client.request("x")).rejects.toMatchObject({ kind: "http", status: 200 });
+  });
+
+  it("treats a connection dropped mid-answer as a network failure (so it can be retried)", async () => {
+    const { client } = setup(() => {
+      const res = json(200, { ok: true });
+      jest.spyOn(res, "text").mockRejectedValue(new TypeError("Network request failed"));
+      return res;
+    });
+    await expect(client.request("x")).rejects.toMatchObject({ kind: "network" });
+  });
 });

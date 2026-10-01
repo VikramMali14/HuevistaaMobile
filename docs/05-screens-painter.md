@@ -8,7 +8,8 @@ screen names the file to copy behaviour from.
 seconds. Bigger type than the customer side (body 18), high contrast, the Scan button
 always one tap away, and very few words.
 
-**Tabs:** Home · Points · **Scan** (raised, centre, brass) · Rewards · Nearby. The
+**Tabs:** Home · Points · **Scan** (a brass capsule filling the centre slot — a custom
+tab button, because the navigator boxes icons at 24–31 px) · Rewards · Nearby. The
 avatar in each tab's header opens P12 (trade profile) and S1 (settings).
 
 ---
@@ -120,7 +121,10 @@ link), paste-friendly, **Check code** → P6. Same validation as P3.
 
 **Redeem** → `ConfirmSheet`: "We'll call **98765 43210** to arrange delivery. Points
 can't be returned once you redeem — only our team can cancel a voucher." →
-`POST /api/painter/rewards/redeem` → P11.
+`POST /api/painter/rewards/redeem { itemCode, requestKey }` → P11. Make a new
+`requestKey` (a random id) for each press of Redeem and **reuse it on a retry**: the
+backend then returns the same redemption instead of spending the points twice — this
+matters on a phone that loses signal mid-tap.
 
 **States:** no verified mobile → "Add your mobile first — we call it to deliver" → S4 ·
 not enough points → button disabled with "120 more points" · out of stock.

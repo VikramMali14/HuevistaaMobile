@@ -2,7 +2,7 @@ import Feather from "@expo/vector-icons/Feather";
 import { StyleSheet, View } from "react-native";
 
 import { t } from "@/i18n";
-import { useTheme } from "@/theme";
+import { hairline, useTheme } from "@/theme";
 
 import { Text } from "./Text";
 
@@ -32,7 +32,7 @@ export function Disclaimer({ kind }: { kind: "shades" | "ai" }) {
 }
 
 const styles = StyleSheet.create({
-  box: { flexDirection: "row", gap: 10, borderWidth: StyleSheet.hairlineWidth },
+  box: { flexDirection: "row", gap: 10, borderWidth: hairline },
   icon: { marginTop: 2 },
   text: { flex: 1 },
 });

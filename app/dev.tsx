@@ -6,7 +6,7 @@ import { useSession } from "@/auth/session";
 import { Button, Screen, Text } from "@/components/ui";
 import { t } from "@/i18n";
 import { areaOrder, screens, type ScreenArea, type ScreenInfo } from "@/navigation/screens";
-import { useTheme } from "@/theme";
+import { hairline, useTheme } from "@/theme";
 
 const areaTitle: Record<ScreenArea, string> = {
   auth: "Signing in",
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 12,
     minHeight: 56,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: hairline,
   },
   id: { width: 52, fontSize: 16 },
   itemText: { flex: 1 },

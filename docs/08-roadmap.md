@@ -14,8 +14,9 @@ Phases 2–5 if there are two people.
 - [ ] Every string in `src/i18n`; money through `formatRupees()`.
 - [ ] Accessibility labels and roles; targets ≥ 48 dp; works at 1.3× font size.
 - [ ] Checked in dark **and** light.
-- [ ] Logic in `src/features` / `src/lib` with unit tests; `npm run typecheck`,
-      `npm run lint` and `npm test` pass.
+- [ ] Logic in `src/features` / `src/lib` with unit tests; `npm run check`
+      (typecheck, lint with zero warnings, all tests — including the route test that
+      opens every screen) passes.
 - [ ] Tried on a real mid-range Android (mandatory for studio screens).
 - [ ] Placeholder removed and the screen's `status` in `src/navigation/screens.ts`
       set to `"built"`.

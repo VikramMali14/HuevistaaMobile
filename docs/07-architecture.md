@@ -168,8 +168,9 @@ never decided on the phone or on that page.
    with `openAuthSessionAsync(…, "huevista://pay/callback")`.
 4. The page returns `huevista://pay/callback#status=success&order_id=…&payment_id=…&signature=…`
    (or `status=cancelled`, or `status=failed&code=…&description=…`).
-5. Verify with the matching endpoint (`/cart/verify`, `/ai-credits/verify`, …). Only
-   the verify response changes what the app shows (C29).
+5. Verify with the matching endpoint (`/cart/verify`, `/ai-credits/verify`, …), renaming
+   the fragment's fields to the backend's: `order_id → orderId`, `payment_id → paymentId`,
+   `signature → signature`. Only the verify response changes what the app shows (C29).
 6. Report what happened with `POST /api/billing/attempts/{reference}/events`, as the
    website does (`lib/payments.ts`).
 
@@ -258,6 +259,11 @@ If the copies start drifting, move them into a shared npm package later. Not bef
 - **Unit:** everything in `src/lib`, `src/api`, `src/auth` (the refresh logic, the role
   router, money and phone formatting).
 - **Component:** UI kit states, and each screen's empty/error states.
+- **Routes:** `src/__tests__/app-routes.test.tsx` renders the real `app/` folder with
+  `expo-router/testing-library`: where each role lands at start-up, what each role may
+  open, deep links, offline start-up — and **every planned screen opens without
+  breaking**. It uses Testing Library **13.3**: Expo Router 57's test helper renders
+  synchronously and breaks with 14's async `render`. Keep them in step.
 - **End-to-end (Phase 8):** Maestro flows — sign in with a test number, make a room
   from a ready-made room, take a board; painter scans a test board.
 - **Real devices:** one low-end Android (3–4 GB RAM) is part of "done" for every
