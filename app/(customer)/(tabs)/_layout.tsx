@@ -3,7 +3,7 @@ import { Tabs } from "expo-router/js-tabs";
 import type { ComponentProps } from "react";
 
 import { t } from "@/i18n";
-import { fonts, useTheme } from "@/theme";
+import { useTabBarOptions } from "@/navigation/tab-bar";
 
 type IconName = ComponentProps<typeof Feather>["name"];
 
@@ -17,17 +17,9 @@ const tabs: { name: string; label: string; icon: IconName }[] = [
 
 /** Customer tabs: Home · Studio · Catalogue · Boards · Account (docs/01-product.md). */
 export default function CustomerTabs() {
-  const { colors } = useTheme();
+  const options = useTabBarOptions();
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.accentText,
-        tabBarInactiveTintColor: colors.fgMute,
-        tabBarStyle: { backgroundColor: colors.bg, borderTopColor: colors.rule },
-        tabBarLabelStyle: { fontFamily: fonts.semibold, fontSize: 11 },
-      }}
-    >
+    <Tabs screenOptions={options}>
       {tabs.map((tab) => (
         <Tabs.Screen
           key={tab.name}

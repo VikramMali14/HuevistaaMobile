@@ -157,6 +157,7 @@ that need it. ✅ = included in the starting scaffold.
 | `SwatchTile` | ← `.hv-shade-card`: a square swatch, radius 10, 1 dp `rule` outline inside (so "Bone China" on cream is still a swatch); name Inter 500 15 on one line; code in `code` 15; in the three shapes (name+code, code, neither) | default · pressed · selected (two inset rings: 2 dp `fg`, then 2 dp `bg` — shows on white and black swatches alike) |
 | `ShadeCode` | Large tabular code, long-press to copy (toast "Copied") | — |
 | `BalanceChip` | "3 rooms left", "12 AI credits" | zero state (muted) |
+| `TabBar` ✅ | `src/navigation/tab-bar.ts`, shared by both tab bars: **60 dp + the phone's bottom inset** (the navigator's 49 clips Inter labels), labels Inter 600 11/14, active in `accentText`, inactive `fgMute`. The painter's Scan is a custom brass button that reads the navigator's `aria-selected` | active · inactive |
 | `StepDots` | The studio's five steps; only the active one labelled; spinner on a working step | — |
 | `Sheet` | Bottom sheet with grabber; 50% / 85% / full | — |
 | `ConfirmSheet` | Title, plain consequences list, confirm + cancel | default · destructive |

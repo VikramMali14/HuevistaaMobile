@@ -4,7 +4,8 @@ import type { ComponentProps } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { t } from "@/i18n";
-import { fonts, useTheme } from "@/theme";
+import { tabLabelStyle, useTabBarOptions } from "@/navigation/tab-bar";
+import { useTheme } from "@/theme";
 
 type IconName = ComponentProps<typeof Feather>["name"];
 
@@ -21,15 +22,25 @@ const tabs: { name: string; label: string; icon: IconName; primary?: boolean }[]
  * big icon, because the navigator boxes tab icons at 24–31 px and anything larger spills
  * out of the box (and is clipped on some Android phones).
  */
-function ScanTabButton({ onPress, onLongPress, accessibilityState, accessibilityLabel, testID, style }: BottomTabBarButtonProps) {
+function ScanTabButton({
+  onPress,
+  onLongPress,
+  accessibilityState,
+  accessibilityLabel,
+  testID,
+  style,
+  "aria-selected": ariaSelected,
+}: BottomTabBarButtonProps) {
   const { colors } = useTheme();
-  const selected = Boolean(accessibilityState?.selected);
+  // The navigator marks the focused tab with `aria-selected` (not accessibilityState).
+  const selected = Boolean(ariaSelected ?? accessibilityState?.selected);
   return (
     <Pressable
       onPress={(e) => onPress?.(e)}
       onLongPress={onLongPress}
       accessibilityRole="tab"
-      accessibilityState={accessibilityState}
+      accessibilityState={{ ...accessibilityState, selected }}
+      aria-selected={selected}
       accessibilityLabel={accessibilityLabel ?? t("tabs.scan")}
       testID={testID}
       style={({ pressed }) => [style, styles.scanItem, { opacity: pressed ? 0.85 : 1 }]}
@@ -52,18 +63,9 @@ function ScanTabButton({ onPress, onLongPress, accessibilityState, accessibility
  * brass — it is the one thing a painter opens the app to do.
  */
 export default function PainterTabs() {
-  const { colors } = useTheme();
+  const options = useTabBarOptions();
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.accentText,
-        tabBarInactiveTintColor: colors.fgMute,
-        // No fixed height: the navigator adds the bottom safe-area inset itself.
-        tabBarStyle: { backgroundColor: colors.bg, borderTopColor: colors.rule },
-        tabBarLabelStyle: { fontFamily: fonts.semibold, fontSize: 12 },
-      }}
-    >
+    <Tabs screenOptions={options}>
       {tabs.map((tab) => (
         <Tabs.Screen
           key={tab.name}
@@ -80,7 +82,9 @@ export default function PainterTabs() {
 }
 
 const styles = StyleSheet.create({
-  scanItem: { flex: 1, alignItems: "center", justifyContent: "center", gap: 2 },
+  // Laid out like the other tabs (7px top, a 28px icon box, then the label) so the
+  // labels share one baseline.
+  scanItem: { flex: 1, alignItems: "center", justifyContent: "flex-start", paddingTop: 7 },
   scanDisc: { width: 48, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  scanLabel: { fontFamily: fonts.semibold, fontSize: 12 },
+  scanLabel: tabLabelStyle,
 });

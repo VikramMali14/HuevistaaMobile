@@ -9,6 +9,8 @@ import { renderRouter, screen, waitFor } from "expo-router/testing-library";
 import type { UserProfile } from "@/api/types";
 import { ApiError } from "@/api/errors";
 import { screens } from "@/navigation/screens";
+import { light } from "@/theme";
+import { StyleSheet } from "react-native";
 
 const mockSecure: Record<string, string> = {};
 jest.mock("expo-secure-store", () => ({
@@ -137,6 +139,26 @@ describe("guards", () => {
     renderRouter("./app", { initialUrl: "/settings" });
     await waitFor(() => expect(screen.getByText("Settings")).toBeTruthy());
     expect(screen).toHavePathname("/settings");
+  });
+});
+
+describe("painter tab bar", () => {
+  // Jest's React Native reports a light phone theme, so the light palette applies.
+  const scanColours = () =>
+    screen.getAllByText("Scan").map((node) => StyleSheet.flatten(node.props.style)?.color);
+
+  it("turns the Scan label brass while Scan is open", async () => {
+    signedInAs({ role: "PAINTER" });
+    renderRouter("./app", { initialUrl: "/painter/scan" });
+    await waitFor(() => expect(screen).toHavePathname("/painter/scan"));
+    expect(scanColours()).toContain(light.accentText);
+  });
+
+  it("leaves the Scan label muted on another tab", async () => {
+    signedInAs({ role: "PAINTER" });
+    renderRouter("./app", { initialUrl: "/painter" });
+    await waitFor(() => expect(screen).toHavePathname("/painter"));
+    expect(scanColours()).toEqual([light.fgMute]);
   });
 });
 

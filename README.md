@@ -53,6 +53,17 @@ npm start                 # then press "a" for Android, or scan the QR with Expo
 - Android emulator → backend on this computer: `http://10.0.2.2:8080`
 - A real phone on the same Wi-Fi: `http://<this computer's LAN IP>:8080`
 
+### Preview in a browser (no phone needed)
+
+```bash
+npm run web               # opens the app at http://localhost:8081
+```
+
+Set the browser to a phone size (DevTools → device toolbar, e.g. 390 × 844). The app
+is not shipped on the web; this is for looking at screens while they are built. Sign-in
+in the browser keeps tokens in memory only (`src/auth/token-store.web.ts`), so a reload
+signs the preview out.
+
 ### Walk through every screen without a backend
 
 In a development build, every placeholder has an **Every screen** button (it opens
@@ -65,6 +76,7 @@ screens each role is allowed into, and see which screens are built.
 |---|---|
 | `npm start` | Start the development server |
 | `npm run android` | Start and open on Android |
+| `npm run web` | Preview the screens in a browser |
 | `npm run typecheck` | TypeScript, strict |
 | `npm run lint` | ESLint (Expo's rules) |
 | `npm test` | Jest + Testing Library |
