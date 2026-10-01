@@ -1,0 +1,101 @@
+# HueVistaa Mobile
+
+The phone app for [HueVistaa](https://github.com/VikramMali14/HueVista) — see your walls in
+your chosen colour before you paint a single stroke.
+
+One app, two people:
+
+- **Homeowners** photograph a room, try real catalogue shades on their own walls, and
+  leave with a colour board to take to the counter.
+- **Painters** scan colour boards for points, spend them on kit, and get found by
+  customers nearby.
+
+Shops, distributors and admins keep using the website.
+
+Built with **Expo SDK 57**, React Native 0.86, TypeScript and expo-router.
+
+---
+
+## Status
+
+**Phase 0 — foundation — is done.** The project, theme, UI basics, API client with safe
+token refresh, sign-in session, role-based routing, and a placeholder for every one of
+the 69 planned screens.
+
+**Next: Phase 1 — signing in.** The order is in [docs/08-roadmap.md](docs/08-roadmap.md).
+
+## The plan
+
+Everything is planned page by page in [`docs/`](docs/README.md):
+
+| | |
+|---|---|
+| [01 · Product](docs/01-product.md) | Users, roles, navigation map, the rules every screen follows |
+| [02 · Design system](docs/02-design-system.md) | Ink, paper and brass — colours, type, components, voice |
+| [03 · Signing in](docs/03-screens-auth.md) | A1–A11 |
+| [04 · Homeowner](docs/04-screens-customer.md) | C1–C33 |
+| [05 · Painter](docs/05-screens-painter.md) | P1–P12 |
+| [06 · Shared, links, states](docs/06-screens-shared.md) | S1–S10, D1–D3, X1–X6 |
+| [07 · Architecture](docs/07-architecture.md) | Code layout, API, sign-in, payments, colour engine, security |
+| [08 · Roadmap](docs/08-roadmap.md) | Build order, checklist, changes needed in the other repos |
+
+## Run it
+
+You need Node 22 and either the **Expo Go** app on an Android phone or an Android
+emulator.
+
+```bash
+npm install
+cp .env.example .env      # point EXPO_PUBLIC_API_ORIGIN at your backend
+npm start                 # then press "a" for Android, or scan the QR with Expo Go
+```
+
+- Android emulator → backend on this computer: `http://10.0.2.2:8080`
+- A real phone on the same Wi-Fi: `http://<this computer's LAN IP>:8080`
+
+### Walk through every screen without a backend
+
+In a development build, every placeholder has an **Every screen** button (it opens
+`/dev`). There you can **preview as** a customer, a painter or a shop to open the
+screens each role is allowed into, and see which screens are built.
+
+## Scripts
+
+| Command | What it does |
+|---|---|
+| `npm start` | Start the development server |
+| `npm run android` | Start and open on Android |
+| `npm run typecheck` | TypeScript, strict |
+| `npm run lint` | ESLint (Expo's rules) |
+| `npm test` | Jest + Testing Library |
+| `npm run check` | All three — run before every push |
+| `npm run doctor` | Expo's project health checks |
+
+## Building
+
+```bash
+npx eas build -p android --profile preview      # an APK to install and share
+npx eas build -p android --profile production   # an AAB for Google Play
+```
+
+The preview APK is what the website's `NEXT_PUBLIC_APK_URL` ("HueVistaa for Android")
+should point at.
+
+## How the code is organised
+
+```
+app/        every file is a screen (expo-router); route groups guard by role
+src/api     the API client, endpoints, types, error messages
+src/auth    session, tokens, the role router, guards
+src/components/ui   the design-system components
+src/theme   colours, type, spacing — from the website's globals.css
+src/i18n    every user-facing string
+src/lib     pure helpers (money, validation, code ported from the website)
+src/navigation/screens.ts   the registry of every planned screen
+docs/       the plan
+```
+
+Conventions are in [docs/07-architecture.md](docs/07-architecture.md#folder-structure).
+The short version: screens stay thin, logic is tested in `src/`, every string goes
+through `t()`, every amount through `formatRupees()`, and no screen is "done" until its
+empty, error and offline states are.
