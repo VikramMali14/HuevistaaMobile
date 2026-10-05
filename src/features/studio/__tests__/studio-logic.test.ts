@@ -50,7 +50,8 @@ describe("where a room opens", () => {
     expect(stepFor(room({ regions: [region(1, "MAIN_WALL", { maskUrl: null })] }), false)).toBe("adjust");
     expect(stepFor(room(), false)).toBe("walls");
     expect(stepFor(room(), true)).toBe("paint");
-    expect(stepFor(room({ closedAt: "2026-09-01T10:00:00" }), false)).toBe("paint");
+    expect(stepFor(room({ closedAt: "2026-09-01T10:00:00" }), false)).toBe("board");
+    expect(stepFor(room({ closedAt: "2026-09-01T10:00:00", readOnly: true }), true)).toBe("board");
     expect(stepFor(room({ readOnly: true, status: "CREATED" }), false)).toBe("paint");
   });
 });
