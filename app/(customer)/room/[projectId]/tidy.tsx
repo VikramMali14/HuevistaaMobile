@@ -21,7 +21,7 @@ import {
   WorkingState,
 } from "@/components/ui";
 import { presentableFailure } from "@/features/studio/failure-message";
-import { useSegmentationPoll } from "@/features/studio/use-segmentation-poll";
+import { SLOW_AFTER_MS, useSegmentationPoll } from "@/features/studio/use-segmentation-poll";
 import { useRoom, wallsWithMasks } from "@/features/studio/use-room";
 import { t } from "@/i18n";
 import { useSubmit } from "@/lib/use-submit";
@@ -55,12 +55,22 @@ export default function TidyUp() {
   const [error, setError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const starting = useSubmit();
 
   const data = room.data;
   const working = data?.status === "SEGMENTING";
   const since = startedAt ?? startedAtOf(data);
   useSegmentationPoll(id, working, since);
+
+  // Past the deadline the run is probably lost (the website gives up there); the poll
+  // carries on in case it lands, but the screen stops promising "about a minute".
+  useEffect(() => {
+    if (!working) return;
+    const timer = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(timer);
+  }, [working]);
+  const slow = working && now - since > SLOW_AFTER_MS;
 
   // Done: on to the walls — or to marking them, when there are none to show.
   useEffect(() => {
@@ -83,8 +93,10 @@ export default function TidyUp() {
         setRetrying(false);
         queryClient.setQueryData(keys.room(id), next);
       } catch (err) {
-        if (isApiError(err) && err.status === 402 && picked.maskMode === "AUTO") {
-          // No automatic wall finding on this room: marking them is free.
+        if (isApiError(err) && err.status === 402 && err.code === "AUTO_MASK_UNAVAILABLE" && picked.maskMode === "AUTO") {
+          // No automatic wall finding on this room: marking them is free. Any other 402 is
+          // the room itself (closed, or nothing to bill) and marking by hand would be
+          // refused the same way — so it is said as it is.
           setChoices({ ...picked, maskMode: "MANUAL" });
           setNotice(t("tidy.autoUnavailable"));
         } else if (isApiError(err) && err.status === 409) {
@@ -130,14 +142,21 @@ export default function TidyUp() {
             accessibilityLabel={data.name}
           />
         </View>
-        <View style={{ paddingHorizontal: space.gutter, paddingBottom: insets.bottom + space.lg }}>
+        <View style={{ paddingHorizontal: space.gutter, paddingBottom: insets.bottom + space.lg, gap: space.sm }}>
           <WorkingState
-            stage={cleaned ? t("tidy.stageWalls") : t("tidy.stageClean")}
-            sentence={data.aiProgressNote?.trim() || (cleaned ? t("tidy.stageWallsBody") : t("tidy.stageCleanBody"))}
-            estimate={cleaned ? t("tidy.estimateWalls") : t("tidy.estimateClean")}
+            stage={slow ? t("tidy.slowTitle") : cleaned ? t("tidy.stageWalls") : t("tidy.stageClean")}
+            sentence={slow ? t("tidy.slowBody") : data.aiProgressNote?.trim() || (cleaned ? t("tidy.stageWallsBody") : t("tidy.stageCleanBody"))}
+            estimate={slow ? undefined : cleaned ? t("tidy.estimateWalls") : t("tidy.estimateClean")}
             startedAt={since}
             onLeave={leave}
           />
+          {slow ? (
+            <Button
+              variant="secondary"
+              label={t("tidy.slowReport")}
+              onPress={() => router.push({ pathname: "/room/[projectId]/report", params: { projectId: id } } as Href)}
+            />
+          ) : null}
         </View>
       </View>
     );

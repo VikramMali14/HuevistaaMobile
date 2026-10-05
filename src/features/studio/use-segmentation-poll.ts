@@ -5,6 +5,12 @@ import { AppState } from "react-native";
 import { projectsApi } from "@/api/endpoints/projects";
 import { keys } from "@/api/query-keys";
 
+/**
+ * How long a run may take before C8 says so: the backend's worst case (two model calls of
+ * up to ~3 minutes each, plus a retry) — the website's deadline, 8 minutes.
+ */
+export const SLOW_AFTER_MS = 480_000;
+
 /** C8: every 2 s, easing to 5 s once the job has run a minute. */
 export function pollDelay(elapsedMs: number): number {
   return elapsedMs < 60_000 ? 2_000 : 5_000;

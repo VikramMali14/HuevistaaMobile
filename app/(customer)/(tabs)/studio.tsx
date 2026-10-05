@@ -23,6 +23,8 @@ import {
   useToast,
 } from "@/components/ui";
 import { useLibrary } from "@/features/library/use-library";
+import { forgetRoom } from "@/features/studio/paint-store";
+import { forgetTray } from "@/features/studio/tray-store";
 import { StudioRoomRow } from "@/features/rooms/StudioRoomRow";
 import { byRecentActivity, isInProgress } from "@/features/rooms/room-status";
 import { useProjects } from "@/features/rooms/use-rooms";
@@ -86,6 +88,10 @@ export default function StudioScreen() {
       setError(null);
       try {
         await projectsApi.remove(room.id);
+        // Nothing of it is kept or sent again: its unsaved colours, its tray, its cache.
+        forgetRoom(room.id);
+        forgetTray(room.id);
+        queryClient.removeQueries({ queryKey: keys.room(room.id) });
         await refreshRooms();
         setDeleting(null);
         toast.show(t("studio.deleted"), "success");

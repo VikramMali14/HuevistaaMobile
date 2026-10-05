@@ -7,10 +7,12 @@ import type { RoomRegion } from "@/api/types";
 import { BackButton, Banner, Button, Disclaimer, ErrorState, IconButton, Screen, Sheet, Text, useToast, ZoomView } from "@/components/ui";
 import { useCatalogue, useShadeScheme } from "@/features/catalogue/use-catalogue";
 import { daysLeft } from "@/features/rooms/room-status";
+import { CanvasTrouble } from "@/features/studio/CanvasTrouble";
 import { canvasWalls, roomPhoto } from "@/features/studio/canvas-walls";
-import { RoomCanvas, type CanvasState } from "@/features/studio/engine/RoomCanvas";
+import { RoomCanvas, type CanvasState, type RoomCanvasHandle } from "@/features/studio/engine/RoomCanvas";
 import {
   applyColours,
+  clearRefused,
   flush,
   initRoom,
   pushRecent,
@@ -22,6 +24,7 @@ import {
 } from "@/features/studio/paint-store";
 import { shadeColour } from "@/features/studio/shade-colour";
 import { saveCombo, useTray } from "@/features/studio/tray-store";
+import { useColourReader } from "@/features/studio/use-colour-reader";
 import { markPainted, useRoom, wallsWithMasks } from "@/features/studio/use-room";
 import { planWalls, wallLabel } from "@/features/studio/wall-plan";
 import { t } from "@/i18n";
@@ -48,6 +51,8 @@ export default function Paint() {
   const tray = useTray(id);
   const catalogue = useCatalogue();
   const scheme = useShadeScheme();
+  const readColour = useColourReader();
+  const canvasRef = useRef<RoomCanvasHandle>(null);
   const [canvas, setCanvas] = useState<CanvasState>({ kind: "loading" });
   const [holding, setHolding] = useState(false);
   const [info, setInfo] = useState(false);
@@ -59,18 +64,19 @@ export default function Paint() {
   const editable = Boolean(data && !data.readOnly && !data.closedAt);
 
   useEffect(() => {
-    if (data) initRoom(id, data, wallIds[0] ?? null);
-  }, [data, id, wallIds]);
+    if (data) initRoom(id, data, wallIds, readColour);
+  }, [data, id, wallIds, readColour]);
 
   useEffect(() => {
     void markPainted(id);
   }, [id]);
 
-  // Leaving the screen sends anything still waiting.
+  // Leaving the screen sends anything still waiting; a refusal already shown is done with.
   useFocusEffect(
     useCallback(
       () => () => {
         void flush(id);
+        clearRefused(id);
       },
       [id],
     ),
@@ -121,6 +127,10 @@ export default function Paint() {
   const name = data.name?.trim() || t("rooms.untitled");
 
   const saveThis = () => {
+    if (!wallIds.some((w) => paint.colours[w])) {
+      toast.show(t("paint.nothingToSave"), "info");
+      return;
+    }
     const ok = saveCombo(id, paint.colours, wallIds);
     toast.show(ok ? t("paint.saved") : t("paint.savedAlready"), ok ? "success" : "info");
   };
@@ -155,23 +165,32 @@ export default function Paint() {
           />
         ) : null}
         {canvas.kind === "noGl" ? <Banner tone="warning" message={t("paint.noGl")} /> : null}
-        {canvas.kind === "failed" ? <Banner tone="danger" message={t("paint.loadFailed")} /> : null}
-        {paint.saveFailed ? <Banner tone="warning" message={t("paint.savingFailed")} /> : null}
       </View>
 
-      <ZoomView resetKey={photo.key}>
-        <RoomCanvas
-          photo={photo.load}
-          photoKey={photo.key}
-          walls={shown}
-          cleaned={Boolean(data.cleanedImageUrl)}
-          showOriginal={holding}
-          onState={setCanvas}
-          onTapWall={(wall) => wall && wallIds.includes(wall) && selectWall(id, wall)}
-          onHold={setHolding}
-          testID="paint-canvas"
-        />
-      </ZoomView>
+      <View style={styles.fill}>
+        <ZoomView resetKey={photo.key}>
+          <RoomCanvas
+            ref={canvasRef}
+            photo={photo.load}
+            photoKey={photo.key}
+            walls={shown}
+            cleaned={Boolean(data.cleanedImageUrl)}
+            showOriginal={holding}
+            onState={setCanvas}
+            onTapWall={(wall) => wall && wallIds.includes(wall) && selectWall(id, wall)}
+            onHold={setHolding}
+            accessibilityLabel={editable ? t("paint.canvasLabel") : t("paint.canvasLabelView")}
+            testID="paint-canvas"
+          />
+        </ZoomView>
+        {/* Over the photo, not above it: notes that come and go must not resize the canvas
+            (which would start the GPU over each time). */}
+        <View pointerEvents="box-none" style={[styles.overlay, { padding: space.gutter, gap: space.xs }]}>
+          {paint.refused ? <Banner tone="danger" message={t("paint.refused", { reason: paint.refused })} testID="paint-refused" /> : null}
+          <CanvasTrouble state={canvas} onRetry={() => canvasRef.current?.retry()} />
+          {paint.saveFailed ? <Banner tone="warning" message={t("paint.savingFailed")} testID="paint-save-failed" /> : null}
+        </View>
+      </View>
       {holding ? (
         <View pointerEvents="none" style={[styles.beforePill, { top: insets.top + 64, backgroundColor: `${colors.bg}e6`, borderRadius: radius.pill }]}>
           <Text variant="small">{t("paint.original")}</Text>
@@ -183,10 +202,12 @@ export default function Paint() {
           <Text variant="body" tone="soft">
             {t("paint.noWalls")}
           </Text>
-          <Button
-            label={t("paint.markWalls")}
-            onPress={() => router.replace({ pathname: "/room/[projectId]/adjust", params: { projectId: id } } as Href)}
-          />
+          {editable ? (
+            <Button
+              label={t("paint.markWalls")}
+              onPress={() => router.replace({ pathname: "/room/[projectId]/adjust", params: { projectId: id } } as Href)}
+            />
+          ) : null}
         </View>
       ) : (
         <View style={[styles.dock, { backgroundColor: colors.bg, paddingBottom: insets.bottom + space.sm, borderTopColor: colors.rule }]}>
@@ -237,9 +258,13 @@ export default function Paint() {
                   ))}
                 </ScrollView>
               ) : (
-                <Text variant="small" tone="mute" style={{ paddingHorizontal: space.gutter }}>
-                  {selectedWall ? t("paint.holdHint") : t("paint.pickWall")}
-                </Text>
+                // As tall as the swatches it gives way to: the first colour picked must not
+                // resize the canvas (which would start the GPU over).
+                <View style={[styles.hint, { paddingHorizontal: space.gutter }]}>
+                  <Text variant="small" tone="mute">
+                    {selectedWall ? t("paint.holdHint") : t("paint.pickWall")}
+                  </Text>
+                </View>
               )}
               <View style={{ paddingHorizontal: space.gutter }}>
                 <Button
@@ -278,9 +303,11 @@ const styles = StyleSheet.create({
   top: { flexDirection: "row", alignItems: "center", gap: 2 },
   title: { flex: 1, marginHorizontal: 4 },
   beforePill: { position: "absolute", alignSelf: "center", paddingHorizontal: 14, paddingVertical: 6 },
+  overlay: { position: "absolute", top: 0, left: 0, right: 0 },
   dock: { paddingTop: 10, gap: 10, borderTopWidth: hairline },
   wallChip: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, minHeight: 40 },
   wallDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 1 },
   swatch: { width: 40, height: 40, borderRadius: 20, borderWidth: hairline },
+  hint: { minHeight: 40, justifyContent: "center" },
   actions: { flexDirection: "row", alignItems: "center" },
 });

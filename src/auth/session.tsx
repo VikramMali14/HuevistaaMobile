@@ -15,7 +15,9 @@ import { tokens } from "@/api/instance";
 import { authApi } from "@/api/endpoints/auth";
 import { isApiError } from "@/api/errors";
 import { queryClient } from "@/api/query-client";
+import { clearStudioCache } from "@/features/studio/engine/texture-loader";
 import { resetPaintStore, resetRecentShades } from "@/features/studio/paint-store";
+import { clearUpload } from "@/features/studio/photo-upload";
 import { resetTrays } from "@/features/studio/tray-store";
 import type { AuthResponse, UserProfile, UserRole } from "@/api/types";
 
@@ -45,6 +47,8 @@ async function forgetAccountData(): Promise<void> {
   queryClient.clear();
   resetPaintStore();
   resetTrays();
+  clearUpload();
+  clearStudioCache();
   await resetRecentShades();
   // The catalogue copy, which rooms open on Paint, and the board trays (Phase 3 studio).
   await AsyncStorage.multiRemove([CATALOGUE_CACHE_KEY, "hv.paintedRooms", "hv.boardTrays"]).catch(() => {});

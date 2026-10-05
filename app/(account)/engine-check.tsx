@@ -11,11 +11,9 @@ import { t } from "@/i18n";
 import { appVersion } from "@/lib/app-version";
 import { useTheme } from "@/theme";
 
- 
 const PHOTO = require("../../assets/images/welcome/room-original.jpg");
 const WALL_LEFT = require("../../assets/images/sample-room/wall-left.png");
 const WALL_MAIN = require("../../assets/images/sample-room/wall-main.png");
- 
 
 /** How many colour changes the check times. */
 const RUNS = 60;

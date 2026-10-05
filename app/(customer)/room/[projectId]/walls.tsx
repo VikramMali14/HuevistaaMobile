@@ -1,16 +1,17 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { projectsApi } from "@/api/endpoints/projects";
 import { messageFor } from "@/api/errors";
 import { keys } from "@/api/query-keys";
-import type { RoomRegion } from "@/api/types";
+import type { RoomDetail, RoomRegion } from "@/api/types";
 import { BackButton, Banner, Button, ErrorState, Screen, StepDots, Text, useToast } from "@/components/ui";
+import { CanvasTrouble } from "@/features/studio/CanvasTrouble";
 import { canvasWalls, roomPhoto } from "@/features/studio/canvas-walls";
-import { RoomCanvas, type CanvasState } from "@/features/studio/engine/RoomCanvas";
+import { RoomCanvas, type CanvasState, type RoomCanvasHandle } from "@/features/studio/engine/RoomCanvas";
 import { useRoom, wallsWithMasks } from "@/features/studio/use-room";
 import { reportLine, WALL_TINTS, wallLabel } from "@/features/studio/wall-plan";
 import { t } from "@/i18n";
@@ -35,6 +36,7 @@ export default function WallsFound() {
   const report = useQuery({ queryKey: keys.roomReport(id), queryFn: () => projectsApi.latestReport(id), enabled: Boolean(id) });
   const [selected, setSelected] = useState<string | null>(null);
   const [canvas, setCanvas] = useState<CanvasState>({ kind: "loading" });
+  const canvasRef = useRef<RoomCanvasHandle>(null);
 
   const data = room.data;
   const walls = useMemo(() => (data ? wallsWithMasks(data) : []), [data]);
@@ -42,15 +44,15 @@ export default function WallsFound() {
   const inPlan = walls.filter((w) => w.inPlan !== false);
 
   const toggle = (wall: RoomRegion, on: boolean) => {
-    if (!data) return;
-    const before = data;
-    // Shown at once; put back if the server refuses.
-    queryClient.setQueryData(keys.room(id), {
-      ...data,
-      regions: data.regions.map((r) => (r.id === wall.id ? { ...r, inPlan: on } : r)),
-    });
+    // Shown at once; put back if the server refuses — that wall only, so a toggle made
+    // meanwhile on another wall is not undone with it.
+    const setInPlan = (value: boolean) =>
+      queryClient.setQueryData<RoomDetail>(keys.room(id), (room) =>
+        room ? { ...room, regions: room.regions.map((r) => (r.id === wall.id ? { ...r, inPlan: value } : r)) } : room,
+      );
+    setInPlan(on);
     projectsApi.savePlan(id, [{ regionId: wall.id, inPlan: on }]).catch((err: unknown) => {
-      queryClient.setQueryData(keys.room(id), before);
+      setInPlan(!on);
       toast.show(messageFor(err), "error");
     });
   };
@@ -72,7 +74,12 @@ export default function WallsFound() {
   }
 
   const photo = roomPhoto(data);
-  const shown = canvasWalls(data, (r) => ({ hex: r.inPlan === false ? null : (tintOf.get(r.id) ?? null) }));
+  // "Tap a wall to find it": the wall picked (on the photo or in the list) shows fully, the
+  // rest fade back.
+  const shown = canvasWalls(data, (r) => ({
+    hex: r.inPlan === false ? null : (tintOf.get(r.id) ?? null),
+    strength: selected && selected !== String(r.id) ? 0.35 : 1,
+  }));
   const banner = reportLine(report.data);
   const goPaint = () =>
     router.push({ pathname: "/room/[projectId]/paint", params: { projectId: id, shade: params.shade, brand: params.brand } } as Href);
@@ -83,16 +90,24 @@ export default function WallsFound() {
         <BackButton fallback="/studio" />
         <StepDots current="walls" />
       </View>
-      <RoomCanvas
-        photo={photo.load}
-        photoKey={photo.key}
-        walls={shown}
-        cleaned={Boolean(data.cleanedImageUrl)}
-        onState={setCanvas}
-        onTapWall={setSelected}
-        style={{ flex: 1, minHeight: 200, marginTop: space.sm, backgroundColor: colors.bgDeep }}
-        testID="walls-canvas"
-      />
+      <View style={{ flex: 1, minHeight: 200, marginTop: space.sm, backgroundColor: colors.bgDeep }}>
+        <RoomCanvas
+          ref={canvasRef}
+          photo={photo.load}
+          photoKey={photo.key}
+          walls={shown}
+          cleaned={Boolean(data.cleanedImageUrl)}
+          onState={setCanvas}
+          onTapWall={setSelected}
+          accessibilityLabel={t("walls.canvasLabel")}
+          testID="walls-canvas"
+        />
+        {/* Over the photo, so a note that comes and goes doesn't resize the canvas. */}
+        <View pointerEvents="box-none" style={[styles.overlay, { padding: space.gutter, gap: space.xs }]}>
+          {canvas.kind === "noGl" ? <Banner tone="warning" message={t("paint.noGl")} /> : null}
+          <CanvasTrouble state={canvas} onRetry={() => canvasRef.current?.retry()} />
+        </View>
+      </View>
       <ScrollView style={styles.list} contentContainerStyle={{ padding: space.gutter, gap: space.md }}>
         <View style={{ gap: space.xxs }}>
           <Text variant="title2" accessibilityRole="header">
@@ -113,7 +128,6 @@ export default function WallsFound() {
           </View>
         ) : null}
         {banner ? <Banner tone="info" message={banner} /> : null}
-        {canvas.kind === "failed" ? <Banner tone="danger" message={t("paint.loadFailed")} /> : null}
 
         <View style={[styles.group, { borderColor: colors.rule, borderRadius: radius.md, backgroundColor: colors.surface }]}>
           {walls.map((w, i) => {
@@ -122,7 +136,7 @@ export default function WallsFound() {
             return (
               <Pressable
                 key={w.id}
-                onPress={() => setSelected(key)}
+                onPress={() => setSelected(selected === key ? null : key)}
                 style={[
                   styles.row,
                   {
@@ -179,6 +193,7 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   center: { alignItems: "center", justifyContent: "center" },
   list: { flexGrow: 0, maxHeight: "45%" },
+  overlay: { position: "absolute", top: 0, left: 0, right: 0 },
   today: { flexDirection: "row", alignItems: "center", gap: 8 },
   dot: { width: 16, height: 16, borderRadius: 8, borderWidth: 2 },
   group: { borderWidth: hairline, overflow: "hidden" },

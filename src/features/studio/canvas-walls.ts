@@ -24,17 +24,18 @@ export function roomPhoto(room: RoomDetail) {
  */
 export function canvasWalls(
   room: RoomDetail,
-  colourOf: (region: RoomRegion) => { hex: string | null; lrv?: number | null },
+  colourOf: (region: RoomRegion) => Pick<CanvasWall, "hex" | "lrv" | "strength">,
 ): CanvasWall[] {
   return wallsWithMasks(room).map((r) => {
     const maskKey = `${room.id}:${r.id}:${withoutQuery(r.maskUrl ?? "")}`;
-    const { hex, lrv } = colourOf(r);
+    const { hex, lrv, strength } = colourOf(r);
     return {
       id: String(r.id),
       maskKey,
       manual: r.manual,
       hex,
       lrv,
+      strength,
       load: () => loadTexture(projectsApi.maskPath(room.id, r.id), maskKey),
     };
   });

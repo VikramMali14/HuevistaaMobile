@@ -1,5 +1,6 @@
 import type { RoomDetail, RoomRegion } from "@/api/types";
 
+import { canvasWalls } from "../canvas-walls";
 import { summarise } from "../engine/check";
 import { meanLumaInMask, paintTarget, regionPaints, wallAt, coverage } from "../engine/paint-model";
 import type { Readback } from "../engine/recolor-gl";
@@ -101,6 +102,28 @@ describe("the photo", () => {
   it("names a room by what it is, or by the day", () => {
     expect(defaultRoomName("Kitchen")).toBe("Kitchen");
     expect(defaultRoomName(null, new Date(2026, 9, 5))).toBe("Photo · 5 Oct");
+  });
+});
+
+describe("the walls a canvas is given", () => {
+  it("carries each wall's colour, light and how strongly it shows (C9 fades the others)", () => {
+    const walls = canvasWalls(room({ regions: [region(1, "MAIN_WALL"), region(2, "TRIM", { manual: true })] }), (r) => ({
+      hex: "#7b8a72",
+      lrv: 30,
+      strength: r.id === 1 ? 1 : 0.35,
+    }));
+    expect(walls.map(({ id, hex, lrv, strength, manual }) => ({ id, hex, lrv, strength, manual }))).toEqual([
+      { id: "1", hex: "#7b8a72", lrv: 30, strength: 1, manual: false },
+      { id: "2", hex: "#7b8a72", lrv: 30, strength: 0.35, manual: true },
+    ]);
+  });
+
+  it("names a mask by its stored file, so a redrawn wall is fetched again", () => {
+    const [a] = canvasWalls(room({ regions: [region(1, "MAIN_WALL", { maskUrl: "https://b/k1.png?sig=1" })] }), () => ({ hex: null }));
+    const [b] = canvasWalls(room({ regions: [region(1, "MAIN_WALL", { maskUrl: "https://b/k1.png?sig=2" })] }), () => ({ hex: null }));
+    const [c] = canvasWalls(room({ regions: [region(1, "MAIN_WALL", { maskUrl: "https://b/k2.png?sig=2" })] }), () => ({ hex: null }));
+    expect(a!.maskKey).toBe(b!.maskKey);
+    expect(c!.maskKey).not.toBe(a!.maskKey);
   });
 });
 

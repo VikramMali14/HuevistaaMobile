@@ -88,7 +88,8 @@ Plus "12 days left" from `accessExpiresAt` (in `warmText` under 3 days).
 (`PATCH /api/projects/{id}`), Share (C17), Delete (`ConfirmSheet`: "Deleting a room is
 permanent and does not give the room back to your balance." → `DELETE /api/projects/{id}`).
 Share joins the menu with C17 in Phase 4; until then it has Rename and Delete. Screen
-readers hear a hint and get the menu as an action on the card.
+readers hear a hint and get the menu as an action on the card. A deleted room's unsaved
+colours and kept combinations go with it.
 
 **States:** empty → "No rooms yet" + **Start a room** and **Try a ready-made room** ·
 New room with no balance → the `exhausted`/`missing` card instead of the camera.
@@ -222,8 +223,11 @@ line: "Whole wall in frame · lights on · step back a little".
 - Upload failed → keep the photo, **Try again**.
 
 The gallery is always offered beside the camera, before permission is asked too. The
-upload lives in `photo-upload.ts`, outside both screens, so it carries on while C7 is
-filled in; **Retake** on C7 drops it and starts over.
+shutter waits for the camera to be ready; "Try a sample room" shows only when there are
+ready-made rooms; Android's back from the preview returns to the camera. The upload
+lives in `photo-upload.ts`, outside both screens, so it carries on while C7 is filled in;
+**Retake** on C7 drops it and starts over. Once the room is made, C6 and C7 leave the
+stack: back from C8 goes to wherever the room was started from.
 
 ### C7 · Name it (still step 1)
 
@@ -251,7 +255,9 @@ can't be made, the reason shows above **Create** and the uploaded photo is kept.
 
 **Start:** `POST /api/projects/{id}/segment { maskMode, cleanFurnishing, cleanAngle }`.
 402 `AUTO_MASK_UNAVAILABLE` → "Automatic wall finding isn't available on this room.
-You can mark the walls yourself — it's free." and switch to MANUAL.
+You can mark the walls yourself — it's free." and switch to MANUAL. Only that code does:
+any other 402 is the room itself (closed, or nothing to bill) and is shown as the backend
+words it — marking by hand would be refused the same way.
 
 **Working state** (`WorkingState`): poll `GET /api/projects/{id}/status` every 2 s,
 easing to 5 s after a minute; stop while the app is in the background, poll at once
@@ -267,7 +273,9 @@ on return.
 | `autoMaskFailed` | `autoMaskNotice` + → C10 to mark walls by hand |
 
 Elapsed time is always shown. **Leave this running** returns to the Studio tab; the job
-carries on on the server and the room card says "Working…".
+carries on on the server and the room card says "Working…". After 8 minutes (the
+website's deadline, the backend's worst case) it stops promising: "This is taking much
+longer than it should", with **Tell us** (→ C18); the poll carries on in case it lands.
 
 ### C9 · Walls found (step 3)
 
@@ -285,7 +293,8 @@ a banner: "We're redrawing these walls — usually within a day" or "Fixed: …"
 
 A wall switched off keeps its shape and colour; it is just not one of the surfaces
 being painted (the website's `wall-plan.ts`). With every wall switched off, **Start
-painting** waits for one.
+painting** waits for one. Tapping a wall on the photo or in the list makes it stand out
+(the others fade back). A refused switch is put back on that wall alone.
 
 ### C10 · Adjust walls (step 4)
 
@@ -306,10 +315,14 @@ cannot be deleted, only reshaped).
 the website's feathering; "Done" saves and goes to C11. Masks must be at the cleaned
 image's resolution.
 
-**As built:** one finger draws, two pinch and pan (`ZoomView`). The edits are kept as a
-list and replayed on the GPU, so Undo/Redo are instant; the walls show as see-through
-tints, the one being edited stronger. Done saves only the walls that changed, as 8-bit
-PNGs made on the phone (07, "Editing masks"). Leaving with unsaved edits asks first.
+**As built:** one finger draws, two pinch and pan (`ZoomView`, centred on the fingers,
+never off the screen). Each wall's edits are kept as a list and replayed on the GPU, so
+Undo/Redo are instant and each wall keeps its own; the walls show as see-through tints,
+the one being edited stronger. Shape shows its corners, and the fill they make, as they
+are tapped; Done applies corners laid out and not yet filled (as the website does). Done
+saves only the walls that changed, as 8-bit PNGs made on the phone (07, "Editing masks");
+a wall left with nothing marked is refused by name rather than saved empty. Leaving with
+unsaved edits asks first — the back button, the swipe and Android's back alike.
 **Not yet:** the magnifier, and edge snapping (`mask-autofit.ts`) — the soft edge comes
 from the engine's own one-pixel antialiasing.
 
@@ -323,7 +336,10 @@ from the engine's own one-pixel antialiasing.
 - Tap a wall on the photo to select it (hit-test the masks). The selected wall gets a
   thin outline. *(Built without the outline so far: the selected wall shows in the wall
   strip.)*
-- **Wall strip** just above the dock: chips with each wall's current colour + name.
+- **Wall strip** just above the dock: chips with each wall's current colour + name. A
+  saved colour shows as its shade (the catalogue shade found again); the backend's
+  opening colours show as the nearest real shade, as on the website (07, "The studio's
+  state").
 - **Dock:** horizontal row of recently used and suggested swatches · **Browse shades**
   (→ C12) · **Suggestions** (→ C13). As built: the recent swatches, **Browse shades** full
   width, then **Suggestions**, **Save this combination** and the ⓘ on one line.
@@ -335,7 +351,9 @@ from the engine's own one-pixel antialiasing.
 
 **Autosave:** each colour change → `PUT /api/projects/{id}/regions [{ regionId, shadeCode, hexCode }]`,
 debounced 600 ms, queued while offline and sent on reconnect. A failed save keeps the
-changes, says "Your colours aren't saved yet — we'll keep trying.", and retries in 10 s; a refetch never
+changes, says "Your colours aren't saved yet — we'll keep trying.", and retries in 10 s
+(over the photo, so the canvas keeps its size); a refusal for good (the room closed or
+went) stops, puts the walls back as saved and says why; a refetch never
 undoes a change still waiting to be saved (07, "The studio's state").
 
 **States:**
@@ -389,7 +407,8 @@ Full screen. A draggable divider between the original photo and the painted room
 **Share this view** saves a JPEG of the split and opens sharing (WhatsApp first).
 
 The engine draws the split itself (the walls are painted only right of the line), so the
-shared JPEG is a snapshot of exactly what is on screen (`expo-sharing`).
+shared JPEG is a snapshot of exactly what is on screen (`expo-sharing`). With nothing
+painted it says both sides look the same.
 
 ### C15 · Colour board — choose and confirm
 

@@ -158,7 +158,7 @@ that need it. ✅ = included in the starting scaffold.
 | `BalanceChip` ✅ | "3 rooms left", "12 AI credits" on a brass hairline; taps through to C27 | zero ("No rooms left") |
 | `TabBar` ✅ | `src/navigation/tab-bar.ts`, shared by both tab bars: **60 dp + the phone's bottom inset** (the navigator's 49 clips Inter labels), labels Inter 600 11/14, active in `accentText`, inactive `fgMute`. The painter's Scan is a custom brass button that reads the navigator's `aria-selected` | active · inactive |
 | `StepDots` ✅ | The studio's five steps; only the active one labelled; spinner on a working step | — |
-| `ZoomView` ✅ | Two fingers pinch (1–4×) and pan on the UI thread; one finger is left to what is underneath (tap a wall, draw a mask) | — |
+| `ZoomView` ✅ | Two fingers pinch (1–4×, centred on the fingers) and pan on the UI thread, never past the picture's edges; one finger is left to what is underneath (tap a wall, draw a mask) | — |
 | `Sheet` ✅ | Bottom sheet with grabber; the page dims; tall content scrolls inside, up to 85%. Closes on the backdrop and the phone's back button | — |
 | `ConfirmSheet` ✅ | Title, what happens, a plain consequences list, confirm + cancel; an error is said inside it | default · destructive · loading · error |
 | `Toast` ✅ | Short message at the top, clear of the action pinned at the bottom | info · success · error |

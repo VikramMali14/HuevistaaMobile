@@ -86,7 +86,13 @@ export class RecolorGL {
   private imgTex: WebGLTexture | null = null;
   private blur: Target | null = null;
   private reliefTex: WebGLTexture | null = null;
+  /** Each wall's mask as it was loaded (and the edit in progress, as {@link EDIT_MASK}). */
   private masks = new Map<string, Target>();
+  /**
+   * C10: walls with edits kept but not being edited now — their mask redrawn from the
+   * loaded one plus the edits ({@link applyEdits}). Painted in place of the loaded mask.
+   */
+  private edited = new Map<string, Target>();
   private loc: Record<string, WebGLUniformLocation | null> = {};
   private width = 0;
   private height = 0;
@@ -191,8 +197,9 @@ export class RecolorGL {
     this.blur = a;
 
     // A new photo means the old masks belong to another room.
-    for (const m of this.masks.values()) this.freeTarget(m);
+    for (const m of [...this.masks.values(), ...this.edited.values()]) this.freeTarget(m);
     this.masks.clear();
+    this.edited.clear();
   }
 
   /**
@@ -224,16 +231,24 @@ export class RecolorGL {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.deleteTexture(raw);
     this.masks.set(id, out);
+    // Edits drawn on the old mask belong to it; the canvas applies them again.
+    this.dropEdits(id);
   }
 
   hasMask(id: string): boolean {
-    return this.masks.has(id);
+    return this.masks.has(id) || this.edited.has(id);
   }
 
   removeMask(id: string) {
     const m = this.masks.get(id);
     if (m) this.freeTarget(m);
     this.masks.delete(id);
+    this.dropEdits(id);
+  }
+
+  /** The mask a wall paints with: its edited copy when it has one. */
+  private maskFor(id: string): Target | undefined {
+    return this.edited.get(id) ?? this.masks.get(id);
   }
 
   /**
@@ -283,7 +298,7 @@ export class RecolorGL {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     for (const p of paints) {
-      const mask = this.masks.get(p.maskId);
+      const mask = this.maskFor(p.maskId);
       if (!mask) continue;
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, mask.tex);
@@ -311,21 +326,19 @@ export class RecolorGL {
     return this.imgTex ? this.readBack(this.imgTex, this.width, this.height, maxSide) : null;
   }
 
-  /** A small copy of a prepared mask, for finding the wall under a finger. */
+  /** A small copy of a prepared mask (edits included), for finding the wall under a finger. */
   readMask(id: string, maxSide = SAMPLE_MAX): Readback | null {
-    const m = this.masks.get(id);
+    const m = this.maskFor(id);
     return m ? this.readBack(m.tex, this.width || m.width, this.height || m.height, maxSide) : null;
   }
 
   // ── Editing a mask (C10) ────────────────────────────────────────────────────
 
   /**
-   * Start editing a wall: its mask (prepared, at whatever size it came) is redrawn at the
-   * photo's own size — the size the backend wants it back at — or, for a new wall, starts
-   * empty. Edits are drawn by {@link replayEdit}; the result paints as {@link EDIT_MASK}.
+   * A wall's mask as loaded (prepared, at whatever size it came) redrawn at the photo's
+   * own size — the size the backend wants it back at — or, for a new wall, empty.
    */
-  startEdit(id: string) {
-    this.endEdit();
+  private baseOf(id: string): Target {
     const gl = this.gl;
     const base = this.target(this.width, this.height, null);
     const from = this.masks.get(id);
@@ -338,19 +351,14 @@ export class RecolorGL {
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
-    this.edit = { id, base };
-    this.masks.set(EDIT_MASK, this.target(this.width, this.height, null));
-    this.replayEdit([]);
+    return base;
   }
 
-  /** Redraw the edited mask: the wall as it was, then every edit in order (Undo is a shorter list). */
-  replayEdit(ops: readonly MaskOp[]) {
+  /** Draw edits, in order, onto a mask target. */
+  private drawOps(to: Target, ops: readonly MaskOp[]) {
     const gl = this.gl;
-    const work = this.masks.get(EDIT_MASK);
-    if (!this.edit || !work) return;
-    this.copy(this.edit.base.tex, work);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, work.fbo);
-    gl.viewport(0, 0, work.width, work.height);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, to.fbo);
+    gl.viewport(0, 0, to.width, to.height);
     gl.disable(gl.BLEND);
     gl.useProgram(this.drawProgram);
     gl.bindVertexArray(this.drawVao);
@@ -358,9 +366,7 @@ export class RecolorGL {
     const value = gl.getUniformLocation(this.drawProgram, "u_value");
     for (const op of ops) {
       const tris =
-        op.kind === "stroke"
-          ? strokeTriangles(op.points, op.radius, work.width, work.height)
-          : shapeTriangles(op.points, work.width, work.height);
+        op.kind === "stroke" ? strokeTriangles(op.points, op.radius, to.width, to.height) : shapeTriangles(op.points, to.width, to.height);
       if (tris.length === 0) continue;
       gl.uniform1f(value, op.add ? 1 : 0);
       gl.bufferData(gl.ARRAY_BUFFER, tris, gl.DYNAMIC_DRAW);
@@ -370,28 +376,70 @@ export class RecolorGL {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
 
-  /** The edited mask at the photo's full size, top row first, for saving. */
-  readEdit(): Readback | null {
-    const work = this.masks.get(EDIT_MASK);
-    if (!work) return null;
+  private readTarget(t: Target): Readback {
     const gl = this.gl;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, work.fbo);
-    const data = new Uint8Array(work.width * work.height * 4);
-    gl.readPixels(0, 0, work.width, work.height, gl.RGBA, gl.UNSIGNED_BYTE, data);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, t.fbo);
+    const data = new Uint8Array(t.width * t.height * 4);
+    gl.readPixels(0, 0, t.width, t.height, gl.RGBA, gl.UNSIGNED_BYTE, data);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    return { width: work.width, height: work.height, data };
+    return { width: t.width, height: t.height, data };
   }
 
-  /** Keep the edit as the wall's mask on screen (moving on to another wall) and stop editing. */
-  commitEdit() {
+  /**
+   * Start editing a wall, from its mask as loaded (not from any edits kept for it: those
+   * are in the list the caller replays). Edits are drawn by {@link replayEdit}; the result
+   * paints as {@link EDIT_MASK}, and the wall's own mask is hidden meanwhile.
+   */
+  startEdit(id: string) {
+    this.endEdit();
+    this.edit = { id, base: this.baseOf(id) };
+    this.masks.set(EDIT_MASK, this.target(this.width, this.height, null));
+    this.replayEdit([]);
+  }
+
+  /** Redraw the edited mask: the wall as it was, then every edit in order (Undo is a shorter list). */
+  replayEdit(ops: readonly MaskOp[]) {
     const work = this.masks.get(EDIT_MASK);
     if (!this.edit || !work) return;
-    const old = this.masks.get(this.edit.id);
+    this.copy(this.edit.base.tex, work);
+    this.drawOps(work, ops);
+  }
+
+  /** The edited mask at the photo's full size, top row first. */
+  readEdit(): Readback | null {
+    const work = this.masks.get(EDIT_MASK);
+    return work ? this.readTarget(work) : null;
+  }
+
+  /**
+   * Keep a wall's edits on screen while another is being edited: its mask is redrawn from
+   * the loaded one plus `ops` (none: back to the loaded mask). Redrawing from the list,
+   * rather than keeping a picture of it, means nothing is lost if the GPU starts over.
+   */
+  applyEdits(id: string, ops: readonly MaskOp[]) {
+    this.dropEdits(id);
+    if (ops.length === 0) return;
+    const out = this.baseOf(id);
+    this.drawOps(out, ops);
+    this.edited.set(id, out);
+  }
+
+  private dropEdits(id: string) {
+    const old = this.edited.get(id);
     if (old) this.freeTarget(old);
-    this.masks.set(this.edit.id, work);
-    this.masks.delete(EDIT_MASK);
-    this.freeTarget(this.edit.base);
-    this.edit = null;
+    this.edited.delete(id);
+  }
+
+  /**
+   * A wall's mask at the photo's full size with `ops` drawn on it, top row first — what is
+   * saved. Worked out from the loaded mask and the list alone, whatever is on screen.
+   */
+  bake(id: string, ops: readonly MaskOp[]): Readback {
+    const t = this.baseOf(id);
+    this.drawOps(t, ops);
+    const out = this.readTarget(t);
+    this.freeTarget(t);
+    return out;
   }
 
   /** Stop editing and drop the edits. */
@@ -414,8 +462,9 @@ export class RecolorGL {
     if (this.blur) this.freeTarget(this.blur);
     if (this.edit) this.freeTarget(this.edit.base);
     this.edit = null;
-    for (const m of this.masks.values()) this.freeTarget(m);
+    for (const m of [...this.masks.values(), ...this.edited.values()]) this.freeTarget(m);
     this.masks.clear();
+    this.edited.clear();
     for (const b of this.buffers) gl.deleteBuffer(b);
     for (const v of [this.vao, this.texVao, this.blurVao, this.nudgeVao, this.drawVao]) gl.deleteVertexArray(v);
     for (const p of [this.program, this.texProgram, this.blurProgram, this.nudgeProgram, this.drawProgram]) gl.deleteProgram(p);

@@ -32,3 +32,6 @@ export async function loadBundledTexture(uri: string, _width: number, _height: n
   const img = await decode(uri);
   return { pixels: img, width: img.naturalWidth, height: img.naturalHeight };
 }
+
+/** The browser keeps its own cache of what was fetched; nothing of the studio's to clear. */
+export function clearStudioCache(): void {}

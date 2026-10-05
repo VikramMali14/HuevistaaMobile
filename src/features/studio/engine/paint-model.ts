@@ -19,6 +19,8 @@ export interface WallPaint {
   lrv?: number | null;
   /** Drawn by hand (no edge nudge). */
   manual?: boolean;
+  /** 0..1, how strongly it shows; default the `strength` given to {@link regionPaints}, else 1. */
+  strength?: number;
 }
 
 /** 0..1 per channel from "#rrggbb". */
@@ -47,7 +49,7 @@ export function regionPaints(
     preserve: SHADOW_STRENGTH,
     baseL: opts.baseL.get(w.id) ?? 0,
     anchor: opts.cleaned,
-    strength: opts.strength,
+    strength: w.strength ?? opts.strength,
   }));
 }
 

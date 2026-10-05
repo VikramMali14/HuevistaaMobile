@@ -1,6 +1,14 @@
 import { GLView, type ExpoWebGLRenderingContext } from "expo-gl";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, View, type GestureResponderEvent, type LayoutChangeEvent, type StyleProp, type ViewStyle } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  View,
+  type GestureResponderEvent,
+  type LayoutChangeEvent,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 
 import type { MaskOp, Point } from "./mask-ops";
 import { hexToRgb01, meanLumaInMask, regionPaints, wallAt, EDGE_NUDGE_PX, type WallPaint } from "./paint-model";
@@ -17,11 +25,14 @@ export interface CanvasWall {
   /** Null: not painted (the photo shows through). */
   hex: string | null;
   lrv?: number | null;
+  /** 0..1, how strongly it shows (C9 fades the walls not being looked at). Default 1. */
+  strength?: number;
 }
 
 export type CanvasState =
   | { kind: "loading" }
-  | { kind: "ready"; width: number; height: number }
+  /** `missing`: walls whose mask could not be fetched (they can't be painted until a retry). */
+  | { kind: "ready"; width: number; height: number; missing: number }
   /** The photo could not be fetched or decoded. */
   | { kind: "failed"; error: unknown }
   /** No WebGL2 on this phone. */
@@ -43,12 +54,10 @@ export interface RoomCanvasHandle {
   renderTimed(colours?: ReadonlyMap<string, string>): number;
   /** A JPEG of what the canvas shows now (C14 "Share this view"); null without a context. */
   snapshot(): Promise<string | null>;
-  /** C10: the edited mask at the photo's full size. */
-  readEdit(): Readback | null;
-  /** C10: keep the edit as that wall's mask on screen (before editing another). */
-  commitEdit(): void;
-  /** C10: a wall's mask as the canvas holds it now, at full size (for saving). */
-  readWall(id: string): Readback | null;
+  /** C10: a wall's mask at the photo's full size with `ops` drawn on it — what is saved. */
+  bake(id: string, ops: readonly MaskOp[]): Readback | null;
+  /** Fetch again what failed: the photo, or walls whose mask didn't come. */
+  retry(): void;
 }
 
 /** C10: the wall being reshaped (or a new one, with no mask yet) and the edits so far. */
@@ -73,6 +82,11 @@ export interface RoomCanvasProps {
   splitAt?: number;
   /** C10: edit one wall's mask; the walls show as flat tints of their `hex`. */
   edit?: CanvasEdit | null;
+  /**
+   * C10: edits kept for walls not being edited now, shown on their masks. Redrawn from
+   * these lists whenever the GPU starts over, so they can't be lost with it.
+   */
+  edits?: Readonly<Record<string, readonly MaskOp[]>>;
   /** C10: one finger on the photo, in the photo's own pixels (replaces tap and hold). */
   onPointer?: (phase: PointerPhase, point: Point) => void;
   onState?: (state: CanvasState) => void;
@@ -80,6 +94,8 @@ export interface RoomCanvasProps {
   onTapWall?: (wallId: string | null) => void;
   /** Press and hold, and let go. */
   onHold?: (holding: boolean) => void;
+  /** What a screen reader says for the picture. */
+  accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 }
@@ -89,7 +105,23 @@ export interface RoomCanvasProps {
  * laid out at the photo's own aspect ratio inside whatever space it is given.
  */
 export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function RoomCanvas(
-  { photo, photoKey, walls, cleaned, showOriginal = false, splitAt, edit = null, onPointer, onState, onTapWall, onHold, style, testID },
+  {
+    photo,
+    photoKey,
+    walls,
+    cleaned,
+    showOriginal = false,
+    splitAt,
+    edit = null,
+    edits,
+    onPointer,
+    onState,
+    onTapWall,
+    onHold,
+    accessibilityLabel,
+    style,
+    testID,
+  },
   ref,
 ) {
   const [source, setSource] = useState<TextureSource | null>(null);
@@ -100,11 +132,22 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
   const samples = useRef(new Map<string, Readback>());
   const baseL = useRef(new Map<string, number>());
   const loadedKeys = useRef(new Map<string, string>());
+  const editedIds = useRef(new Set<string>());
+  const missing = useRef(new Set<string>());
   const [masksVersion, setMasksVersion] = useState(0);
+  const [photoAttempt, setPhotoAttempt] = useState(0);
+  const [maskAttempt, setMaskAttempt] = useState(0);
   const latest = useRef({ walls, cleaned, showOriginal, splitAt, edit });
   latest.current = { walls, cleaned, showOriginal, splitAt, edit };
   const stateRef = useRef(onState);
   stateRef.current = onState;
+
+  const report = useCallback(() => {
+    const e = engine.current;
+    if (!e) return;
+    const { width, height } = e.imageSize;
+    stateRef.current?.({ kind: "ready", width, height, missing: missing.current.size });
+  }, []);
 
   // 1. The photo, before the GL view: its size decides the view's.
   useEffect(() => {
@@ -117,9 +160,9 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
     return () => {
       cancelled = true;
     };
-    // `photo` is a fresh closure each render; the key says when it changed.
+    // `photo` is a fresh closure each render; the key (or a retry) says when to fetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [photoKey]);
+  }, [photoKey, photoAttempt]);
 
   const size = useMemo(() => {
     if (!source || !box) return null;
@@ -147,7 +190,7 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
     const painted: WallPaint[] = ws
       .map((w) => ({ ...w, hex: colours?.get(w.id) ?? w.hex, lrv: colours?.has(w.id) ? null : w.lrv }))
       .filter((w) => w.hex && e.hasMask(w.id))
-      .map((w) => ({ id: w.id, hex: w.hex!, lrv: w.lrv, manual: w.manual }));
+      .map((w) => ({ id: w.id, hex: w.hex!, lrv: w.lrv, manual: w.manual, strength: w.strength }));
     e.renderRegions(regionPaints(painted, { baseL: baseL.current, cleaned: cl }), split);
   }, []);
 
@@ -164,9 +207,11 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
         samples.current.clear();
         baseL.current.clear();
         loadedKeys.current.clear();
+        editedIds.current.clear();
+        missing.current.clear();
         e.renderBase();
         setGlReady((n) => n + 1);
-        stateRef.current?.({ kind: "ready", width: source.width, height: source.height });
+        stateRef.current?.({ kind: "ready", width: source.width, height: source.height, missing: 0 });
       } catch (error) {
         engine.current = null;
         stateRef.current?.({ kind: "noGl", error });
@@ -198,10 +243,15 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
         baseL.current.delete(id);
       }
     }
-    const missing = walls.filter((w) => w.load && loadedKeys.current.get(w.id) !== w.maskKey);
-    if (missing.length === 0) return;
+    const gone = [...missing.current].filter((id) => !wanted.has(id));
+    for (const id of gone) missing.current.delete(id);
+    const toLoad = walls.filter((w) => w.load && loadedKeys.current.get(w.id) !== w.maskKey);
+    if (toLoad.length === 0) {
+      if (gone.length) report();
+      return;
+    }
     void Promise.all(
-      missing.map(async (w) => {
+      toLoad.map(async (w) => {
         try {
           return { w, src: await w.load!() };
         } catch {
@@ -212,29 +262,49 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
       if (cancelled || engine.current !== e) return;
       const image = e.readImage();
       for (const { w, src } of loaded) {
-        if (!src) continue;
+        if (!src) {
+          missing.current.add(w.id);
+          continue;
+        }
+        missing.current.delete(w.id);
         e.setMask(w.id, src, w.manual ? 0 : EDGE_NUDGE_PX);
+        // Measured on the mask as loaded: its light, and its shape for taps.
         const sample = e.readMask(w.id);
         if (sample) {
           samples.current.set(w.id, sample);
           baseL.current.set(w.id, image ? meanLumaInMask(image, sample) : 0);
         }
         loadedKeys.current.set(w.id, w.maskKey);
+        editedIds.current.delete(w.id);
       }
       setMasksVersion((v) => v + 1);
+      report();
     });
     return () => {
       cancelled = true;
     };
     // wallKeys is the identity of the masks; colours are painted by the effect below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wallKeys, glReady]);
+  }, [wallKeys, glReady, maskAttempt]);
 
-  // C10: the wall being edited, from its mask as loaded (or empty, for a new wall).
+  // C10: the edits kept for other walls, then the wall being edited — each from its mask
+  // as loaded (or empty, for a new wall) and its list of edits.
   const editWall = edit?.wallId ?? null;
   useEffect(() => {
     const e = engine.current;
     if (!e) return;
+    const kept = edits ?? {};
+    for (const id of [...editedIds.current]) {
+      if (id === editWall || !kept[id]?.length) {
+        e.applyEdits(id, []);
+        editedIds.current.delete(id);
+      }
+    }
+    for (const [id, ops] of Object.entries(kept)) {
+      if (id === editWall || !ops.length) continue;
+      e.applyEdits(id, ops);
+      editedIds.current.add(id);
+    }
     if (editWall) {
       e.startEdit(editWall);
       e.replayEdit(latest.current.edit?.ops ?? []);
@@ -242,7 +312,7 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
       e.endEdit();
     }
     paint();
-  }, [editWall, masksVersion, glReady, paint]);
+  }, [editWall, edits, masksVersion, glReady, paint]);
   const editOps = edit?.ops;
   useEffect(() => {
     const e = engine.current;
@@ -252,7 +322,7 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
   }, [editOps, paint]);
 
   // 4. Paint on every change of colour, of the "original" view, or of the masks.
-  const colourKey = walls.map((w) => `${w.id}=${w.hex ?? ""}`).join("|");
+  const colourKey = walls.map((w) => `${w.id}=${w.hex ?? ""}/${w.lrv ?? ""}/${w.strength ?? 1}`).join("|");
   useEffect(() => {
     paint();
   }, [colourKey, cleaned, showOriginal, splitAt, masksVersion, glReady, paint]);
@@ -264,14 +334,12 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
       engine.current?.finish();
       return performance.now() - start;
     },
-    readEdit() {
-      return engine.current?.readEdit() ?? null;
+    bake(id, ops) {
+      return engine.current?.bake(id, ops) ?? null;
     },
-    commitEdit() {
-      engine.current?.commitEdit();
-    },
-    readWall(id) {
-      return engine.current?.readMask(id, Number.POSITIVE_INFINITY) ?? null;
+    retry() {
+      if (!engine.current) setPhotoAttempt((n) => n + 1);
+      else if (missing.current.size) setMaskAttempt((n) => n + 1);
     },
     async snapshot() {
       const gl = glRef.current;
@@ -313,6 +381,8 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
       {size && onPointer ? (
         <View
           style={size}
+          accessible={Boolean(accessibilityLabel)}
+          accessibilityLabel={accessibilityLabel}
           onStartShouldSetResponder={(e) => e.nativeEvent.touches.length <= 1}
           onMoveShouldSetResponder={(e) => e.nativeEvent.touches.length <= 1}
           onResponderGrant={pointer("start")}
@@ -321,12 +391,7 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
           onResponderTerminate={pointer("cancel")}
           onResponderTerminationRequest={() => true}
         >
-          <GLView
-            key={`${photoKey}:${size.width}x${size.height}`}
-            style={size}
-            onContextCreate={onContextCreate}
-            {...WEB_CONTEXT}
-          />
+          <GLView key={`${photoKey}:${size.width}x${size.height}`} style={size} onContextCreate={onContextCreate} {...WEB_CONTEXT} />
         </View>
       ) : size ? (
         <Pressable
@@ -336,13 +401,9 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
           delayLongPress={250}
           style={size}
           accessibilityRole="image"
+          accessibilityLabel={accessibilityLabel}
         >
-          <GLView
-            key={`${photoKey}:${size.width}x${size.height}`}
-            style={size}
-            onContextCreate={onContextCreate}
-            {...WEB_CONTEXT}
-          />
+          <GLView key={`${photoKey}:${size.width}x${size.height}`} style={size} onContextCreate={onContextCreate} {...WEB_CONTEXT} />
         </Pressable>
       ) : null}
     </View>

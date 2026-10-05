@@ -4,10 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { BackButton, Button, ErrorState, Screen, Text, useToast } from "@/components/ui";
+import { BackButton, Banner, Button, ErrorState, Screen, Text, useToast } from "@/components/ui";
+import { CanvasTrouble } from "@/features/studio/CanvasTrouble";
 import { canvasWalls, roomPhoto } from "@/features/studio/canvas-walls";
 import { fitRect, RoomCanvas, type CanvasState, type RoomCanvasHandle } from "@/features/studio/engine/RoomCanvas";
 import { initRoom, useRoomPaint } from "@/features/studio/paint-store";
+import { useColourReader } from "@/features/studio/use-colour-reader";
 import { useRoom, wallsWithMasks } from "@/features/studio/use-room";
 import { planWalls } from "@/features/studio/wall-plan";
 import { t } from "@/i18n";
@@ -28,6 +30,7 @@ export default function Compare() {
   const { projectId = "" } = useLocalSearchParams<{ projectId: string }>();
   const room = useRoom(projectId);
   const paint = useRoomPaint(projectId);
+  const readColour = useColourReader();
   const canvas = useRef<RoomCanvasHandle>(null);
   const [state, setState] = useState<CanvasState>({ kind: "loading" });
   const [box, setBox] = useState<{ width: number; height: number } | null>(null);
@@ -36,8 +39,10 @@ export default function Compare() {
 
   // Opened straight from a link, the room's colours come from what it was saved with.
   useEffect(() => {
-    if (room.data) initRoom(projectId, room.data, String(planWalls(wallsWithMasks(room.data))[0]?.id ?? "") || null);
-  }, [room.data, projectId]);
+    if (!room.data) return;
+    const order = planWalls(wallsWithMasks(room.data)).map((w) => String(w.id));
+    initRoom(projectId, room.data, order, readColour);
+  }, [room.data, projectId, readColour]);
 
   const rect = box && state.kind === "ready" ? fitRect(box, state) : null;
   const move = (x: number) => {
@@ -77,6 +82,7 @@ export default function Compare() {
     const c = r.inPlan === false ? null : paint.colours[String(r.id)];
     return { hex: c?.hex ?? null, lrv: c?.lrv };
   });
+  const nothingPainted = walls.every((w) => !w.hex);
 
   return (
     <View style={[styles.fill, { backgroundColor: colors.bgDeep, paddingTop: insets.top, paddingBottom: insets.bottom + space.sm }]}>
@@ -128,7 +134,14 @@ export default function Compare() {
           </View>
         ) : null}
       </View>
-      <View style={{ paddingHorizontal: space.gutter, paddingTop: space.sm }}>
+      <View style={{ paddingHorizontal: space.gutter, paddingTop: space.sm, gap: space.xs }}>
+        {state.kind === "noGl" ? <Banner tone="warning" message={t("paint.noGl")} /> : null}
+        <CanvasTrouble state={state} onRetry={() => canvas.current?.retry()} />
+        {state.kind === "ready" && nothingPainted ? (
+          <Text variant="small" tone="soft" align="center">
+            {t("compare.nothingPainted")}
+          </Text>
+        ) : null}
         <Button label={t("compare.share")} icon="share-2" onPress={share} loading={sharing.busy} disabled={state.kind !== "ready"} />
       </View>
     </View>

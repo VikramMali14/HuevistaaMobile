@@ -65,10 +65,15 @@ export default function NameIt() {
         void queryClient.invalidateQueries({ queryKey: keys.entitlement });
         void queryClient.invalidateQueries({ queryKey: keys.projectOptions });
         clearUpload();
-        router.replace({
-          pathname: "/room/[projectId]/tidy",
-          params: { projectId: room.id, shade: params.shade, brand: params.brand },
-        } as Href);
+        // The camera and this screen are done with: back from Tidy up goes to wherever the
+        // room was started from, not to the camera again.
+        const tidy = { pathname: "/room/[projectId]/tidy", params: { projectId: room.id, shade: params.shade, brand: params.brand } } as Href;
+        if (router.canDismiss()) {
+          router.dismissAll();
+          router.push(tidy);
+        } else {
+          router.replace(tidy);
+        }
       } catch (err) {
         setError(messageFor(err));
       }

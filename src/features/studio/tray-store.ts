@@ -70,7 +70,14 @@ export function useTray(roomId: string): SavedCombo[] {
     () => trays[roomId] ?? EMPTY,
   );
 }
-
+/** Forget one room's tray (the room was deleted). */
+export function forgetTray(roomId: string) {
+  if (!(roomId in trays)) return;
+  const { [roomId]: _gone, ...rest } = trays;
+  trays = rest;
+  emit();
+  void AsyncStorage.setItem(KEY, JSON.stringify(trays)).catch(() => {});
+}
 
 /** Forget every tray (sign-out). */
 export function resetTrays() {

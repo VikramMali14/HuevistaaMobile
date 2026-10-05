@@ -235,8 +235,11 @@ one per `expo-gl` context):
   view is the comparison itself.
 
 Pictures reach the GPU through `texture-loader.ts`: on a phone the bytes are fetched once
-into the cache (`fetchMedia()`, with the session for the backend's own files) and handed
-to `expo-gl` as `{ localUri }`; the web build decodes an `<img>`. Masks come through the
+into the cache's `studio/` folder (`fetchMedia()`, with the session for the backend's own
+files) and handed to `expo-gl` as `{ localUri }`; the web build decodes an `<img>`. A
+download is written beside its name and moved into place when whole, a cached file that
+won't decode is fetched again once, and the folder is deleted on sign-out. A photo or
+wall that fails to load says so with Try again (`CanvasTrouble`, the canvas's `retry()`). Masks come through the
 backend's own mask route (with the session: no expiring link, no CORS), cached by the
 stored file they name. `RoomCanvas` lays the GL view out at the photo's aspect ratio and is
 used by C9, C10, C11, C14 and the live-colour check.
@@ -252,8 +255,11 @@ no WebGL 2 at all the canvas says so and the rest of the studio still works.
 **Editing masks (C10)** happens on the GPU too: a wall's mask is redrawn at the photo's
 size, and strokes (discs joined by quads) and shapes (ear-clipped, so an L fills as an L)
 are drawn into it from a list of operations — Undo is a shorter list, so history costs no
-GPU memory. Saving reads the mask back at full size and encodes an 8-bit greyscale PNG
-in JS (`mask-ops.ts`, `fflate` for the deflate; a full-size mask is tens of KB), well
+GPU memory. Every wall's list is kept in React state, never only on the GPU: the engine
+holds each mask as loaded and draws the edited copy from the list (`applyEdits`), so a
+canvas that starts over (a new size, a lost context) draws the same edits again. Saving
+works the mask out from the loaded one and the list alone (`bake`), reads it back at full
+size and encodes an 8-bit greyscale PNG in JS (`mask-ops.ts`, `fflate` for the deflate; a full-size mask is tens of KB), well
 under the backend's limit of about 4 MB of base64.
 
 ## The studio's state
@@ -261,11 +267,18 @@ under the backend's limit of about 4 MB of base64.
 - **The room** — `useRoom(id)` (`GET /api/projects/{id}`), shared by every step through
   the query cache; C8's poll writes each answer into the same entry. Polling is every 2 s,
   5 s after a minute, paused in the background, at once on return.
-- **The colours** — `paint-store.ts`, per room: colours per wall, the selected wall, an
-  Undo history, and the changes not yet saved. C11, C12 and C13 all write to it. A change
-  is saved 600 ms after the last one (`PUT /regions`, HV codes — the backend maps them
-  back); a failed save keeps the changes, says so, and tries again in 10 s or as soon as
-  the phone is back online. A refetch never undoes a tap still waiting to be saved.
+- **The colours** — `paint-store.ts`, per room: colours per wall, the selected wall (always
+  one being painted), an Undo history, and the changes not yet saved. C11, C12 and C13
+  all write to it. Saved colours are read as the website reads them (`saved-colours.ts`):
+  the catalogue shade found again by code, else by exact hex, so a wall paints at its LRV;
+  a found wall still on the backend's opening colour is snapped to the nearest shade of
+  Asian Paints (or the company with the most shades). A change is saved 600 ms after the
+  last one (`PUT /regions`, HV codes — the backend maps them back), and at once when the
+  app goes to the background; a failed save keeps the changes, says so, and tries again
+  in 10 s or as soon as the phone is back online. A refusal (a 4xx that trying again won't
+  change: the room closed or went) is not retried: the walls go back to what is saved and
+  the server's sentence is shown. A refetch never undoes a tap still waiting to be saved;
+  deleting a room forgets its colours and tray.
 - **Recent shades** and **the board tray** (combinations kept until a board is made,
   Phase 4) live on the phone; **which rooms were painted here** decides whether a room
   opens on Walls or Paint. All of it is cleared on sign-out and on a switch of profile.

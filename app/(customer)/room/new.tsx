@@ -3,8 +3,8 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useRef, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, BackHandler, Linking, Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BackButton, Banner, Button, IconButton, Screen, Text } from "@/components/ui";
@@ -40,16 +40,33 @@ export default function AddPhoto() {
   const [permission, requestPermission] = useCameraPermissions();
   const camera = useRef<CameraView>(null);
   const [flash, setFlash] = useState<"off" | "on">("off");
+  const [cameraReady, setCameraReady] = useState(false);
   const [shot, setShot] = useState<Shot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const taking = useSubmit();
   const preparing = useSubmit();
 
+  // Android's back from the preview goes back to the camera, as Retake does.
+  useEffect(() => {
+    if (!shot) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (preparing.busy) return true;
+      setShot(null);
+      setError(null);
+      return true;
+    });
+    return () => sub.remove();
+  }, [shot, preparing.busy]);
+
   const pick = async () => {
     setError(null);
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 1, exif: false });
-    const asset = result.canceled ? null : result.assets?.[0];
-    if (asset) setShot({ uri: asset.uri, width: asset.width, height: asset.height });
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 1, exif: false });
+      const asset = result.canceled ? null : result.assets?.[0];
+      if (asset) setShot({ uri: asset.uri, width: asset.width, height: asset.height });
+    } catch {
+      setError(t("addPhoto.unreadable"));
+    }
   };
 
   const take = () =>
@@ -130,7 +147,7 @@ export default function AddPhoto() {
               <Button label={t("addPhoto.allow")} icon="camera" onPress={() => void requestPermission()} />
             )}
             <Button variant="secondary" label={t("addPhoto.gallery")} icon="image" onPress={() => void pick()} />
-            <Button variant="ghost" label={t("addPhoto.sample")} onPress={() => router.push("/library")} />
+            {library.live ? <Button variant="ghost" label={t("addPhoto.sample")} onPress={() => router.push("/library")} /> : null}
           </View>
         }
       >
@@ -141,6 +158,7 @@ export default function AddPhoto() {
             {denied ? t("addPhoto.deniedTitle") : t("addPhoto.askTitle")}
           </Text>
           <Text variant="lead">{denied ? t("addPhoto.deniedBody") : t("addPhoto.askBody")}</Text>
+          {error ? <Banner tone="danger" message={error} /> : null}
         </View>
       </Screen>
     );
@@ -148,7 +166,14 @@ export default function AddPhoto() {
 
   return (
     <View style={[styles.fill, { backgroundColor: "#000" }]}>
-      <CameraView ref={camera} style={StyleSheet.absoluteFill} facing="back" flash={flash} testID="camera" />
+      <CameraView
+        ref={camera}
+        style={StyleSheet.absoluteFill}
+        facing="back"
+        flash={flash}
+        onCameraReady={() => setCameraReady(true)}
+        testID="camera"
+      />
       <View style={[styles.top, { paddingTop: insets.top + space.xs, paddingHorizontal: space.gutter }]}>
         <IconButton variant="onPhoto" icon="arrow-left" label={t("common.back")} onPress={() => (router.canGoBack() ? router.back() : router.replace("/studio"))} />
         <IconButton
@@ -167,19 +192,24 @@ export default function AddPhoto() {
           <IconButton variant="onPhoto" icon="image" label={t("addPhoto.gallery")} onPress={() => void pick()} />
           <Pressable
             onPress={take}
-            disabled={taking.busy}
+            disabled={taking.busy || !cameraReady}
             accessibilityRole="button"
             accessibilityLabel={t("addPhoto.shutter")}
-            style={({ pressed }) => [styles.shutter, { opacity: pressed || taking.busy ? 0.7 : 1 }]}
+            accessibilityState={{ disabled: taking.busy || !cameraReady }}
+            style={({ pressed }) => [styles.shutter, { opacity: pressed || taking.busy || !cameraReady ? 0.6 : 1 }]}
             testID="shutter"
           >
             <View style={styles.shutterInner} />
           </Pressable>
-          <Pressable onPress={() => router.push("/library")} accessibilityRole="button" style={styles.sample} hitSlop={8}>
-            <Text variant="small" align="center" style={styles.sampleText}>
-              {t("addPhoto.sample")}
-            </Text>
-          </Pressable>
+          {library.live ? (
+            <Pressable onPress={() => router.push("/library")} accessibilityRole="button" style={styles.sample} hitSlop={8}>
+              <Text variant="small" align="center" style={styles.sampleText}>
+                {t("addPhoto.sample")}
+              </Text>
+            </Pressable>
+          ) : (
+            <View style={styles.sample} />
+          )}
         </View>
       </View>
     </View>

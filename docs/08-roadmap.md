@@ -155,6 +155,42 @@ on the selected wall in C11 (the wall strip shows which is selected); C25 for fi
 rooms (they open on Paint, view only, until Phase 4); the board tray's screen (C15,
 Phase 4 — combinations are already kept).
 
+**Audit:** 2026-10, every Phase 3 screen, store and engine module read against the
+backend and the website, then walked again in the browser. Fixed, each with a test that
+failed before it (or, for the GPU, checked on screen):
+- C10 lost edits: a wall switched away from kept its edits only as a picture on the
+  GPU, so anything that started the canvas over (a banner, a turn of the phone) dropped
+  them and Done saved the old masks. Edits are now lists per wall, redrawn from the list,
+  and each wall keeps its own Undo. The swipe and Android's back skipped "Leave without
+  saving?". An emptied wall could be saved (erasing it); corners laid out were ignored
+  by Done; a part-saved Done marked the saved walls changed again.
+- Saved colours painted at their hex, not their shade's lightness, once a room was
+  opened again; the backend's opening colours showed as hexes with no code — both now as
+  the website reads them (the shade found again; opening colours snapped to the nearest
+  shade of one company).
+- A room that closed or was deleted while being painted had its colours sent every
+  10 seconds for ever ("we'll keep trying"); now it stops, says why, and shows what is
+  really saved. Deleting a room left its unsaved colours queued and its tray kept. What
+  is waiting is sent when the app goes to the background.
+- The selected wall could be one taken out of the plan on C9, so Browse painted a wall
+  not on screen.
+- C8 read every 402 as "automatic wall finding isn't available" (the backend never says
+  that; a 402 is the room itself), and promised "about a minute" for ever — it now says
+  so after the website's 8 minutes and offers a report.
+- C9's "Tap a wall to find it" showed nothing on the photo (the wall picked now stands
+  out); a refused switch put back every other switch flipped meanwhile.
+- Back from a new room's Tidy up went to the camera.
+- A picture half-written to the phone's cache (app closed mid-download) was never fetched
+  again, so the room never loaded; the studio's pictures stayed on the phone after
+  sign-out. A photo or wall that failed to load had no Try again.
+- Banners that come and go (a failed save, a load problem) resized the canvas and started
+  the GPU over; so did the first colour picked and switching to Shape.
+- Zoom went round the middle rather than the fingers, and the photo could be pushed off
+  the screen. C6 offered a sample room with none to show, lost a gallery error, and let
+  the shutter be pressed before the camera was ready; Android's back from the preview
+  left the screen. "Save this combination" with nothing painted said it was already saved;
+  a view-only room with no walls offered to mark them; "1 corners".
+
 ## Phase 4 — Boards and payments
 
 | | Screen | Spec |

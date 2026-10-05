@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useLocalSearchParams, useRouter, type Href } from "expo-router";
-import { useMemo, useRef, useState } from "react";
+import { useLocalSearchParams, useNavigation, useRouter, type Href } from "expo-router";
+import { usePreventRemove, type NavigationAction } from "expo-router/react-navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -25,6 +26,7 @@ import {
   useToast,
   ZoomView,
 } from "@/components/ui";
+import { CanvasTrouble } from "@/features/studio/CanvasTrouble";
 import { canvasWalls, roomPhoto } from "@/features/studio/canvas-walls";
 import { brushRadius, coverageOf, encodeMaskPng, toBase64, type BrushSize, type MaskOp, type Point } from "@/features/studio/engine/mask-ops";
 import { RoomCanvas, type CanvasState, type CanvasWall, type PointerPhase, type RoomCanvasHandle } from "@/features/studio/engine/RoomCanvas";
@@ -43,6 +45,8 @@ interface NewWall {
   label: string;
 }
 
+type Exit = { kind: "paint" } | { kind: "action"; action: NavigationAction };
+
 const NEW_WALL_KINDS: { category: RegionCategory; label: MessageKey }[] = [
   { category: "MAIN_WALL", label: "walls.categories.MAIN_WALL" },
   { category: "ACCENT_WALL", label: "walls.categories.ACCENT_WALL" },
@@ -51,6 +55,11 @@ const NEW_WALL_KINDS: { category: RegionCategory; label: MessageKey }[] = [
   { category: "OTHER_WALL", label: "adjust.other" },
 ];
 
+/** A copy of `map` without `drop`. */
+function without<T>(map: Record<string, T>, drop: readonly string[]): Record<string, T> {
+  return Object.fromEntries(Object.entries(map).filter(([k]) => !drop.includes(k)));
+}
+
 /**
  * C10 · Adjust walls (step 4). Spec: docs/04-screens-customer.md — C10.
  *
@@ -58,9 +67,15 @@ const NEW_WALL_KINDS: { category: RegionCategory; label: MessageKey }[] = [
  * corners tapped), two fingers zoom and move. Undo and Redo per wall. New wall picks what
  * it is first. Done saves every wall that changed — at the photo's own size, as the
  * backend wants — and goes on to Paint. A ready-made room's walls are fixed.
+ *
+ * Every wall's edits are kept as a list, not as a picture on the GPU: what is shown and
+ * what is saved are both drawn from the lists, so nothing is lost if the canvas starts
+ * over, and each wall keeps its own Undo. Leaving with edits unsaved asks first — the
+ * back button, the swipe and Android's back alike.
  */
 export default function AdjustWalls() {
   const router = useRouter();
+  const navigation = useNavigation();
   const queryClient = useQueryClient();
   const toast = useToast();
   const insets = useSafeAreaInsets();
@@ -75,14 +90,19 @@ export default function AdjustWalls() {
   const [size, setSize] = useState<BrushSize>("medium");
   const [current, setCurrent] = useState<string | null>(null);
   const [newWalls, setNewWalls] = useState<NewWall[]>([]);
+  /** The wall being edited: its edits, and what Undo took off. */
   const [ops, setOps] = useState<MaskOp[]>([]);
   const [redo, setRedo] = useState<MaskOp[]>([]);
+  /** Every other wall's edits (only walls that have some), and their Redo. */
+  const [edits, setEdits] = useState<Record<string, MaskOp[]>>({});
+  const [redos, setRedos] = useState<Record<string, MaskOp[]>>({});
   const [live, setLive] = useState<MaskOp | null>(null);
   const [corners, setCorners] = useState<Point[]>([]);
-  const [changed, setChanged] = useState<string[]>([]);
   const [picking, setPicking] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [leaving, setLeaving] = useState(false);
+  /** They asked to leave with edits unsaved: the navigation to carry out if they confirm. */
+  const [leaving, setLeaving] = useState<NavigationAction | null>(null);
+  const [exit, setExit] = useState<Exit | null>(null);
   const [error, setError] = useState<string | null>(null);
   const saving = useSubmit();
   const removing = useSubmit();
@@ -92,9 +112,22 @@ export default function AdjustWalls() {
   const fixed = Boolean(data?.fromLibrary);
   const allKeys = [...found.map((w) => String(w.id)), ...newWalls.map((w) => w.key)];
   const tintOf = (key: string) => WALL_TINTS[Math.max(0, allKeys.indexOf(key)) % WALL_TINTS.length]!;
-  const wallKey = current ?? (found[0] ? String(found[0].id) : (newWalls[0]?.key ?? null));
-  const dirty = changed.length > 0 || ops.length > 0;
+  const wallKey = current && allKeys.includes(current) ? current : (allKeys[0] ?? null);
+  const dirty = !fixed && (ops.length > 0 || Object.keys(edits).length > 0);
   const photoSize = canvasState.kind === "ready" ? canvasState : null;
+
+  const labelOf = (key: string) => {
+    const f = found.find((w) => String(w.id) === key);
+    return f ? wallLabel(f) : (newWalls.find((w) => w.key === key)?.label ?? "");
+  };
+
+  // Leaving with edits unsaved asks first, however they leave.
+  usePreventRemove(dirty && !exit, ({ data: e }) => setLeaving(e.action));
+  useEffect(() => {
+    if (!exit) return;
+    if (exit.kind === "paint") router.replace({ pathname: "/room/[projectId]/paint", params: { projectId: id } } as Href);
+    else navigation.dispatch(exit.action);
+  }, [exit, id, navigation, router]);
 
   const walls: CanvasWall[] = useMemo(() => {
     if (!data) return [];
@@ -105,19 +138,33 @@ export default function AdjustWalls() {
     ];
   }, [data, found, newWalls]);
 
-  const shown = live ? [...ops, live] : ops;
+  // The corners being laid out show where the shape will go (Fill, or Done, applies it).
+  const cornerOps: MaskOp[] = [];
+  if (tool === "shape" && corners.length && photoSize) {
+    if (corners.length >= 3) cornerOps.push({ kind: "shape", add: true, points: corners });
+    const dot = brushRadius("small", photoSize);
+    for (const c of corners) cornerOps.push({ kind: "stroke", add: true, radius: dot, points: [c] });
+  }
+  const shown = [...ops, ...(live ? [live] : []), ...cornerOps];
   const edit = wallKey && !fixed ? { wallId: wallKey, tint: tintOf(wallKey), ops: shown } : null;
 
-  /** Move to another wall, keeping what was drawn on this one. */
+  /** Move to another wall: this one's edits are kept, that one's come back with its Undo. */
   const switchTo = (key: string) => {
     if (key === wallKey) return;
-    if (ops.length && wallKey) {
-      canvas.current?.commitEdit();
-      setChanged((c) => (c.includes(wallKey) ? c : [...c, wallKey]));
+    const nextEdits = { ...edits };
+    const nextRedos = { ...redos };
+    if (wallKey) {
+      if (ops.length) nextEdits[wallKey] = ops;
+      else delete nextEdits[wallKey];
+      if (redo.length) nextRedos[wallKey] = redo;
+      else delete nextRedos[wallKey];
     }
-    setOps([]);
-    setRedo([]);
+    setOps(nextEdits[key] ?? []);
+    setRedo(nextRedos[key] ?? []);
+    setEdits(without(nextEdits, [key]));
+    setRedos(without(nextRedos, [key]));
     setCorners([]);
+    setLive(null);
     setCurrent(key);
   };
 
@@ -150,9 +197,12 @@ export default function AdjustWalls() {
     }
   };
 
+  const shapeOp = (): MaskOp | null => (corners.length >= 3 ? { kind: "shape", add: true, points: corners } : null);
+
   const fill = () => {
-    if (corners.length < 3) return;
-    setOps((o) => [...o, { kind: "shape", add: true, points: corners }]);
+    const shape = shapeOp();
+    if (!shape) return;
+    setOps((o) => [...o, shape]);
     setRedo([]);
     setCorners([]);
   };
@@ -177,36 +227,66 @@ export default function AdjustWalls() {
     switchTo(key);
   };
 
-  const done = () => {
-    if (fixed || !dirty) {
-      router.replace({ pathname: "/room/[projectId]/paint", params: { projectId: id } } as Href);
-      return;
-    }
-    void saving.run(async () => {
-      setError(null);
-      const todo = [...changed];
-      if (ops.length && wallKey) {
-        canvas.current?.commitEdit();
-        if (!todo.includes(wallKey)) todo.push(wallKey);
-      }
+  /** Walls now saved: their edits are done with (the room, read again, shows them). */
+  const forgetSaved = (saved: readonly string[]) => {
+    if (!saved.length) return;
+    setEdits((e) => without(e, saved));
+    setRedos((r) => without(r, saved));
+    if (wallKey && saved.includes(wallKey)) {
       setOps([]);
       setRedo([]);
+    }
+    setNewWalls((w) => w.filter((x) => !saved.includes(x.key)));
+  };
+
+  const done = () => {
+    // Corners laid out and not filled yet are meant: the website applies them on Save too.
+    const shape = !fixed && tool === "shape" ? shapeOp() : null;
+    if (!dirty && !shape) {
+      setExit({ kind: "paint" });
+      return;
+    }
+    const mine = shape ? [...ops, shape] : ops;
+    if (shape) {
+      setOps(mine);
+      setRedo([]);
+      setCorners([]);
+    }
+    const all: Record<string, MaskOp[]> = { ...edits, ...(wallKey && mine.length ? { [wallKey]: mine } : {}) };
+    void saving.run(async () => {
+      setError(null);
+      // Every mask first, so an empty one stops the save before anything is sent: an empty
+      // mask would erase the wall while looking like an edit (website mask-studio).
+      const masks: { key: string; coverage: Uint8Array; width: number; height: number }[] = [];
+      for (const [key, list] of Object.entries(all)) {
+        const mask = canvas.current?.bake(key, list);
+        if (!mask) {
+          setError(t("adjust.notReady"));
+          return;
+        }
+        const coverage = coverageOf(mask.data, mask.width, mask.height);
+        if (!coverage.includes(255)) {
+          setError(t("adjust.emptyWall", { wall: labelOf(key) }));
+          return;
+        }
+        masks.push({ key, coverage, width: mask.width, height: mask.height });
+      }
+      const saved: string[] = [];
       try {
-        for (const key of todo) {
-          const mask = canvas.current?.readWall(key);
-          if (!mask) continue;
-          const maskBase64 = toBase64(encodeMaskPng(coverageOf(mask.data, mask.width, mask.height), mask.width, mask.height));
-          const added = newWalls.find((w) => w.key === key);
+        for (const m of masks) {
+          const maskBase64 = toBase64(encodeMaskPng(m.coverage, m.width, m.height));
+          const added = newWalls.find((w) => w.key === m.key);
           if (added) await projectsApi.addWall(id, { maskBase64, label: added.label, category: added.category });
-          else await projectsApi.replaceMask(id, Number(key), maskBase64);
-          setChanged((c) => c.filter((k) => k !== key));
-          if (added) setNewWalls((w) => w.filter((x) => x.key !== key));
+          else await projectsApi.replaceMask(id, Number(m.key), maskBase64);
+          saved.push(m.key);
         }
         await queryClient.invalidateQueries({ queryKey: keys.room(id) });
         void queryClient.invalidateQueries({ queryKey: keys.projects, exact: true });
-        router.replace({ pathname: "/room/[projectId]/paint", params: { projectId: id } } as Href);
+        setExit({ kind: "paint" });
       } catch (err) {
-        setChanged(todo);
+        // What was saved stays saved; the rest keep their edits to try again.
+        forgetSaved(saved);
+        if (saved.length) void queryClient.invalidateQueries({ queryKey: keys.room(id) });
         setError(t("adjust.saveFailed", { reason: messageFor(err) }));
       }
     });
@@ -214,22 +294,26 @@ export default function AdjustWalls() {
 
   const removeWall = () => {
     if (!wallKey) return;
-    const added = newWalls.find((w) => w.key === wallKey);
-    if (added) {
-      setNewWalls((w) => w.filter((x) => x.key !== wallKey));
-      setChanged((c) => c.filter((k) => k !== wallKey));
+    const key = wallKey;
+    const forget = () => {
+      setEdits((e) => without(e, [key]));
+      setRedos((r) => without(r, [key]));
       setOps([]);
+      setRedo([]);
+      setCorners([]);
       setCurrent(null);
       setDeleting(false);
+    };
+    if (newWalls.some((w) => w.key === key)) {
+      setNewWalls((w) => w.filter((x) => x.key !== key));
+      forget();
       return;
     }
     void removing.run(async () => {
       try {
-        await projectsApi.removeWall(id, Number(wallKey));
+        await projectsApi.removeWall(id, Number(key));
         await queryClient.invalidateQueries({ queryKey: keys.room(id) });
-        setOps([]);
-        setCurrent(null);
-        setDeleting(false);
+        forget();
         toast.show(t("adjust.deleted"), "success");
       } catch (err) {
         setDeleting(false);
@@ -263,11 +347,7 @@ export default function AdjustWalls() {
   return (
     <View style={[styles.fill, { backgroundColor: colors.bgDeep, paddingTop: insets.top }]}>
       <View style={[styles.top, { paddingHorizontal: space.xs }]}>
-        <IconButton
-          icon="arrow-left"
-          label={t("common.back")}
-          onPress={() => (dirty ? setLeaving(true) : router.canGoBack() ? router.back() : router.replace("/studio"))}
-        />
+        <IconButton icon="arrow-left" label={t("common.back")} onPress={() => (router.canGoBack() ? router.back() : router.replace("/studio"))} />
         <View style={styles.fill} />
         {!fixed ? (
           <>
@@ -280,33 +360,44 @@ export default function AdjustWalls() {
 
       <View style={{ paddingHorizontal: space.gutter, gap: space.xs, paddingTop: space.xs }}>
         <StepDots current="adjust" />
-        {fixed ? <Banner tone="info" message={t("adjust.fixed")} /> : null}
+        {fixed ? (
+          <Banner tone="info" message={t("adjust.fixed")} />
+        ) : (
+          <Text variant="small" tone="soft">
+            {t("adjust.lead")}
+          </Text>
+        )}
         {notice ? <Banner tone="info" message={notice} /> : null}
-        {error ? <Banner tone="danger" message={error} /> : null}
         {canvasState.kind === "noGl" ? <Banner tone="warning" message={t("paint.noGl")} /> : null}
       </View>
 
-      <ZoomView resetKey={photo.key} style={{ marginTop: space.xs }}>
-        <RoomCanvas
-          ref={canvas}
-          photo={photo.load}
-          photoKey={photo.key}
-          walls={walls}
-          cleaned={Boolean(data.cleanedImageUrl)}
-          edit={edit}
-          onPointer={onPointer}
-          onState={setCanvasState}
-          testID="adjust-canvas"
-        />
-      </ZoomView>
+      <View style={[styles.fill, { marginTop: space.xs }]}>
+        <ZoomView resetKey={photo.key}>
+          <RoomCanvas
+            ref={canvas}
+            photo={photo.load}
+            photoKey={photo.key}
+            walls={walls}
+            cleaned={Boolean(data.cleanedImageUrl)}
+            edit={edit}
+            edits={edits}
+            onPointer={onPointer}
+            onState={setCanvasState}
+            accessibilityLabel={fixed ? undefined : t("adjust.canvasLabel")}
+            testID="adjust-canvas"
+          />
+        </ZoomView>
+        {/* Over the photo: a note that comes and goes must not resize the canvas. */}
+        <View pointerEvents="box-none" style={[styles.overlay, { padding: space.gutter, gap: space.xs }]}>
+          {error ? <Banner tone="danger" message={error} testID="adjust-error" /> : null}
+          <CanvasTrouble state={canvasState} onRetry={() => canvas.current?.retry()} />
+        </View>
+      </View>
 
       {!fixed ? (
         <View style={[styles.dock, { backgroundColor: colors.bg, paddingBottom: insets.bottom + space.sm }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.xs, paddingHorizontal: space.gutter }}>
             {allKeys.map((key) => {
-              const f = found.find((w) => String(w.id) === key);
-              const n = newWalls.find((w) => w.key === key);
-              const label = f ? wallLabel(f) : (n?.label ?? "");
               const on = key === wallKey;
               return (
                 <Pressable
@@ -322,7 +413,7 @@ export default function AdjustWalls() {
                 >
                   <View style={[styles.dot, { backgroundColor: tintOf(key) }]} />
                   <Text variant="small" numberOfLines={1}>
-                    {label}
+                    {labelOf(key)}
                   </Text>
                 </Pressable>
               );
@@ -339,15 +430,19 @@ export default function AdjustWalls() {
                 {canDelete ? <IconButton icon="trash-2" label={t("adjust.deleteWall")} onPress={() => setDeleting(true)} /> : null}
               </View>
               {tool === "shape" ? (
-                <View style={[styles.row, { paddingHorizontal: space.gutter, gap: space.xs, justifyContent: "space-between" }]}>
+                <View style={[styles.row, styles.options, { paddingHorizontal: space.gutter, gap: space.xs, justifyContent: "space-between" }]}>
                   <Text variant="small" tone="soft" style={styles.fill}>
-                    {corners.length ? t("adjust.corners", { n: corners.length }) : t("adjust.shapeHint")}
+                    {corners.length === 1
+                      ? t("adjust.oneCorner")
+                      : corners.length
+                        ? t("adjust.corners", { n: corners.length })
+                        : t("adjust.shapeHint")}
                   </Text>
                   {corners.length ? <Button variant="ghost" block={false} label={t("adjust.clearCorners")} onPress={() => setCorners([])} /> : null}
                   <Button block={false} label={t("adjust.fill")} onPress={fill} disabled={corners.length < 3} />
                 </View>
               ) : (
-                <View style={[styles.row, { paddingHorizontal: space.gutter, gap: space.xs }]}>
+                <View style={[styles.row, styles.options, { paddingHorizontal: space.gutter, gap: space.xs }]}>
                   {(["small", "medium", "large"] as const).map((k) => (
                     <Chip key={k} label={t(`adjust.${k}`)} selected={size === k} onPress={() => setSize(k)} />
                   ))}
@@ -380,17 +475,16 @@ export default function AdjustWalls() {
         onCancel={() => setDeleting(false)}
       />
       <ConfirmSheet
-        visible={leaving}
+        visible={Boolean(leaving)}
         title={t("adjust.discardTitle")}
         body={t("adjust.discardBody")}
         confirmLabel={t("adjust.discard")}
         destructive
         onConfirm={() => {
-          setLeaving(false);
-          if (router.canGoBack()) router.back();
-          else router.replace("/studio");
+          if (leaving) setExit({ kind: "action", action: leaving });
+          setLeaving(null);
         }}
-        onCancel={() => setLeaving(false)}
+        onCancel={() => setLeaving(null)}
       />
     </View>
   );
@@ -400,8 +494,12 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   center: { alignItems: "center", justifyContent: "center" },
   top: { flexDirection: "row", alignItems: "center", gap: 2 },
+  overlay: { position: "absolute", top: 0, left: 0, right: 0 },
   dock: { paddingTop: 10, gap: 10 },
   row: { flexDirection: "row", alignItems: "center" },
+  // The brush sizes and the shape's buttons take the same height, so switching tool
+  // doesn't resize the canvas (which would start the GPU over).
+  options: { minHeight: 52 },
   wallChip: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, minHeight: 40 },
   dot: { width: 14, height: 14, borderRadius: 7 },
 });
