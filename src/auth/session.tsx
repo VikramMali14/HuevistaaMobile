@@ -15,6 +15,8 @@ import { tokens } from "@/api/instance";
 import { authApi } from "@/api/endpoints/auth";
 import { isApiError } from "@/api/errors";
 import { queryClient } from "@/api/query-client";
+import { resetPaintStore, resetRecentShades } from "@/features/studio/paint-store";
+import { resetTrays } from "@/features/studio/tray-store";
 import type { AuthResponse, UserProfile, UserRole } from "@/api/types";
 
 import { forgetRememberedRoute } from "./pending-route";
@@ -35,13 +37,17 @@ const CATALOGUE_CACHE_KEY = "hv.catalogue";
 
 /**
  * Everything kept for one account: the screens' data, the catalogue copy (a shop
- * customer's is limited to their shop) and the pictures. Dropped on sign-out AND when a
+ * customer's is limited to their shop), the studio's colours and trays, and the pictures. Dropped on sign-out AND when a
  * sign-in brings a different profile (S10, C5's switch back), so one profile's rooms
  * never show under the other's name.
  */
 async function forgetAccountData(): Promise<void> {
   queryClient.clear();
-  await AsyncStorage.removeItem(CATALOGUE_CACHE_KEY).catch(() => {});
+  resetPaintStore();
+  resetTrays();
+  await resetRecentShades();
+  // The catalogue copy, which rooms open on Paint, and the board trays (Phase 3 studio).
+  await AsyncStorage.multiRemove([CATALOGUE_CACHE_KEY, "hv.paintedRooms", "hv.boardTrays"]).catch(() => {});
   try {
     await Promise.all([Image.clearMemoryCache(), Image.clearDiskCache()]);
   } catch {

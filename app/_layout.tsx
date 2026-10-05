@@ -12,6 +12,8 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
 import { useEffect, useState } from "react";
+import { StyleSheet } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { connectQueryClientToApp, queryClient } from "@/api/query-client";
@@ -37,15 +39,18 @@ export default function RootLayout() {
   useEffect(() => connectQueryClientToApp(), []);
 
   return (
-    <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
-        <SessionProvider>
-          <ToastProvider>
-            <Root ready={fontsLoaded || Boolean(fontError)} />
-          </ToastProvider>
-        </SessionProvider>
-      </QueryClientProvider>
-    </SafeAreaProvider>
+    // Pinch-to-zoom in the studio (ZoomView) needs the gesture root at the very top.
+    <GestureHandlerRootView style={styles.root}>
+      <SafeAreaProvider>
+        <QueryClientProvider client={queryClient}>
+          <SessionProvider>
+            <ToastProvider>
+              <Root ready={fontsLoaded || Boolean(fontError)} />
+            </ToastProvider>
+          </SessionProvider>
+        </QueryClientProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -83,3 +88,7 @@ function Root({ ready }: { ready: boolean }) {
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+});

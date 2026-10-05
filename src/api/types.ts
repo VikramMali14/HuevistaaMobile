@@ -155,6 +155,146 @@ export interface ProjectSummary {
   closedAt?: string | null;
 }
 
+/** What a wall is in the scheme (backend project/model/RegionCategory). */
+export type RegionCategory = "MAIN_WALL" | "ACCENT_WALL" | "OTHER_WALL" | "TRIM" | "CEILING" | "MANUAL";
+
+/** One wall of a room (backend RegionResponse). Codes are always HV codes for customers. */
+export interface RoomRegion {
+  id: number;
+  label: string;
+  category: RegionCategory;
+  /** Presigned link or the backend's own file route; null when the wall has no mask. */
+  maskUrl?: string | null;
+  appliedShadeCode?: string | null;
+  appliedHvCode?: string | null;
+  appliedHexCode?: string | null;
+  displayOrder?: number | null;
+  /** Drawn by hand (C10) rather than found. */
+  manual: boolean;
+  /** In the paint plan (C9). Absent means in. */
+  inPlan?: boolean;
+}
+
+/** GET /api/projects/{id} and /status (backend ProjectResponse, owner view). */
+export interface RoomDetail {
+  id: string;
+  name: string;
+  roomType?: string | null;
+  status: ProjectStatus;
+  imageId: string;
+  imageUrl: string;
+  imageType?: string | null;
+  /** The paint canvas when present — the masks are aligned to it, not the original. */
+  cleanedImageUrl?: string | null;
+  failureReason?: string | null;
+  /** "CLEAN" or "MASK": which half of the run failed. */
+  failureStage?: string | null;
+  maskMode?: "AUTO" | "MANUAL" | null;
+  /** Wall finding ran and found nothing usable; the room is workable, walls by hand. */
+  autoMaskFailed?: boolean;
+  autoMaskNotice?: string | null;
+  aiProgressNote?: string | null;
+  /** The walls' colour today, as the photo shows it — context only, never a paint. */
+  detectedWallHex?: string | null;
+  detectedWallColour?: string | null;
+  cleanFurnishing?: "KEEP" | "EMPTY" | null;
+  cleanAngle?: "AS_SHOT" | "BEST_VIEW" | null;
+  regions: RoomRegion[];
+  hasShareLink?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  closedAt?: string | null;
+  boardsUsed?: number;
+  boardsAllowed?: number;
+  fromLibrary?: boolean;
+  readOnly?: boolean;
+  readOnlyReason?: string | null;
+  accessExpiresAt?: string | null;
+}
+
+/** POST /api/projects/{id}/segment. */
+export interface SegmentChoices {
+  maskMode: "AUTO" | "MANUAL";
+  cleanFurnishing: "KEEP" | "EMPTY";
+  cleanAngle: "AS_SHOT" | "BEST_VIEW";
+}
+
+/** PUT /api/projects/{id}/regions (one row). Null clears the colour. */
+export interface RegionColourUpdate {
+  regionId: number;
+  shadeCode: string | null;
+  hexCode: string | null;
+}
+
+/** PUT /api/projects/{id}/regions/plan (one row). Null leaves a field as it was. */
+export interface RegionPlanUpdate {
+  regionId: number;
+  category?: RegionCategory | null;
+  label?: string | null;
+  inPlan?: boolean | null;
+}
+
+/** POST /api/images/upload. */
+export interface UploadedImage {
+  imageId: string;
+  imageUrl: string;
+  imageType?: "INTERIOR" | "EXTERIOR" | string | null;
+  fileSize?: number;
+}
+
+/** A catalogue shade a suggestion matched (backend MatchedShade). */
+export interface MatchedShade {
+  id?: number;
+  shadeCode: string;
+  hvCode?: string | null;
+  name?: string | null;
+  hexCode: string;
+  brand?: string | null;
+  shadeFamily?: string | null;
+}
+
+/** One suggested palette (backend ColorCombo): main, accent and trim. */
+export interface ColourCombo {
+  name: string;
+  rationale?: string | null;
+  primaryHex: string;
+  primaryShade?: MatchedShade | null;
+  accentHex: string;
+  accentShade?: MatchedShade | null;
+  trimHex: string;
+  trimShade?: MatchedShade | null;
+}
+
+/** POST /api/projects/{id}/recommendations. */
+export interface Recommendations {
+  projectId: string;
+  imageType?: string | null;
+  combinations: ColourCombo[];
+}
+
+/** GET /api/me/retailer-combos (one row): a combination the customer's shop put together. */
+export interface ShopCombo {
+  id: string;
+  name: string;
+  scope?: "INTERIOR" | "EXTERIOR" | "BOTH" | string | null;
+  shades: { code: string; name?: string | null; hex: string }[];
+}
+
+export type MaskReportIssue = "MASK_NOT_GENERATED_PROPERLY" | "IMAGE_NOT_CLEANED_PROPERLY" | "OTHER";
+export type MaskReportStatus = "NEW" | "IN_REVIEW" | "FIXED" | "RESOLVED";
+
+/** GET /api/projects/{id}/mask-reports/latest — the reporter's own view. */
+export interface MaskReport {
+  id: string;
+  issues: MaskReportIssue[];
+  note?: string | null;
+  status: MaskReportStatus;
+  createdAt?: string;
+  promisedBy?: string | null;
+  deliveredAt?: string | null;
+  fixNote?: string | null;
+}
+
 export type RenderStatus = "QUEUED" | "RUNNING" | "READY" | "FAILED";
 
 /** GET /api/me/renders (one row) — an AI image. */

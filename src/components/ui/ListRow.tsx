@@ -14,13 +14,15 @@ export interface ListRowProps {
   value?: string;
   icon?: ComponentProps<typeof Feather>["name"];
   onPress?: () => void;
+  /** Press and hold (a hidden extra, like Settings' version opening the live-colour check). */
+  onLongPress?: () => void;
   /** `danger` for a destructive row — Delete account, Sign out. */
   tone?: "default" | "danger";
   testID?: string;
 }
 
 /** One row of a grouped list: icon, title (and detail), value, chevron. */
-export function ListRow({ title, detail, value, icon, onPress, tone = "default", testID }: ListRowProps) {
+export function ListRow({ title, detail, value, icon, onPress, onLongPress, tone = "default", testID }: ListRowProps) {
   const { colors, space } = useTheme();
   const ink = tone === "danger" ? colors.dangerText : colors.fg;
   const body = (
@@ -52,6 +54,7 @@ export function ListRow({ title, detail, value, icon, onPress, tone = "default",
     <Pressable
       testID={testID}
       onPress={onPress}
+      onLongPress={onLongPress}
       accessibilityRole="button"
       accessibilityLabel={value ? `${title}, ${value}` : title}
       style={({ pressed }) => [

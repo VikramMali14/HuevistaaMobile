@@ -42,7 +42,24 @@
       "expo-secure-store",
       "expo-web-browser",
       "expo-image",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "HueVistaa uses the camera to photograph the walls you want to paint.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "HueVistaa opens your photos so you can pick a room to paint.",
+          "cameraPermission": "HueVistaa uses the camera to photograph the walls you want to paint.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": false

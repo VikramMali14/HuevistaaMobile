@@ -19,7 +19,7 @@ const DIAGNOSTIC_TAPS = 7;
  *
  * Appearance follows the phone (no switch, like the website). Legal pages open from the
  * website so they are always current. Seven taps on the version copy the details a
- * support conversation asks for.
+ * support conversation asks for; pressing and holding it opens the live-colour check.
  */
 export default function Settings() {
   const router = useRouter();
@@ -70,7 +70,13 @@ export default function Settings() {
       </ListGroup>
 
       <ListGroup title={t("settings.app")}>
-        <ListRow title={t("settings.version")} value={`${version} (${build})`} onPress={() => void tapVersion()} testID="settings-version" />
+        <ListRow
+          title={t("settings.version")}
+          value={`${version} (${build})`}
+          onPress={() => void tapVersion()}
+          onLongPress={() => router.push("/engine-check")}
+          testID="settings-version"
+        />
       </ListGroup>
 
       <ListGroup>

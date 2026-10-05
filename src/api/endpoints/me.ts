@@ -13,6 +13,7 @@ import type {
   ProjectPurchaseOptions,
   ProjectSummary,
   RedeemedCode,
+  ShopCombo,
 } from "../types";
 
 export const meApi = {
@@ -30,6 +31,9 @@ export const meApi = {
 
   /** C30. Adds the shop's rooms; the rooms and boards already here stay. */
   redeemCode: (code: string) => api.request<RedeemedCode>("api/access-codes/redeem", { body: { code } }),
+
+  /** C12 "Your shop's picks". Empty without a shop. */
+  shopCombos: () => api.request<ShopCombo[]>("api/me/retailer-combos"),
 
   /** C31. */
   assignedProducts: () => api.request<AssignedProducts>("api/me/assigned-products"),

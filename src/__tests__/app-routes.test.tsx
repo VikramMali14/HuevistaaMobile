@@ -167,9 +167,9 @@ describe("painter tab bar", () => {
 describe("deep links", () => {
   it("opens a studio step for a customer, with its params", async () => {
     signedInAs({ role: "CUSTOMER" });
-    renderRouter("./app", { initialUrl: "/room/abc123/paint" });
-    await waitFor(() => expect(screen.getByText("Paint")).toBeTruthy());
-    expect(screen).toHavePathname("/room/abc123/paint");
+    renderRouter("./app", { initialUrl: "/room/abc123/board" });
+    await waitFor(() => expect(screen.getByText("Colour board — choose and confirm")).toBeTruthy());
+    expect(screen).toHavePathname("/room/abc123/board");
     expect(screen.getByText(/projectId=abc123/)).toBeTruthy();
   });
 

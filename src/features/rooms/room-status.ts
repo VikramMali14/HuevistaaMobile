@@ -39,7 +39,7 @@ export function isInProgress(p: ProjectSummary): boolean {
 }
 
 /** Whole days until the room closes, or null when it has no end (or it has passed). */
-export function daysLeft(p: ProjectSummary, now: number = Date.now()): number | null {
+export function daysLeft(p: Pick<ProjectSummary, "accessExpiresAt" | "source">, now: number = Date.now()): number | null {
   if (!p.accessExpiresAt || p.source === "CUSTOMER") return null;
   const end = new Date(p.accessExpiresAt).getTime();
   if (Number.isNaN(end) || end <= now) return null;

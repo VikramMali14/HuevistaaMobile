@@ -6,14 +6,18 @@ import { hairline, useTheme } from "@/theme";
 export interface CardProps {
   children: ReactNode;
   onPress?: () => void;
+  /** Press and hold — a room card's menu. Said to the screen reader as an action. */
+  onLongPress?: () => void;
   accessibilityLabel?: string;
+  /** What a press and hold does, for the screen reader. */
+  accessibilityHint?: string;
   /** A lit brass hairline along the top edge — for the one card that matters most. */
   lit?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
 /** A surface separated by a hairline, not a shadow. */
-export function Card({ children, onPress, accessibilityLabel, lit = false, style }: CardProps) {
+export function Card({ children, onPress, onLongPress, accessibilityLabel, accessibilityHint, lit = false, style }: CardProps) {
   const { colors, radius, space } = useTheme();
   const base: ViewStyle = {
     backgroundColor: colors.surface,
@@ -28,8 +32,12 @@ export function Card({ children, onPress, accessibilityLabel, lit = false, style
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      accessibilityActions={onLongPress ? [{ name: "longpress" }] : undefined}
+      onAccessibilityAction={(e) => e.nativeEvent.actionName === "longpress" && onLongPress?.()}
       style={({ pressed }) => [
         styles.card,
         base,

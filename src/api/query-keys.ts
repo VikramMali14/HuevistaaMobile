@@ -10,12 +10,17 @@ export const keys = {
   projects: ["me", "projects"] as const,
   renders: ["me", "renders"] as const,
   assignedProducts: ["me", "assigned-products"] as const,
+  shopCombos: ["me", "shop-combos"] as const,
   library: ["library"] as const,
   libraryRoom: (slug: string) => ["library", slug] as const,
   catalogue: ["shades", "mine"] as const,
   catalogueCache: ["shades", "mine", "cache"] as const,
   shadeScheme: ["shades", "scheme"] as const,
   shadeDetail: (brand: string, code: string) => ["shades", "detail", brand, code] as const,
+  /** One room with its walls. Under "me", "projects" so a change to the list reaches it. */
+  room: (id: string) => ["me", "projects", id] as const,
+  roomReport: (id: string) => ["me", "projects", id, "report"] as const,
+  suggestions: (id: string, round: number) => ["me", "projects", id, "suggestions", round] as const,
 };
 
 /**
@@ -31,6 +36,7 @@ export const shopCodeChanges = [
   ...shopCodeBalance,
   keys.renders,
   keys.assignedProducts,
+  keys.shopCombos,
   keys.catalogue,
   keys.shadeScheme,
 ] as const;

@@ -36,3 +36,24 @@ function withToken(uri: string): ImageSource {
   // next by clearing the cache on sign-out and on a switch of profile (auth/session.tsx).
   return token ? { uri, headers: { Authorization: `Bearer ${token}` }, cacheKey: uri } : { uri };
 }
+
+/**
+ * Fetch a picture's bytes: the backend's own `/api/…` files with the session (refreshed
+ * once on a 401, like every other call), anything else as it is. For the studio, which
+ * needs the pixels themselves rather than an <Image>.
+ */
+export async function fetchMedia(url: string): Promise<Response> {
+  const src = mediaSource(url);
+  if (!src?.uri) throw new Error("No picture to fetch");
+  const send = (token: string | null) =>
+    fetch(src.uri!, token && src.headers ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
+  const used = src.headers ? tokens.accessToken : null;
+  let res = await send(used);
+  if (res.status === 401 && src.headers && tokens.hasSession()) {
+    const current = tokens.accessToken;
+    const fresh = current && current !== used ? current : await tokens.refreshOnce();
+    if (fresh) res = await send(fresh);
+  }
+  if (!res.ok) throw new Error(`Picture not available (${res.status})`);
+  return res;
+}
