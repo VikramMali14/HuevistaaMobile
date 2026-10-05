@@ -20,7 +20,8 @@
 Added later, by the screen that needs them (see [08-roadmap.md](08-roadmap.md)):
 `expo-camera`, `expo-image-picker`, `expo-image-manipulator`, `expo-gl`,
 `expo-file-system`, `expo-sharing`, `expo-media-library`, `expo-document-picker`,
-`expo-location`, `@shopify/flash-list`, `react-native-webview`. Always add them with
+`expo-location`, `@shopify/flash-list`, `react-native-webview`, `qrcode` (its core only,
+for the board's QR). Always add them with
 `npx expo install <name>` so the version matches the SDK. (If the network blocks Expo's
 version service, prefix it with `EXPO_OFFLINE=1` — it then uses the versions listed
 inside the installed `expo` package.)
@@ -74,6 +75,8 @@ HuevistaaMobile/
 │   ├── features/                     # screen-specific logic (created as screens need it)
 │   │   ├── studio/                   #   recolor engine, canvas, board tray (Phase 3)
 │   │   ├── catalogue/                #   swatch grid, filters (Phase 2)
+│   │   ├── boards/                   #   making, keeping and sending colour boards (Phase 4)
+│   │   ├── payments/                 #   checkout, verification, the payment kept (Phase 4)
 │   │   └── painter/                  #   scanner, claim (Phase 6)
 │   ├── config/env.ts                 # API origin, site origin, app scheme
 │   ├── i18n/                         # every user-facing string
@@ -211,6 +214,26 @@ never decided on the phone or on that page.
 6. Report what happened with `POST /api/billing/attempts/{reference}/events`, as the
    website does (`lib/payments.ts`).
 
+As built (`src/features/payments`):
+- One counter for everything: `POST /api/billing/cart/order` with the basket packed by
+  `lib/cart-pack` (ported from the website), credits alone included. `pay-link.ts` builds
+  the page's address and parses its answer — ids checked against Razorpay's shapes, a
+  success believed only once verified.
+- `pending-payment.ts` keeps `{ accountId, orderId, amount, rooms, credits }` in
+  AsyncStorage while the browser is open, and the proof (`paymentId`, `signature`) once
+  Razorpay says paid, until the server confirms it. Only that account sees it; an unpaid
+  order older than two hours is forgotten; sign-out clears it.
+- `payments.ts` settles an answer: one verification per payment, shared between the
+  waiting browser session and D3's deep link (Android can deliver both). A verification
+  that fails after a success is `checking` — reported as VERIFY_FAILED, tried again by
+  C29, and C27/C28 say a payment is being confirmed and C28 disables Pay. Verifying again
+  is safe: the backend answers a payment it already redeemed for this account as a
+  success. OPENED, ABANDONED (the browser closed with no answer, or "cancelled") and
+  FAILED (with Razorpay's code and reason) are reported too, and never throw.
+- D3 reads the opening link through `use-opening-url.ts` (routing never sees a fragment).
+  While the app's own checkout is waiting it steps aside; on a cold start it settles the
+  kept order itself.
+
 ## The colour engine (the biggest risk)
 
 `src/features/studio/engine/`. The website's `lib/webgl-recolor.ts` shaders (`VERT`,
@@ -292,6 +315,20 @@ under the backend's limit of about 4 MB of base64.
 the board. Both are plain TypeScript apart from a few canvas helpers, so they port.
 Page images come from GL snapshots (`GLView.takeSnapshotAsync`) as JPEG. The file is
 written with `expo-file-system` and shared with `expo-sharing`.
+
+As built: both are ported (`src/lib`), taking JPEG **bytes** and returning the file's
+bytes. C15's one canvas photographs each option (`RoomCanvas.snapshot(only)` paints exactly
+those colours, then puts the screen back); a page with no picture prints the option's
+swatches in the photo's place, so no recorded page is ever missing from the file. The
+reward page's QR is `qrcode`'s core (`create(url, { errorCorrectionLevel: "Q" })`), drawn
+as vector rectangles as on the website. `features/boards/board-run.ts` is the website's
+`colour-board-download.ts`: build → charge → hand over, refusals (any 4xx) obeyed, silence
+(no answer, a timeout, a 5xx) failing open. `board-files.ts` writes each board into its
+own folder under the app's documents (`boards/{room}/{time}/`), keeps it only once handed
+over (the room's earlier board then goes), throws a refused one away, and deletes the lot
+on sign-out; `made-boards.ts` remembers each room's last board for C16 and C25. Save to
+phone on Android writes a copy into a folder picked with `Directory.pickDirectoryAsync()`.
+The browser preview keeps boards as in-memory links (`board-files.web.ts`).
 
 ## Reusing the website's code
 

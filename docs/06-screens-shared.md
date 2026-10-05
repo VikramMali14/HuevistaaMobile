@@ -168,6 +168,14 @@ screen never shows. On a cold start (Android killed the app during payment) this
 reads the fragment, finds the pending order saved before checkout, verifies it, and
 shows C29.
 
+As built: when it opens while the app's own checkout is waiting (Android can deliver the
+link both ways), it steps aside — one verification per payment is shared. On a cold start
+it reads the fragment, finds the order kept on the phone (`hv.pendingPayment`, the same
+account's only), and settles it: success → verify → C29; cancelled → back to the basket;
+failed → C29 with the reason. Signed out, it keeps the proof and asks for sign-in; C27
+confirms it afterwards. An unpaid order older than two hours is forgotten; a paid one is
+kept until the server confirms it.
+
 ---
 
 ## System states (X1–X6)

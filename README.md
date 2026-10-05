@@ -40,7 +40,15 @@ palettes, before and after, adjusting walls by hand and reporting walls that are
 One thing is left for a real phone: Settings → press and hold the version → run the
 live-colour check (each colour change should show in under 100 ms).
 
-**Next: Phase 4 — boards and payments.** The order is in [docs/08-roadmap.md](docs/08-roadmap.md).
+**Phase 4 — boards and payments — is built.** Choose and confirm a colour board (made on the
+phone in the website's order: reward code, the PDF built and written, then the charge),
+board ready with send and save, the Boards tab, a board's detail (where a finished room
+now opens), sharing a room, rooms and credits, checkout through Razorpay on the website's
+`/pay/mobile` page, the payment result, and the payment return for when Android stops the
+app mid-payment. Left for a real phone: make a board on `expo-gl`, and a Razorpay test
+payment including the cold start.
+
+**Next: Phase 5 — AI images.** The order is in [docs/08-roadmap.md](docs/08-roadmap.md).
 
 ## The plan
 

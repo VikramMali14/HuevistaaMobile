@@ -151,9 +151,8 @@ reported (204) handed React Query `undefined`; the paint dock's buttons wrapped;
 switches had the browser's thumb colour.
 
 Not yet: the magnifier above the finger in C10, and edge snapping there; the outline
-on the selected wall in C11 (the wall strip shows which is selected); C25 for finished
-rooms (they open on Paint, view only, until Phase 4); the board tray's screen (C15,
-Phase 4 — combinations are already kept).
+on the selected wall in C11 (the wall strip shows which is selected). (C25 for finished
+rooms and the board tray's screen, C15, came in Phase 4.)
 
 **Audit:** 2026-10, every Phase 3 screen, store and engine module read against the
 backend and the website, then walked again in the browser. Fixed, each with a test that
@@ -195,17 +194,60 @@ failed before it (or, for the GPU, checked on screen):
 
 | | Screen | Spec |
 |---|---|---|
-| ☐ | C15 Colour board — choose and confirm | [04](04-screens-customer.md#c15--colour-board--choose-and-confirm) |
-| ☐ | C16 Board ready | [04](04-screens-customer.md#c16--board-ready) |
-| ☐ | C4 Boards | [04](04-screens-customer.md#c4--boards) |
-| ☐ | C25 Board detail | [04](04-screens-customer.md#c25--board-detail) |
-| ☐ | C17 Share this room | [04](04-screens-customer.md#c17--share-this-room) |
-| ☐ | C27 Rooms and credits | [04](04-screens-customer.md#c27--rooms-and-credits) |
-| ☐ | C28 Checkout | [04](04-screens-customer.md#c28--checkout) |
-| ☐ | C29 Payment result | [04](04-screens-customer.md#c29--payment-result) |
-| ☐ | D3 Payment return | [06](06-screens-shared.md#d3--payment-return) |
+| ☑ | C15 Colour board — choose and confirm | [04](04-screens-customer.md#c15--colour-board--choose-and-confirm) |
+| ☑ | C16 Board ready | [04](04-screens-customer.md#c16--board-ready) |
+| ☑ | C4 Boards | [04](04-screens-customer.md#c4--boards) |
+| ☑ | C25 Board detail | [04](04-screens-customer.md#c25--board-detail) |
+| ☑ | C17 Share this room | [04](04-screens-customer.md#c17--share-this-room) |
+| ☑ | C27 Rooms and credits | [04](04-screens-customer.md#c27--rooms-and-credits) |
+| ☑ | C28 Checkout | [04](04-screens-customer.md#c28--checkout) |
+| ☑ | C29 Payment result | [04](04-screens-customer.md#c29--payment-result) |
+| ☑ | D3 Payment return | [06](06-screens-shared.md#d3--payment-return) |
 
-Packages: `npx expo install expo-sharing expo-media-library`.
+Packages: `qrcode` (its core only — the library the website prints the board's QR with).
+`expo-sharing` and `expo-file-system` came in Phase 3; `expo-media-library` was not needed
+(a board is a PDF, not a photo — Save to phone writes it to a folder the person picks) and
+moves to Phase 5, for saving AI images to the gallery. UI kit added: `Stepper`.
+Ported from the website (with their tests): `pdf-core`, `pdf-export` (pictures as bytes; a
+page with no picture prints swatches), `cart-pack`, `colour-board-download` (as
+`features/boards/board-run.ts`) and `reward-qr`. A finished room now opens on C25 (CR), and
+C2's press-and-hold menu gained Share.
+
+**Done:** 2026-10. Route tests for every screen (`src/__tests__/phase4-boards-payments.test.tsx`,
+through the real route tree with a canvas stand-in), unit tests for the board's pages, the
+build → charge → hand-over order, the PDF (byte-exact xref, swatch pages, the reward page
+with a real QR), the basket packing, the payment link and callback, and the payment flow
+(one verification per payment, the payment kept on the phone). A board built by the code
+was opened in a real PDF reader (poppler: three A4 pages — a painted option, a swatch
+option, the reward QR). Walked through in a phone-sized Chromium with real WebGL against a
+stand-in backend, light and dark: Boards, a board's detail, rooms and credits, checkout and
+its offer, sharing, and a board made end to end (each option photographed in its own
+colours). Found on the way: the board was written over the room's last board BEFORE the
+charge, so a refused board would have deleted a good one (each board now has a folder of
+its own, kept only once handed over); the selected option's border lost a corner; the
+board-ready strip left out the reward page; a credit expiry a year away was coloured as a
+warning.
+
+As built, against the spec:
+- C15 photographs each option on one canvas (`RoomCanvas.snapshot(only)`) rather than a GL
+  thumbnail per option (phones cap GL contexts). A phone with no WebGL, or a picture that
+  can't be taken, prints that option as swatches — it is never dropped, because the server
+  records every page.
+- C16 has **Send the board** (the share sheet — WhatsApp is in it) and **Save to phone**;
+  there is no separate WhatsApp button, because without native code a file can only reach
+  WhatsApp through the share sheet. Its AI-image step opens C22 with the room.
+- C17 offers 3, 7 or 10 days and companies by name: the backend takes only those (anything
+  else becomes 10) and matches companies by name, not slug.
+- C28 sells through the customer's counter (`/api/billing/cart`) for rooms and credits alike,
+  packed the cheapest way (`cart-pack`), as the website does. No discount-code field: the
+  best offer a basket reaches applies itself. A shop's customer is shown AI images only.
+- C4's colour boards come from `GET /api/me/renderable-projects` (rooms carrying board
+  combinations): the room list sends no board count.
+
+**Still to do on a real phone:** make a board (snapshots on `expo-gl`, the file in the
+app's documents, the share sheet and the Android folder picker), and a real Razorpay test
+payment through `/pay/mobile`, including the cold start (stop the app while the payment
+page is open, then pay).
 
 ## Phase 5 — AI images
 
@@ -268,7 +310,7 @@ Port: `HueVistaaPainter/src/lib/reward-token.ts`, `board-file.ts` (in a WebView)
 | # | Repo | Change | Needed by |
 |---|---|---|---|
 | 1 | HueVistaFrontEnd | Serve `/.well-known/assetlinks.json` with the app's signing-certificate SHA-256, so `huevistaa.com/r/*` and `/share/*` open the app (App Links). Later `apple-app-site-association` for iOS. | Phase 7 |
-| 2 | HueVistaFrontEnd | Confirm `/pay/mobile` is deployed and `NEXT_PUBLIC_MOBILE_PAY_REDIRECT` is unset (defaults to `huevista://pay/callback`). | Phase 4 |
+| 2 | HueVistaFrontEnd | Confirm `/pay/mobile` is deployed and `NEXT_PUBLIC_MOBILE_PAY_REDIRECT` is unset (defaults to `huevista://pay/callback`). The app opens `{SITE}/pay/mobile?order&key&amount&currency&desc&name&email&contact` — the page reads exactly these. | Phase 4 (now) |
 | 3 | HueVistaFrontEnd | Set `NEXT_PUBLIC_APK_URL` to the preview APK once one exists. | Phase 1+ |
 | 4 | HueVista | Confirm `MOBILE_OAUTH_REDIRECT_URI` is `huevista://sign-in/callback` in production. | Phase 1 |
 | 5 | HueVista | Push notifications: an endpoint to register a phone's push token (the existing `deviceToken` is the shop trusted-device token — a different thing), and sends on the events in Phase 8. | Phase 8 |

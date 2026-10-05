@@ -87,9 +87,8 @@ Plus "12 days left" from `accessExpiresAt` (in `warmText` under 3 days).
 **Actions:** tap → `room/[id]` (opens the right step). Long-press menu: Rename
 (`PATCH /api/projects/{id}`), Share (C17), Delete (`ConfirmSheet`: "Deleting a room is
 permanent and does not give the room back to your balance." → `DELETE /api/projects/{id}`).
-Share joins the menu with C17 in Phase 4; until then it has Rename and Delete. Screen
-readers hear a hint and get the menu as an action on the card. A deleted room's unsaved
-colours and kept combinations go with it.
+Screen readers hear a hint and get the menu as an action on the card. A deleted room's
+unsaved colours, kept combinations and any board made on this phone go with it.
 
 **States:** empty → "No rooms yet" + **Start a room** and **Try a ready-made room** ·
 New room with no balance → the `exhausted`/`missing` card instead of the camera.
@@ -145,6 +144,11 @@ scrolls back to the top.
 **States:** each half has its own empty state that explains what it will hold and how
 to get one ("Take a colour board from any room and it appears here").
 
+As built: the colour boards are `GET /api/me/renderable-projects` — rooms carrying board
+combinations, finished first (a reopened room keeps its combinations and shows "Still
+open"). The room list sends no board count, so `boardsUsed > 0` can't be read from it. AI
+images still being made show "Being made…"; failed ones are left out.
+
 ### C5 · Account
 
 **Route** `(tabs)/account.tsx` · **Phase** 2 · **Web reference** `app/(app)/account/`, `components/app/account-details.tsx`
@@ -190,7 +194,7 @@ Apply colour**. Only the current step is labelled; a working step spins.
 | `SEGMENTED` and painted before | C11 |
 | closed | C25 |
 
-Until C25 is built (Phase 4), a closed or view-only room opens on C11 to look at. "Painted
+A view-only room that is not closed opens on C11 to look at. "Painted
 before" is remembered on the phone (a room painted on the website opens on C9 the first
 time here). Every step reads the room with `useRoom()` — one cache entry for
 `GET /api/projects/{id}`, which C8's poll keeps current. A shade passed from C19 rides
@@ -432,6 +436,18 @@ or reorder · "Add one more" (back to C11).
      customer at a counter must not lose it to a bad signal.
 4. Save the file → C16.
 
+As built (`features/boards`): the saved combinations print in the paint plan's order,
+each wall named, with its HV code (names only where the scheme shows them). One canvas
+above the list shows the option tapped, and photographs each option in turn when the
+board is made (`RoomCanvas.snapshot(only)`) — a GL view per thumbnail would hit the phone's
+cap on GL contexts. An option whose picture can't be taken (no WebGL) prints as its
+swatches, never dropped: the server records every page. A board carries
+`imagesPerPdf` options (`GET /api/billing/pdf-allowance`, five); more than that asks for
+some to come off. The board is written into a folder of its own BEFORE the charge, kept
+(and the room's earlier board deleted) only once handed over, and thrown away when
+refused — a refused board never costs the last good one. Closed, view-only and spent rooms
+say why instead of offering the button; a closed one points to C25.
+
 ### C16 · Board ready
 
 **Route** `room/[projectId]/board-done.tsx` · **Phase** 4
@@ -439,6 +455,15 @@ or reorder · "Add one more" (back to C11).
 **Layout:** page previews · **Send on WhatsApp** (primary) · **Save to phone** ·
 **Share…** · next steps: **Make an AI image of this room** (→ C23), **Find a painter
 near you** (→ C32), **Back to my rooms** · the shade disclaimer.
+
+As built: **Send the board** (primary) opens the phone's share sheet, where WhatsApp is —
+without native code a file reaches WhatsApp only through it, so there is no separate
+WhatsApp or Share… button. **Save to phone** writes a copy into a folder the person picks
+on Android (a PDF is not a photo, so not the gallery); elsewhere it is the share sheet's
+Save to Files. The pages are the snapshots (a swatch page shows its colours, the reward
+page an icon). The AI-image step opens C22 with the room, which picks the option. Opened
+with no board on this phone (made elsewhere) → "This board isn't on this phone" + the
+room's options (C25).
 
 ### C17 · Share this room
 
@@ -449,10 +474,16 @@ near you** (→ C32), **Back to my rooms** · the shade disclaimer.
 **Copy link** · **More…** · when a link exists: its expiry and **Stop sharing**
 (confirm).
 
-**API:** `POST /api/projects/{id}/share?days=10&brands=asian-paints,berger` — days and
-brands are **query parameters**, not a JSON body (`brands` is a comma-separated list;
-leave it out for every company). Creates the link, or refreshes the same one, up to 10
-days. `DELETE /api/projects/{id}/share` withdraws it.
+**API:** `POST /api/projects/{id}/share?days=10&brands=Asian Paints,Berger` — days and
+brands are **query parameters**, not a JSON body (`brands` is a comma-separated list of
+company **names**; leave it out for every company). Creates the link, or refreshes the
+same one. `DELETE /api/projects/{id}/share` withdraws it.
+
+As built: 3, 7 or 10 days — the backend makes any other number 10 — and the companies
+from `GET /api/shades/mine/brands`, by name (the picker hides with one company). The
+room's own `shareToken` / `shareExpiresAt` show a live link when the sheet opens; the
+link is `{SITE}/share/{token}`. WhatsApp opens `wa.me` with the message, Copy link uses the
+clipboard, More… the phone's share sheet.
 
 ### C18 · The walls are wrong
 
@@ -572,6 +603,12 @@ The room photo, the date the board was taken, every option on it (`GET /api/proj
 with shade codes large, **Make an AI image** (→ C23), and **Review the job** (→ C26)
 once the work is done.
 
+As built: a finished room opens here (CR). Options are grouped by board, in the order they
+were printed; each has **Make an AI image of this option** (→ C23 with `comboId`) and says
+when one was made. **Send the board again** when the file is on this phone; **See the
+room** (C11, view only); **Review the job** for a finished room (the app can't know when
+the painting is done). A room closed without a board says so.
+
 ### C26 · Review the job
 
 **Route** `review/[projectId].tsx` · **Phase** 7 · **Web reference** `app/r/[token]/board-review-panel.tsx`
@@ -595,6 +632,13 @@ room) → `GET/POST /api/community/reviews/board/{token}`.
 - **Add a shop code** (→ C30).
 - AI credit statement (from the wallet response).
 
+As built: a balance that won't load is "didn't load" + Try again, never "0 rooms". A
+self-serve account (no shop) always has **Buy rooms** (primary once it has none); a shop's
+customer never does. The shop asked is named from C31's list, read when Ask is pressed
+(without one: "your shop"). The price per credit shows the list price beside it while a
+launch discount runs; credits lapsing within a month are coloured as a warning. A payment
+still being confirmed shows a banner with **Check now** (D3).
+
 ### C28 · Checkout
 
 **Route** `checkout.tsx` · **Phase** 4 · **Web reference** `components/app/credits-cart.tsx`, `lib/payments.ts`
@@ -610,6 +654,15 @@ auth browser session → result arrives on `huevista://pay/callback#status=…` 
 with `POST /api/billing/attempts/{reference}/events`. Full flow in
 [07-architecture.md](07-architecture.md#payments).
 
+As built: the website's counter (`credits-cart.tsx`) — two steppers, rooms and AI images,
+and the basket packed the cheapest way the server sells it (`lib/cart-pack`, ported with
+its tests: singles, the combo, the bundle and the offer a subtotal earns); the bill names
+what took money off, and anything the packing adds is said. Everything goes through
+`/api/billing/cart/order` (credits alone too — the same counter). **No discount-code
+field**: the best offer a basket reaches applies itself, and a code can only name one it
+already reaches. Opened with `?rooms=` / `?credits=`; Buy a room opens on one room. A
+shop's customer sees AI images only. A payment still being confirmed disables Pay.
+
 ### C29 · Payment result
 
 **Route** `payment-result.tsx` · **Phase** 4
@@ -620,6 +673,11 @@ with `POST /api/billing/attempts/{reference}/events`. Full flow in
 | Cancelled | Back to the basket, nothing said beyond "Payment cancelled." |
 | Failed | Razorpay's reason in plain words + **Try again** |
 | Paid but verify failed / no network | "We're checking your payment" — retry the verify; never say "failed" after a success |
+
+As built: the screen reads the outcome kept for the order (`features/payments`); checking
+tries again by itself (after 4, 10 and 30 s) and on **Check again**, shows the payment
+reference, and never a Pay button. Cancelled is said on the basket (a toast); C29 shows it
+only after a cold start. Try again reopens the same basket.
 
 ### C30 · Add a shop code
 
