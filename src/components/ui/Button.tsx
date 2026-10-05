@@ -105,7 +105,8 @@ export function Button({
         ) : (
           <>
             {icon ? <Feather name={icon} size={18} color={fg} /> : null}
-            <Text variant="bodyStrong" style={{ color: fg }} numberOfLines={1}>
+            {/* Two lines, not an ellipsis, when the phone's text size is turned up. */}
+            <Text variant="bodyStrong" style={{ color: fg, textAlign: "center", flexShrink: 1 }} numberOfLines={2}>
               {label}
             </Text>
           </>

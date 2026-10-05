@@ -134,7 +134,8 @@ describe("A3–A4 · mobile number and code", () => {
     press("Send code");
     await waitFor(() => expect(screen).toHavePathname("/phone-code"));
     expect(mockAuth.phoneStart).toHaveBeenCalledWith("+919876543210");
-    expect(screen.getByText("We texted a code to *********3210.")).toBeTruthy();
+    // The number as typed, so a typo shows before the code never arrives.
+    expect(screen.getByText("We texted a code to +91 98765 43210.")).toBeTruthy();
     expect(screen.getByText("Resend in 0:30")).toBeTruthy();
   });
 
@@ -467,7 +468,7 @@ describe("S10 · web-only accounts", () => {
   it("hides the customer switch when there is no profile to switch to", async () => {
     signedInAs(person({ role: "DISTRIBUTOR" }));
     renderRouter("./app", { initialUrl: "/web-only" });
-    await waitFor(() => expect(screen.getByText("Shop tools live on the website")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Distributor tools live on the website")).toBeTruthy());
     expect(screen.queryByText("Continue as customer")).toBeNull();
   });
 
@@ -524,4 +525,222 @@ describe("A1 · back to the page opened before sign-in", () => {
     press("Skip");
     await waitFor(() => expect(screen).toHavePathname("/room/abc123/paint"));
   });
+});
+
+describe("edge cases found in the Phase 1 audit", () => {
+  const codeBoxes = (testID = "phone-code-input") => screen.getByTestId(testID);
+
+  it("A4: says to start again when opened without a number", async () => {
+    renderRouter("./app", { initialUrl: "/phone-code" });
+    await waitFor(() => expect(screen.getByText(/which number this code is for/)).toBeTruthy());
+    press("Enter your number");
+    await waitFor(() => expect(screen).toHavePathname("/phone"));
+  });
+
+  it("A4: takes the code out of a pasted message", async () => {
+    mockAuth.phoneVerify.mockRejectedValue(new ApiError("http", 400, "Incorrect code. 2 attempts left."));
+    renderRouter("./app", { initialUrl: "/phone-code?phone=%2B919876543210&resendAfter=30" });
+    await waitFor(() => expect(screen.getByText("Enter the code")).toBeTruthy());
+    fireEvent.changeText(codeBoxes(), "Your HueVistaa code is 123 456");
+    await waitFor(() => expect(mockAuth.phoneVerify).toHaveBeenCalled());
+    expect(mockAuth.phoneVerify).toHaveBeenCalledWith(expect.objectContaining({ code: "123456" }));
+  });
+
+  it("A4: sends the code once when the sixth digit and Continue land together", async () => {
+    let answer: (value: AuthResponse) => void = () => {};
+    mockAuth.phoneVerify.mockImplementation(() => new Promise<AuthResponse>((resolve) => (answer = resolve)));
+    willSignInAs(person());
+    renderRouter("./app", { initialUrl: "/phone-code?phone=%2B919876543210&resendAfter=30" });
+    await waitFor(() => expect(screen.getByText("Enter the code")).toBeTruthy());
+    fireEvent.changeText(codeBoxes(), "123456");
+    fireEvent.press(screen.getByRole("button", { name: /Continue|Checking/ }));
+    await waitFor(() => expect(mockAuth.phoneVerify).toHaveBeenCalled());
+    answer(tokensFor());
+    await waitFor(() => expect(screen).toHavePathname("/home"));
+    expect(mockAuth.phoneVerify).toHaveBeenCalledTimes(1);
+  });
+
+  it("A4: a failed resend is said beside the link, not on the code boxes", async () => {
+    mockAuth.phoneStart.mockRejectedValue(new ApiError("http", 429, "Wait a minute before asking for another code."));
+    renderRouter("./app", { initialUrl: "/phone-code?phone=%2B919876543210&resendAfter=0" });
+    await waitFor(() => expect(screen.getByText("Send a new code")).toBeTruthy());
+    press("Send a new code");
+    await waitFor(() => expect(screen.getByText("Wait a minute before asking for another code.")).toBeTruthy());
+    expect(codeBoxes().props.accessibilityHint).toBeUndefined();
+  });
+
+  it("A5: a wrong password also says how Google and mobile sign-ups get in", async () => {
+    mockAuth.login.mockRejectedValue(new ApiError("http", 401, "Invalid email or password."));
+    renderRouter("./app", { initialUrl: "/email-sign-in" });
+    await waitFor(() => expect(screen.getByText("Sign in with email")).toBeTruthy());
+    type("Email", "priya@example.com");
+    type("Password", "wrong123");
+    press("Sign in");
+    await waitFor(() => expect(screen.getByText("That email and password don't match.")).toBeTruthy());
+    expect(screen.getByText(/If you signed up with Google or a mobile number/)).toBeTruthy();
+  });
+
+  it("A5: shows how long a locked account must wait", async () => {
+    mockAuth.login.mockRejectedValue(new ApiError("http", 429, "Too many failed attempts. Try again in about 12 minutes."));
+    renderRouter("./app", { initialUrl: "/email-sign-in" });
+    await waitFor(() => expect(screen.getByText("Sign in with email")).toBeTruthy());
+    type("Email", "priya@example.com");
+    type("Password", "wrong123");
+    press("Sign in");
+    await waitFor(() => expect(screen.getByText("Too many failed attempts. Try again in about 12 minutes.")).toBeTruthy());
+  });
+
+  it("A5: does not keep tokens when the profile cannot be loaded after sign-in", async () => {
+    mockAuth.login.mockResolvedValue(tokensFor());
+    mockAuth.profile.mockRejectedValue(new ApiError("network", 0, "offline"));
+    renderRouter("./app", { initialUrl: "/email-sign-in" });
+    await waitFor(() => expect(screen.getByText("Sign in with email")).toBeTruthy());
+    type("Email", "priya@example.com");
+    type("Password", "secret123");
+    press("Sign in");
+    await waitFor(() => expect(screen.getByText("No connection. Check your internet and try again.")).toBeTruthy());
+    expect(screen).toHavePathname("/email-sign-in");
+    expect(mockSecure["hv.refresh"]).toBeUndefined();
+  });
+
+  it("A6: a one-letter name is refused before the server sees it", async () => {
+    renderRouter("./app", { initialUrl: "/register" });
+    await waitFor(() => expect(screen.getByText("Create an account")).toBeTruthy());
+    type("Name", "P");
+    press("Create account");
+    expect(screen.getByText("Use at least two letters.")).toBeTruthy();
+    expect(mockAuth.register).not.toHaveBeenCalled();
+  });
+
+  it("A6: 'Already have an account?' goes back to the sign-in screen instead of stacking another", async () => {
+    renderRouter("./app", { initialUrl: "/email-sign-in" });
+    await waitFor(() => expect(screen.getByText("Sign in with email")).toBeTruthy());
+    press("New here? Create an account");
+    await waitFor(() => expect(screen).toHavePathname("/register"));
+    type("Email", "priya@example.com");
+    press("Already have an account? Sign in");
+    await waitFor(() => expect(screen).toHavePathname("/email-sign-in"));
+    expect(screen.getByLabelText("Email").props.value).toBe("priya@example.com");
+    // One sign-in screen in the stack: going back leaves it.
+    expect(screen.getAllByText("Sign in with email")).toHaveLength(1);
+  });
+
+  it("A7: a dropped connection while saving keeps the code", async () => {
+    mockAuth.resetPassword.mockRejectedValue(new ApiError("network", 0, "offline"));
+    renderRouter("./app", { initialUrl: "/forgot-password?email=priya%40example.com" });
+    await waitFor(() => expect(screen.getByText("Forgot password")).toBeTruthy());
+    press("Send the code");
+    await waitFor(() => expect(screen.getByTestId("reset-code-input")).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId("reset-code-input"), "123456");
+    type("New password", "newpass123");
+    press("Save new password");
+    await waitFor(() => expect(screen.getByText("No connection. Check your internet and try again.")).toBeTruthy());
+    expect(screen.getByTestId("reset-code-input").props.value).toBe("123456");
+  });
+
+  it("A10: does not ask again for a name given at sign-up", async () => {
+    signedInAs(person({ name: "Priya", welcomePending: true }));
+    renderRouter("./app", { initialUrl: "/about-you" });
+    await waitFor(() => expect(screen.getByText("How will you use HueVistaa?")).toBeTruthy());
+    expect(screen.queryByLabelText("What should we call you?")).toBeNull();
+    fireEvent.press(screen.getByTestId("use-home"));
+    press("Continue");
+    await waitFor(() => expect(screen).toHavePathname("/tour"));
+    expect(mockAuth.updateProfile).not.toHaveBeenCalled();
+  });
+
+  it("A10: moves straight on when there is nothing to ask (a shop's customer profile)", async () => {
+    signedInAs(person({ name: "Sharma Paints", welcomePending: true, linkedProfile: true }));
+    renderRouter("./app", { initialUrl: "/about-you" });
+    await waitFor(() => expect(screen).toHavePathname("/tour"));
+  });
+
+  it("A10: ends a painter's first run without asking anything", async () => {
+    signedInAs(person({ name: "Ravi", role: "PAINTER", welcomePending: true }));
+    mockAuth.welcomeSeen.mockResolvedValue(person({ name: "Ravi", role: "PAINTER" }));
+    renderRouter("./app", { initialUrl: "/" });
+    await waitFor(() => expect(screen).toHavePathname("/painter"));
+    expect(mockAuth.welcomeSeen).toHaveBeenCalled();
+  });
+
+  it("A10: someone on the wrong account can sign out", async () => {
+    signedInAs(person({ name: "User 3210", namePending: true, welcomePending: true }));
+    renderRouter("./app", { initialUrl: "/about-you" });
+    await waitFor(() => expect(screen.getByText("Not you? Sign out")).toBeTruthy());
+    press("Not you? Sign out");
+    await waitFor(() => expect(screen).toHavePathname("/welcome"));
+    expect(mockAuth.logout).toHaveBeenCalled();
+  });
+
+  it("A10: becoming a painter can be finished after a dropped connection", async () => {
+    signedInAs(person({ name: "Ravi", welcomePending: true }));
+    mockBecomePainter.mockResolvedValue({ userId: "u1" });
+    mockAuth.welcomeSeen
+      .mockRejectedValueOnce(new ApiError("network", 0, "offline"))
+      .mockResolvedValueOnce(person({ name: "Ravi", role: "PAINTER" }));
+    renderRouter("./app", { initialUrl: "/about-you" });
+    await waitFor(() => expect(screen.getByTestId("use-painter")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("use-painter"));
+    press("Continue");
+    await waitFor(() => expect(screen.getByText("No connection. Check your internet and try again.")).toBeTruthy());
+    expect(screen).toHavePathname("/about-you");
+    press("Continue");
+    await waitFor(() => expect(screen).toHavePathname("/painter"));
+    expect(mockBecomePainter).toHaveBeenCalledTimes(2);
+  });
+
+  it("A11: a lost 'seen' is sent again at the next start, so the role question is not asked twice", async () => {
+    signedInAs(person({ welcomePending: true }));
+    mockAuth.welcomeSeen.mockRejectedValue(new ApiError("network", 0, "offline"));
+    const first = renderRouter("./app", { initialUrl: "/tour" });
+    await waitFor(() => expect(screen.getByText("Skip")).toBeTruthy());
+    press("Skip");
+    await waitFor(() => expect(screen).toHavePathname("/home"));
+    await waitFor(async () => expect(await AsyncStorage.getItem("hv.welcomeSeenPending")).toBe("u1"));
+    first.unmount();
+
+    // Next start: the server still says the first run is pending.
+    mockAuth.welcomeSeen.mockReset();
+    mockAuth.welcomeSeen.mockResolvedValue(person());
+    renderRouter("./app", { initialUrl: "/" });
+    await waitFor(() => expect(screen).toHavePathname("/home"));
+    expect(mockAuth.welcomeSeen).toHaveBeenCalledTimes(1);
+    expect(await AsyncStorage.getItem("hv.welcomeSeenPending")).toBeNull();
+  });
+
+  it("S10: a customer who reaches the web-only address is sent home", async () => {
+    signedInAs(person());
+    renderRouter("./app", { initialUrl: "/web-only" });
+    await waitFor(() => expect(screen).toHavePathname("/home"));
+  });
+
+  it("S10: a link to the web-only screen is not remembered across sign-in", async () => {
+    renderRouter("./app", { initialUrl: "/web-only" });
+    await waitFor(() => expect(screen).toHavePathname("/welcome"));
+    mockAuth.login.mockResolvedValue(tokensFor());
+    willSignInAs(person());
+    press("Use email instead");
+    await waitFor(() => expect(screen.getByText("Sign in with email")).toBeTruthy());
+    type("Email", "priya@example.com");
+    type("Password", "secret123");
+    press("Sign in");
+    await waitFor(() => expect(screen).toHavePathname("/home"));
+  });
+
+  it("S10: speaks to an admin as an admin", async () => {
+    signedInAs(person({ role: "ADMIN" }));
+    renderRouter("./app", { initialUrl: "/web-only" });
+    await waitFor(() => expect(screen.getByText("Admin tools live on the website")).toBeTruthy());
+    press("Open the website");
+    await waitFor(() => expect(WebBrowser.openBrowserAsync).toHaveBeenCalledWith(expect.stringMatching(/\/admin$/), expect.anything()));
+  });
+
+  it("signs out without waiting on a server that never answers", async () => {
+    signedInAs(person({ role: "RETAILER" }));
+    mockAuth.logout.mockImplementation(() => new Promise(() => {}));
+    renderRouter("./app", { initialUrl: "/web-only" });
+    await waitFor(() => expect(screen.getByText("Sign out")).toBeTruthy());
+    press("Sign out");
+    await waitFor(() => expect(screen).toHavePathname("/welcome"), { timeout: 5000 });
+  }, 10_000);
 });

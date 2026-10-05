@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { type TextInput, View } from "react-native";
 
 import { authApi } from "@/api/endpoints/auth";
+import { isApiError } from "@/api/errors";
 import {
   Banner,
   Button,
@@ -18,6 +19,7 @@ import { AuthScreen } from "@/features/auth/AuthScreen";
 import { authErrorMessage, fieldError } from "@/features/auth/errors";
 import { formatCountdown, useCountdown } from "@/features/auth/use-countdown";
 import { t } from "@/i18n";
+import { useSubmit } from "@/lib/use-submit";
 import { formatMobileForDisplay, toE164India, validateEmail, validateMobile, validateNewPassword } from "@/lib/validation";
 import { useTheme } from "@/theme";
 
@@ -52,7 +54,7 @@ export default function ForgotPassword() {
   const [codeError, setCodeError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const { busy, run } = useSubmit();
   const countdown = useCountdown(RESEND_AFTER);
 
   const addressKey = channel === "email" ? validateEmail(email) : validateMobile(digits);
@@ -60,61 +62,64 @@ export default function ForgotPassword() {
   const passwordKey = validateNewPassword(password);
   const shownPasswordError = passwordError ?? (triedSave && passwordKey ? t(passwordKey) : null);
 
-  async function send(again = false) {
+  const send = (again = false) => {
     setTriedSend(true);
-    if (addressKey || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      if (channel === "email") await authApi.forgotPassword(email.trim());
-      else await authApi.forgotPasswordByPhone(toE164India(digits));
-      setSent(true);
-      setCode("");
-      setCodeError(null);
-      countdown.restart(RESEND_AFTER);
-      if (again) toast.show(t("auth.code.resent"), "success");
-    } catch (err) {
-      setError(authErrorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+    if (addressKey) return;
+    void run(async () => {
+      setError(null);
+      try {
+        if (channel === "email") await authApi.forgotPassword(email.trim());
+        else await authApi.forgotPasswordByPhone(toE164India(digits));
+        setSent(true);
+        setCode("");
+        setCodeError(null);
+        countdown.restart(RESEND_AFTER);
+        if (again) toast.show(t("auth.code.resent"), "success");
+      } catch (err) {
+        setError(authErrorMessage(err));
+      }
+    });
+  };
 
-  async function save() {
+  const save = () => {
     setTriedSave(true);
     if (code.length !== 6) {
       setCodeError(t("auth.forgot.codeNeeded"));
       codeRef.current?.focus();
       return;
     }
-    if (passwordKey || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      if (channel === "email") {
-        await authApi.resetPassword({ email: email.trim(), code, newPassword: password });
-        toast.show(t("auth.forgot.changed"), "success");
-        router.dismissTo({ pathname: "/email-sign-in", params: { email: email.trim() } });
-      } else {
-        await authApi.resetPasswordByPhone({ phone: toE164India(digits), code, newPassword: password });
-        toast.show(t("auth.forgot.changedByMobile"), "success");
-        router.replace({ pathname: "/phone", params: { digits } });
+    if (passwordKey) return;
+    void run(async () => {
+      setError(null);
+      try {
+        if (channel === "email") {
+          await authApi.resetPassword({ email: email.trim(), code, newPassword: password });
+          toast.show(t("auth.forgot.changed"), "success");
+          router.dismissTo({ pathname: "/email-sign-in", params: { email: email.trim() } });
+        } else {
+          await authApi.resetPasswordByPhone({ phone: toE164India(digits), code, newPassword: password });
+          toast.show(t("auth.forgot.changedByMobile"), "success");
+          router.replace({ pathname: "/phone", params: { digits } });
+        }
+      } catch (err) {
+        const onPassword = fieldError(err, "newPassword");
+        const onCode = fieldError(err, "code");
+        if (onPassword) setPasswordError(onPassword);
+        if (onCode) setCodeError(onCode);
+        if (onPassword || onCode) return;
+        if (isApiError(err) && err.kind === "http" && err.status === 400) {
+          // The backend's "wrong or expired code" — said at the boxes, which start again.
+          setCodeError(authErrorMessage(err));
+          setCode("");
+          codeRef.current?.shake();
+        } else {
+          // No connection, too many tries, a server fault: the code may still be good,
+          // so it stays where it is.
+          setError(authErrorMessage(err));
+        }
       }
-    } catch (err) {
-      const onPassword = fieldError(err, "newPassword");
-      const onCode = fieldError(err, "code");
-      if (onPassword) setPasswordError(onPassword);
-      if (onCode) setCodeError(onCode);
-      if (!onPassword && !onCode) {
-        // A wrong or expired code is the usual reason — say it at the boxes.
-        setCodeError(authErrorMessage(err));
-        setCode("");
-        codeRef.current?.shake();
-      }
-    } finally {
-      setBusy(false);
-    }
-  }
+    });
+  };
 
   function startAgain() {
     setSent(false);

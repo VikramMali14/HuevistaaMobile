@@ -11,6 +11,8 @@ export const webPages = {
   contact: "/legal/contact",
   forShops: "/for-paint-shops",
   shopDashboard: "/dashboard",
+  /** Admin tools; a signed-out browser is sent on to the shops' site to sign in. */
+  admin: "/admin",
 } as const;
 
 /** Open a page of the website in the in-app browser. */

@@ -107,7 +107,8 @@ export const CodeInput = forwardRef<CodeInputHandle, CodeInputProps>(function Co
           inputMode="numeric"
           textContentType="oneTimeCode"
           autoComplete="sms-otp"
-          maxLength={length}
+          // No maxLength: it would cut a pasted "123 456" or "Your code is 123456" before
+          // change() picks the digits out of it.
           caretHidden
           accessibilityLabel={label}
           accessibilityHint={error ?? undefined}

@@ -9,7 +9,15 @@ import { AuthScreen } from "@/features/auth/AuthScreen";
 import { authErrorMessage, fieldError } from "@/features/auth/errors";
 import { useFinishSignIn } from "@/features/auth/use-finish-sign-in";
 import { t, type MessageKey } from "@/i18n";
-import { toE164India, validateEmail, validateMobile, validateNewPassword } from "@/lib/validation";
+import { useSubmit } from "@/lib/use-submit";
+import {
+  NAME_MAX,
+  toE164India,
+  validateEmail,
+  validateMobile,
+  validateName,
+  validateNewPassword,
+} from "@/lib/validation";
 import { useTheme } from "@/theme";
 
 type Field = "name" | "email" | "password" | "phone";
@@ -44,10 +52,10 @@ export default function Register() {
   const [serverErrors, setServerErrors] = useState<Partial<Record<Field, string>>>({});
   const [error, setError] = useState<string | null>(null);
   const [emailTaken, setEmailTaken] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const { busy, run } = useSubmit();
 
   const local: Partial<Record<Field, string>> = {
-    name: name.trim() ? undefined : t("validation.nameRequired"),
+    name: say(validateName(name)),
     email: say(validateEmail(email)),
     password: say(validateNewPassword(password)),
     phone: phone ? say(validateMobile(phone)) : undefined,
@@ -61,38 +69,41 @@ export default function Register() {
     if (field === "email") setEmailTaken(false);
   }
 
-  async function create() {
+  const create = () => {
     setTried(true);
-    if (hasLocalError || busy) return;
-    setBusy(true);
-    setError(null);
-    setEmailTaken(false);
-    setServerErrors({});
-    try {
-      const response = await authApi.register({
-        name: name.trim(),
-        email: email.trim(),
-        password,
-        ...(phone ? { phone: toE164India(phone) } : {}),
-      });
-      await finish(response);
-      // The new account goes on to A10 (the (auth) layout sees the first run).
-    } catch (err) {
-      if (isEmailTaken(err)) {
-        setEmailTaken(true);
-        return;
+    if (hasLocalError) return;
+    void run(async () => {
+      setError(null);
+      setEmailTaken(false);
+      setServerErrors({});
+      try {
+        const response = await authApi.register({
+          name: name.trim(),
+          email: email.trim(),
+          password,
+          ...(phone ? { phone: toE164India(phone) } : {}),
+        });
+        await finish(response);
+        // The new account goes on to A10 (the (auth) layout sees the first run).
+      } catch (err) {
+        if (isEmailTaken(err)) {
+          setEmailTaken(true);
+          return;
+        }
+        const onFields: Partial<Record<Field, string>> = {};
+        for (const field of ["name", "email", "password", "phone"] as const) {
+          const message = fieldError(err, field);
+          if (message) onFields[field] = message;
+        }
+        if (Object.keys(onFields).length > 0) setServerErrors(onFields);
+        else setError(authErrorMessage(err));
       }
-      const onFields: Partial<Record<Field, string>> = {};
-      for (const field of ["name", "email", "password", "phone"] as const) {
-        const message = fieldError(err, field);
-        if (message) onFields[field] = message;
-      }
-      if (Object.keys(onFields).length > 0) setServerErrors(onFields);
-      else setError(authErrorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+    });
+  };
+
+  /** Back to A5 — the one already in the stack when there is one — with the email. */
+  const toSignIn = () =>
+    router.dismissTo({ pathname: "/email-sign-in", params: email.trim() ? { email: email.trim() } : {} });
 
   return (
     <AuthScreen
@@ -104,7 +115,7 @@ export default function Register() {
           <Button
             variant="ghost"
             label={t("auth.register.haveAccount")}
-            onPress={() => router.replace({ pathname: "/email-sign-in", params: email.trim() ? { email: email.trim() } : {} })}
+            onPress={toSignIn}
           />
         </View>
       }
@@ -118,6 +129,7 @@ export default function Register() {
         }}
         error={errorFor("name")}
         autoCapitalize="words"
+        maxLength={NAME_MAX}
         autoComplete="name"
         textContentType="name"
         returnKeyType="next"
@@ -149,7 +161,7 @@ export default function Register() {
             variant="secondary"
             block={false}
             label={t("auth.register.signInInstead")}
-            onPress={() => router.replace({ pathname: "/email-sign-in", params: { email: email.trim() } })}
+            onPress={toSignIn}
           />
         </Banner>
       ) : null}

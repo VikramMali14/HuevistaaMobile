@@ -11,6 +11,7 @@ import { authErrorMessage } from "@/features/auth/errors";
 import { deviceToken } from "@/features/auth/sign-in";
 import { useFinishSignIn } from "@/features/auth/use-finish-sign-in";
 import { t } from "@/i18n";
+import { useSubmit } from "@/lib/use-submit";
 import { validateEmail } from "@/lib/validation";
 import { useTheme } from "@/theme";
 
@@ -31,8 +32,9 @@ export default function EmailSignIn() {
   const [password, setPassword] = useState("");
   const [tried, setTried] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [badCredentials, setBadCredentials] = useState(false);
   const [admin, setAdmin] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const { busy, run } = useSubmit();
 
   // A7 comes back here (dismissTo) with the address it reset: take it, and clear the
   // old password, which no longer works.
@@ -43,36 +45,41 @@ export default function EmailSignIn() {
       setEmail(params.email);
       setPassword("");
       setError(null);
+      setBadCredentials(false);
     }
   }
 
   const emailKey = validateEmail(email);
   const emailError = tried && emailKey ? t(emailKey) : null;
 
-  async function signIn() {
+  const signIn = () => {
     setTried(true);
-    if (emailKey || !password || busy) return;
-    setBusy(true);
+    if (emailKey || !password) return;
+    void run(async () => {
+      setError(null);
+      setBadCredentials(false);
+      setAdmin(false);
+      try {
+        const response = await authApi.login({
+          email: email.trim(),
+          password,
+          deviceToken: await deviceToken(),
+        });
+        const outcome = await finish(response);
+        if (outcome.kind === "admin") setAdmin(true);
+      } catch (err) {
+        // One answer for a wrong password and an unknown email (no account enumeration),
+        // with the likeliest reason a right password fails: the account has none.
+        if (isApiError(err) && err.kind === "http" && err.status === 401) setBadCredentials(true);
+        else setError(authErrorMessage(err));
+      }
+    });
+  };
+
+  const clearErrors = () => {
     setError(null);
-    setAdmin(false);
-    try {
-      const response = await authApi.login({
-        email: email.trim(),
-        password,
-        deviceToken: await deviceToken(),
-      });
-      const outcome = await finish(response);
-      if (outcome.kind === "admin") setAdmin(true);
-    } catch (err) {
-      setError(
-        isApiError(err) && err.kind === "http" && err.status === 401
-          ? t("auth.email.badCredentials")
-          : authErrorMessage(err),
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
+    setBadCredentials(false);
+  };
 
   return (
     <AuthScreen
@@ -93,7 +100,7 @@ export default function EmailSignIn() {
         value={email}
         onChangeText={(next) => {
           setEmail(next);
-          setError(null);
+          clearErrors();
         }}
         error={emailError}
         keyboardType="email-address"
@@ -113,7 +120,7 @@ export default function EmailSignIn() {
           value={password}
           onChangeText={(next) => {
             setPassword(next);
-            setError(null);
+            clearErrors();
           }}
           revealable
           autoCapitalize="none"
@@ -134,6 +141,9 @@ export default function EmailSignIn() {
         />
       </View>
 
+      {badCredentials ? (
+        <Banner tone="danger" title={t("auth.email.badCredentials")} message={t("auth.email.otherWays")} />
+      ) : null}
       {error ? <Banner tone="danger" message={error} /> : null}
       {admin ? <AdminBanner /> : null}
     </AuthScreen>

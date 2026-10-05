@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import { ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -13,6 +13,7 @@ import { useFinishSignIn } from "@/features/auth/use-finish-sign-in";
 import { welcomeFrames } from "@/features/auth/welcome-frames";
 import { t } from "@/i18n";
 import { openWebPage, webPages } from "@/lib/open-web";
+import { useSubmit } from "@/lib/use-submit";
 import { fonts, hairline, useTheme } from "@/theme";
 
 /** How long each shade stays on the wall, and how long the paint takes to change. */
@@ -34,40 +35,41 @@ export default function Welcome() {
   const reduced = useReducedMotion();
   const finish = useFinishSignIn();
 
+  const google = useSubmit();
   const [frame, setFrame] = useState(0);
-  const [googleBusy, setGoogleBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [admin, setAdmin] = useState(false);
 
-  // Cycle the shades — or hold one still under "Reduce motion".
-  useEffect(() => {
-    if (reduced) return;
-    const id = setInterval(() => setFrame((f) => (f + 1) % welcomeFrames.length), HOLD_MS);
-    return () => clearInterval(id);
-  }, [reduced]);
+  // Cycle the shades — or hold one still under "Reduce motion". Only while Welcome is
+  // on screen: it stays mounted under the sign-in screens pushed over it.
+  useFocusEffect(
+    useCallback(() => {
+      if (reduced) return;
+      const id = setInterval(() => setFrame((f) => (f + 1) % welcomeFrames.length), HOLD_MS);
+      return () => clearInterval(id);
+    }, [reduced]),
+  );
 
   const shown = welcomeFrames[reduced ? 1 : frame] ?? welcomeFrames[0]!;
   const heroHeight = Math.round(Math.min(Math.max(height * 0.42, 260), 440));
 
-  async function continueWithGoogle() {
-    setError(null);
-    setAdmin(false);
-    setGoogleBusy(true);
-    try {
-      const result = await signInWithGoogle();
-      if (result.kind === "cancelled") return;
-      if (result.kind === "failed") {
-        setError(t("auth.google.failed"));
-        return;
+  const continueWithGoogle = () =>
+    google.run(async () => {
+      setError(null);
+      setAdmin(false);
+      try {
+        const result = await signInWithGoogle();
+        if (result.kind === "cancelled") return;
+        if (result.kind === "failed") {
+          setError(t("auth.google.failed"));
+          return;
+        }
+        const outcome = await finish(result.response);
+        if (outcome.kind === "admin") setAdmin(true);
+      } catch (err) {
+        setError(authErrorMessage(err));
       }
-      const outcome = await finish(result.response);
-      if (outcome.kind === "admin") setAdmin(true);
-    } catch (err) {
-      setError(authErrorMessage(err));
-    } finally {
-      setGoogleBusy(false);
-    }
-  }
+    });
 
   return (
     <View style={[styles.fill, { backgroundColor: colors.bg }]}>
@@ -111,7 +113,10 @@ export default function Welcome() {
                 borderColor: colors.ruleStrong,
               },
             ]}
-            accessibilityLiveRegion="polite"
+            // The photo's label already says what changes; announcing each shade every
+            // few seconds would talk over a screen reader.
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
           >
             {shown.hex ? (
               <View style={[styles.dot, { backgroundColor: shown.hex, borderColor: colors.ruleStrong }]} />
@@ -140,7 +145,7 @@ export default function Welcome() {
             <Button
               variant="secondary"
               label={t("auth.welcome.google")}
-              loading={googleBusy}
+              loading={google.busy}
               onPress={continueWithGoogle}
             />
             <Button variant="ghost" label={t("auth.welcome.email")} onPress={() => router.push("/email-sign-in")} />

@@ -12,12 +12,12 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { authApi } from "@/api/endpoints/auth";
 import { useSession } from "@/auth/session";
 import { takeRememberedRoute } from "@/auth/use-after-sign-in";
 import { Button, Em, Text, useReducedMotion } from "@/components/ui";
 import { welcomeFrames } from "@/features/auth/welcome-frames";
 import { t, type MessageKey } from "@/i18n";
+import { useSubmit } from "@/lib/use-submit";
 import { fonts, hairline, minTouch, useTheme } from "@/theme";
 
 interface Card {
@@ -54,11 +54,11 @@ export default function Tour() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion();
-  const { profile, updateProfile } = useSession();
+  const { profile, markWelcomeSeen } = useSession();
+  const leaving = useSubmit();
 
   const pager = useRef<ScrollView>(null);
   const [index, setIndex] = useState(0);
-  const [leaving, setLeaving] = useState(false);
   const last = index === CARDS.length - 1;
   const imageHeight = Math.round(Math.min(Math.max(height * 0.38, 220), 400));
 
@@ -67,33 +67,29 @@ export default function Tour() {
     pager.current?.scrollTo({ x: next * width, animated: !reduced });
   }
 
-  function onSettled(e: NativeSyntheticEvent<NativeScrollEvent>) {
+  // Follows the finger on every platform (a momentum-end event never comes on the web).
+  function onScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
     const next = Math.round(e.nativeEvent.contentOffset.x / Math.max(width, 1));
     if (next !== index && next >= 0 && next < CARDS.length) setIndex(next);
   }
 
-  /** End the first run. Leaving is instant; recording it happens behind the next screen. */
-  async function finish(to: "start" | "shopCode") {
-    if (leaving) return;
-    setLeaving(true);
-    const replay = !profile?.welcomePending;
-    const remembered = takeRememberedRoute();
-    if (profile && !replay) {
-      await updateProfile({ ...profile, welcomePending: false });
-      // Best effort: a failed write only means the tour opens once more next time.
-      authApi
-        .welcomeSeen()
-        .then((fresh) => updateProfile(fresh))
-        .catch(() => {});
-    }
-    if (to === "shopCode") {
-      router.replace("/add-shop-code");
-    } else if (replay && router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace((remembered ?? "/home") as Href);
-    }
-  }
+  /**
+   * End the first run. Leaving is instant; recording it happens behind the next screen,
+   * and the session sends it again at the next start if it does not get through.
+   */
+  const finish = (to: "start" | "shopCode") =>
+    leaving.run(async () => {
+      const replay = !profile?.welcomePending;
+      const remembered = takeRememberedRoute();
+      if (!replay) void markWelcomeSeen().catch(() => {});
+      if (to === "shopCode") {
+        router.replace("/add-shop-code");
+      } else if (replay && router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace((remembered ?? "/home") as Href);
+      }
+    });
 
   return (
     <View style={[styles.fill, { backgroundColor: colors.bg, paddingTop: insets.top }]}>
@@ -122,7 +118,7 @@ export default function Tour() {
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={onSettled}
+        onScroll={onScroll}
         scrollEventThrottle={16}
         style={styles.fill}
       >
@@ -185,7 +181,7 @@ export default function Tour() {
         </View>
         {last ? (
           <View style={{ gap: space.sm }}>
-            <Button label={t("onboarding.tour.start")} onPress={() => finish("start")} loading={leaving} />
+            <Button label={t("onboarding.tour.start")} onPress={() => finish("start")} loading={leaving.busy} />
             <Button variant="secondary" label={t("onboarding.tour.haveCode")} onPress={() => finish("shopCode")} />
           </View>
         ) : (

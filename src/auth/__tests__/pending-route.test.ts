@@ -24,6 +24,7 @@ describe("isRememberablePath", () => {
     ["the Google callback", "/sign-in/callback#code=x"],
     ["the first run", "/about-you"],
     ["the tour", "/tour"],
+    ["the web-only screen", "/web-only"],
     ["the dev index", "/dev"],
     ["something huge", `/${"a".repeat(600)}`],
   ])("refuses %s", (_why, path) => {

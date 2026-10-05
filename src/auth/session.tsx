@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -20,6 +21,14 @@ import { secureTokenStore } from "./token-store";
 
 /** The profile is not secret; it is cached so the app can open offline (A1). */
 const PROFILE_CACHE_KEY = "hv.profile";
+/**
+ * The id of an account whose first run ended on this phone while POST /welcome/seen had
+ * not got through. Sent again at the next start, so a lost request does not ask the
+ * role question a second time.
+ */
+const WELCOME_SEEN_PENDING_KEY = "hv.welcomeSeenPending";
+/** Sign-out never waits longer than this for the server to hear about it. */
+const LOGOUT_WAIT_MS = 3000;
 
 export type SessionState =
   | { status: "loading" }
@@ -42,6 +51,12 @@ export interface SessionValue {
   refreshProfile(): Promise<UserProfile | null>;
   /** Use a profile the server just returned (PATCH /profile, /welcome/seen) without another fetch. */
   updateProfile(profile: UserProfile): Promise<void>;
+  /**
+   * The first run is over (A10/A11). Recorded on this phone at once; if the server does
+   * not hear about it, it is sent again at the next start — and this throws, for a caller
+   * that needs to know.
+   */
+  markWelcomeSeen(): Promise<UserProfile>;
   signOut(): Promise<void>;
   /** Try the start-up restore again (from the "can't reach" state). */
   retry(): void;
@@ -67,6 +82,23 @@ async function readCachedProfile(): Promise<UserProfile | null> {
   }
 }
 
+/**
+ * At start-up: if this account's first run ended here but the server never heard, say
+ * so again now. Offline again → treat it as over anyway; the next start retries.
+ */
+async function finishPendingWelcome(profile: UserProfile): Promise<UserProfile> {
+  if (!profile.welcomePending) return profile;
+  const pendingFor = await AsyncStorage.getItem(WELCOME_SEEN_PENDING_KEY).catch(() => null);
+  if (pendingFor !== profile.id) return profile;
+  try {
+    const fresh = await authApi.welcomeSeen();
+    await AsyncStorage.removeItem(WELCOME_SEEN_PENDING_KEY).catch(() => {});
+    return fresh;
+  } catch {
+    return { ...profile, welcomePending: false };
+  }
+}
+
 function previewProfile(role: UserRole): UserProfile {
   return { id: "preview", name: "Preview", provider: "LOCAL", role, switchTo: null };
 }
@@ -79,11 +111,31 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setState({ status: "signedIn", profile, preview: false });
   }, []);
 
+  /**
+   * A newer copy of the SAME account, applied only if that account is still signed in —
+   * an answer that lands after a sign-out (or a switch to another profile) is dropped,
+   * instead of bringing the old session back on screen.
+   */
+  const signedInId = useRef<string | null>(null);
+  useEffect(() => {
+    signedInId.current = state.status === "signedIn" && !state.preview ? state.profile.id : null;
+  }, [state]);
+
+  const applyProfile = useCallback(async (profile: UserProfile) => {
+    if (!tokens.hasSession() || signedInId.current !== profile.id) return;
+    setState((prev) =>
+      prev.status === "signedIn" && !prev.preview && prev.profile.id === profile.id
+        ? { status: "signedIn", profile, preview: false }
+        : prev,
+    );
+    await cacheProfile(profile);
+  }, []);
+
   const forget = useCallback(async (byChoice = false) => {
     forgetRememberedRoute();
     await tokens.clear();
     queryClient.clear();
-    await AsyncStorage.removeItem(PROFILE_CACHE_KEY).catch(() => {});
+    await AsyncStorage.multiRemove([PROFILE_CACHE_KEY, WELCOME_SEEN_PENDING_KEY]).catch(() => {});
     setState({ status: "signedOut", byChoice });
   }, []);
 
@@ -97,7 +149,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const profile = await authApi.profile();
+        const profile = await finishPendingWelcome(await authApi.profile());
         await cacheProfile(profile);
         if (!cancelled) signedIn(profile);
       } catch (err) {
@@ -135,7 +187,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         });
         if (response.deviceToken) await secureTokenStore.writeDeviceToken(response.deviceToken);
         // The profile endpoint is the authoritative copy (it carries the first-run flags).
-        const profile = await authApi.profile();
+        let profile: UserProfile;
+        try {
+          profile = await authApi.profile();
+        } catch (err) {
+          // Never leave tokens saved behind a screen that says "signed out": the next
+          // start would sign this person in without them knowing. They try again.
+          await tokens.clear();
+          throw err;
+        }
         await cacheProfile(profile);
         signedIn(profile);
         return profile;
@@ -144,21 +204,40 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       async refreshProfile() {
         if (state.status !== "signedIn" || state.preview) return null;
         const profile = await authApi.profile();
-        await cacheProfile(profile);
-        signedIn(profile);
+        await applyProfile(profile);
         return profile;
       },
 
       async updateProfile(profile) {
         if (state.status !== "signedIn" || state.preview) return;
-        await cacheProfile(profile);
-        signedIn(profile);
+        await applyProfile(profile);
+      },
+
+      async markWelcomeSeen() {
+        if (state.status !== "signedIn") throw new Error("markWelcomeSeen() needs a signed-in session");
+        const { profile } = state;
+        if (state.preview) return profile;
+        await AsyncStorage.setItem(WELCOME_SEEN_PENDING_KEY, profile.id).catch(() => {});
+        try {
+          const fresh = await authApi.welcomeSeen();
+          await AsyncStorage.removeItem(WELCOME_SEEN_PENDING_KEY).catch(() => {});
+          await applyProfile(fresh);
+          return fresh;
+        } catch (err) {
+          // Over on this phone regardless; the next start sends it again.
+          await applyProfile({ ...profile, welcomePending: false });
+          throw err;
+        }
       },
 
       async signOut() {
         if (tokens.hasSession()) {
-          // Best effort: revoke on the server, but sign out locally whatever happens.
-          await authApi.logout().catch(() => {});
+          // Best effort: tell the server, but never keep someone waiting on a dead
+          // connection — signing out locally is what they asked for.
+          await Promise.race([
+            authApi.logout().catch(() => {}),
+            new Promise((resolve) => setTimeout(resolve, LOGOUT_WAIT_MS)),
+          ]);
         }
         await forget(true);
       },
@@ -177,7 +256,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         );
       },
     }),
-    [state, forget, signedIn],
+    [state, applyProfile, forget, signedIn],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

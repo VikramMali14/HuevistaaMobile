@@ -20,6 +20,17 @@ export interface PhoneFieldProps
  * An Indian mobile number: a fixed +91 in front, the number pad, and the digits grouped
  * 5-5 the way they are read aloud ("98765 43210"). Styled exactly like TextField.
  */
+/**
+ * The digits after an edit. Deleting the space between the two groups would leave the
+ * digits unchanged — the field would seem to ignore the key — so that deletes the digit
+ * before the space instead.
+ */
+export function nextDigits(text: string, previous: string): string {
+  const digits = mobileDigits(text).slice(0, 10);
+  const deletedTheSpace = digits === previous && text.length < formatMobileForDisplay(previous).length;
+  return deletedTheSpace ? previous.slice(0, 4) + previous.slice(5) : digits;
+}
+
 export const PhoneField = forwardRef<TextInput, PhoneFieldProps>(function PhoneField(
   { label, value, onChangeDigits, hint, error, editable = true, onFocus, onBlur, ...rest },
   ref,
@@ -44,7 +55,7 @@ export const PhoneField = forwardRef<TextInput, PhoneFieldProps>(function PhoneF
         <TextInput
           ref={ref}
           value={formatMobileForDisplay(value)}
-          onChangeText={(text) => onChangeDigits(mobileDigits(text).slice(0, 10))}
+          onChangeText={(text) => onChangeDigits(nextDigits(text, value))}
           // The number pad, not the phone pad: +91 is fixed, so only digits are needed.
           // No maxLength — it would cut a pasted "+91 98765 43210" before it is cleaned;
           // mobileDigits() drops the prefix and the slice keeps ten digits.

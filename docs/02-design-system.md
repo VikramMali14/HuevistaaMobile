@@ -143,11 +143,11 @@ that need it. ✅ = included in the starting scaffold.
 |---|---|---|
 | `Screen` ✅ | Safe-area page with the warm background, optional scroll, keyboard avoidance | — |
 | `Text` ✅ | Every text role above, theme-aware | — |
-| `Button` ✅ | A capsule, mapped from the website: `primary` ← `.btn-brass` (brass, ink text) · `secondary` ← `.btn-ghost` (outline, `ruleStrong`) · `danger` ← `.btn-warm` (`warmFill`, white text) · `ghost` = a text link in `accentText`. Label Inter 600 16 | default · pressed (fills fade to .85, outlines raise to `surfaceSoft`) · **disabled (drained: `surfaceSoft`, `fgMute` text, `ruleStrong`, .55 — never a faded brass)** · loading |
+| `Button` ✅ | A capsule, mapped from the website: `primary` ← `.btn-brass` (brass, ink text) · `secondary` ← `.btn-ghost` (outline, `ruleStrong`) · `danger` ← `.btn-warm` (`warmFill`, white text) · `ghost` = a text link in `accentText`; inline (`block={false}`) its words line up with the text above. Label Inter 600 16, wrapping to two lines (never an ellipsis) at large text sizes | default · pressed (fills fade to .85, outlines raise to `surfaceSoft`) · **disabled (drained: `surfaceSoft`, `fgMute` text, `ruleStrong`, .55 — never a faded brass)** · loading |
 | `IconButton` | Round, 48 dp target | default · pressed · disabled |
 | `TextField` ✅ | ← `.field`: `fieldLabel` above in `fgSoft`; box `surface`, 1 dp `ruleStrong`, radius 16, padding 13/14, Inter 16; placeholder `fgMuteDeep`; error Inter 500 13 in `dangerText` | empty · focused (border `fg` — brass would be 2.7:1 on paper) · filled · error (border `dangerText`) · disabled |
-| `PhoneField` | `+91` prefix, numeric pad, groups digits 5-5 | as TextField |
-| `CodeInput` | 6 boxes for texted/emailed codes; paste and SMS autofill | as TextField |
+| `PhoneField` | `+91` prefix, numeric pad, groups digits 5-5; deleting the space deletes the digit before it | as TextField |
+| `CodeInput` | 6 boxes for texted/emailed codes; paste (the digits are picked out of a whole SMS) and SMS autofill | as TextField |
 | `ShopCodeInput` | Character boxes for a shop's access code | as TextField |
 | `Card` ✅ | `surface`, radius 16, 1 dp `rule`, padding 20; `lit` = brass top edge | default · pressed (`surfaceSoft`, if tappable) |
 | `ListRow` | Icon, title, subtitle, trailing value/chevron | default · pressed · destructive |

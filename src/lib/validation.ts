@@ -32,6 +32,17 @@ export function validateMobile(value: string): MessageKey | null {
   return isIndianMobile(value) ? null : "validation.mobile";
 }
 
+/** Longest name the app accepts — the backend's limit for a name given with a mobile sign-up. */
+export const NAME_MAX = 80;
+
+/** A name: the backend wants at least two characters (PATCH /api/auth/profile). */
+export function validateName(value: string): MessageKey | null {
+  const name = value.trim();
+  if (!name) return "validation.nameRequired";
+  if (name.length < 2) return "validation.nameShort";
+  return null;
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function validateEmail(value: string): MessageKey | null {

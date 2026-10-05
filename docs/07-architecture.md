@@ -136,14 +136,26 @@ anything else                   → /web-only
 
 ## Session
 
-`src/auth/session.tsx` holds `{ status: "loading" | "signedOut" | "signedIn", profile }`
-and exposes `completeSignIn(authResponse)`, `refreshProfile()`, `signOut()`.
+`src/auth/session.tsx` holds `{ status: "loading" | "unreachable" | "signedOut" | "signedIn", profile }`
+and exposes `completeSignIn(authResponse)`, `refreshProfile()`, `updateProfile(profile)`,
+`markWelcomeSeen()`, `signOut()`.
 
 - Tokens: secure storage keys `hv.access`, `hv.refresh`, and `hv.device` (the shop
   "trusted device" token from A8 — kept across sign-outs, like the website).
 - The profile is cached in AsyncStorage so the app opens offline (A1).
-- `signOut()` calls `POST /api/auth/logout` (best effort), clears tokens and the query
-  cache.
+- `completeSignIn()` saves the tokens, then loads the profile; if that load fails the
+  tokens are cleared again, so a screen that says "not signed in" never hides a saved
+  session.
+- `refreshProfile()` / `updateProfile()` only apply to the account that is still signed
+  in — an answer that lands after a sign-out or a profile switch is dropped.
+- `markWelcomeSeen()` ends the first run on this phone at once and retries
+  `POST /api/auth/welcome/seen` at the next start if it did not get through
+  (`hv.welcomeSeenPending`).
+- `signOut()` tells the server (`POST /api/auth/logout`) but waits at most 3 s for it,
+  then clears tokens, the query cache and the cached profile. `signedOut.byChoice`
+  stops guards remembering a page for whoever signs in next (A1).
+- Forms submit through `useSubmit()` (`src/lib/use-submit.ts`): one request at a time,
+  even when a code's sixth digit and a tap land in the same frame.
 
 ## Google sign-in
 

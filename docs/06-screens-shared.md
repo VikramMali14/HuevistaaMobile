@@ -87,8 +87,12 @@ account** (`danger`) → `DELETE /api/auth/account` → clear the session → A2
 
 **Route** `(account)/web-only.tsx` · **Phase** 1
 
-For `RETAILER`, `DISTRIBUTOR` and `ADMIN`:
-- "Shop tools live on the website" + **Open HueVistaa for shops** (browser).
+For `RETAILER`, `DISTRIBUTOR` and `ADMIN` — anyone else who reaches the address is sent
+to their own home, and it is never remembered across sign-in (A1):
+- "Shop tools live on the website" + **Open HueVistaa for shops** → `/dashboard`
+  (browser). A distributor reads "Distributor tools…", an admin "Admin tools…" with
+  **Open the website** → `/admin`; a signed-out browser is sent on to the shops' site to
+  sign in.
 - `switchTo = "CUSTOMER"` (a shop with its customer profile on) → **Continue as
   customer** → `POST /api/auth/profiles/switch { deviceToken, refreshToken }` → new
   session → `/home` (or A10 on the profile's first run). This direction never asks for

@@ -25,8 +25,9 @@ does this job — read it before building; its edge cases are already solved the
    were on when the session ran out — is remembered and opened after sign-in instead of
    home (after the first run, for a new account). It is kept in memory only, and is
    **not** kept after the person signs out themselves: whoever signs in next on this
-   phone may be someone else. The sign-in and first-run screens and the bare root are
-   never remembered (`src/auth/pending-route.ts`).
+   phone may be someone else. The sign-in and first-run screens, the web-only screen
+   (S10 belongs to a role, not to a link) and the bare root are never remembered
+   (`src/auth/pending-route.ts`).
 
 **States:**
 - **Offline with a saved session:** open the role's home from the cached profile with
@@ -87,11 +88,15 @@ shows under the field. Sent as `+91…`.
 
 **Route** `app/(auth)/phone-code.tsx` · **Phase** 1
 
-**Layout:** "We texted a code to …3210" · `CodeInput` (6 boxes) · "Resend in 0:42"
-counting down from the server's `resendAfterSeconds` · "Change number".
+**Layout:** "We texted a code to +91 98765 43210" · `CodeInput` (6 boxes) · "Resend in
+0:42" counting down from the server's `resendAfterSeconds` · "Change number". The number
+is shown in full, as typed — it is the person's own, on their own phone, and seeing it is
+how a typo is caught before the code never arrives.
 
 **Behaviour:** SMS autofill (`autoComplete="sms-otp"`, `textContentType="oneTimeCode"`),
-paste fills all boxes, submits by itself on the sixth digit.
+paste fills all boxes — the digits are picked out of a pasted "123 456" or a whole SMS —
+and it submits by itself on the sixth digit. The code is sent once even when the sixth
+digit and a tap on Continue land together.
 
 **API:** `POST /api/auth/phone/verify { phone, code, deviceToken? }` → `AuthResponse`.
 A number the backend has never seen gets a new `CUSTOMER` account in the same step. Save
@@ -100,7 +105,9 @@ the tokens, load the profile, route as in A1.
 **States:** wrong or expired code → shake, the boxes clear, and the backend's own words
 under them ("Incorrect code. 2 attempts left.") · an admin's number → "Admin accounts
 sign in on the website" · resend uses `POST /api/auth/phone/start` again and restarts
-the countdown on its new `resendAfterSeconds`.
+the countdown on its new `resendAfterSeconds`; a failed resend is said beside the link,
+not on the code boxes · opened without a number (a stale link, the app restarted
+part-way) → "We don't know which number this code is for" with **Enter your number**.
 
 ---
 
@@ -120,7 +127,12 @@ the countdown on its new `resendAfterSeconds`.
 - `twoFactorRequired: true` (admin accounts) → "Admin accounts sign in on the website"
   with a link. The app does not handle admin sign-in.
 - 401 → "That email and password don't match." (Same words for an unknown email — the
-  backend does not reveal which accounts exist, and neither do we.)
+  backend does not reveal which accounts exist, and neither do we.) Under it, the
+  likeliest reason a right password fails: "If you signed up with Google or a mobile
+  number, sign in that way instead — or set a password under Forgot password." Said to
+  everyone, so it gives nothing away.
+- 429 (the account is locked after failed tries) → the backend's own words, which say
+  how long to wait.
 
 Opens with the email filled in when a screen hands one over (A6 "Sign in instead", A7
 after a reset).
@@ -140,7 +152,10 @@ Then A10 (the role choice).
 
 **States:** 409 "Email already in use: …" → "That email already has an account." with
 a **Sign in instead** button that carries the email across. Each field's rule shows
-under it after the first try; the backend's `fieldErrors` go under their fields.
+under it after the first try; the backend's `fieldErrors` go under their fields. The
+name needs two characters and stops at 80 (the backend's limits). "Already have an
+account?" and "Sign in instead" go back to the A5 already underneath, rather than
+stacking a second one.
 
 ---
 
@@ -162,7 +177,9 @@ sign-in needs the email, and the texted code is the quicker way back in). Resett
 signs out every other device.
 
 A new code can be asked for after 30 s; "Use a different email or number" returns to
-step 1 with what was typed kept. A wrong code shows the backend's words at the boxes.
+step 1 with what was typed kept. A wrong or expired code (400) shows the backend's words
+at the boxes, which clear. No connection, a 429 or a server fault is said in a banner and
+the code stays — it may still be good.
 
 ---
 
@@ -221,15 +238,16 @@ sign in on the website".
 
 **When:** the profile says `namePending` or `welcomePending` — a brand-new account.
 
-**Asks only what is still open:** the name on a first run (filled in when the account
-already has a real one, e.g. from Google) or while the account wears its placeholder;
-the role question only for a brand-new `CUSTOMER` account that is not a shop's customer
-profile. An older account whose only gap is the name sees just the name, then goes
-home.
+**Asks only what is still open, decided once on arrival:** the name only while the
+account wears its placeholder (`namePending` — a mobile sign-up). A name typed on A6 or
+given by Google is not asked for again, as on the website. The role question only for a
+brand-new `CUSTOMER` account that is not a shop's customer profile. With nothing to ask
+(a shop's customer profile, a painter who already has a name) the screen shows "Getting
+things ready…" and moves straight on. **Not you? Sign out** is always there: someone
+who signed in with the wrong Google account has a way out that is not through.
 
 **Layout:**
-- "What should we call you?" — name field (empty when the account still wears the
-  placeholder name).
+- "What should we call you?" — name field, two to 80 characters.
 - "How will you use HueVistaa?" — two large choice cards:
   - **I'm painting my home** — "Try shades on your own walls and take home a colour
     board."
@@ -245,7 +263,9 @@ profile, now `PAINTER`) → `/painter`, or the page remembered in A1. The tour i
 customer's, so a painter's first run ends here. Customer → A11.
 
 **States:** `POST /api/painters/me` refused (the account already has rooms or a shop
-code) → show the backend's reason and keep them as a customer.
+code) → show the backend's reason and keep them as a customer. Connection lost after
+becoming a painter → the error, and **Continue** again finishes the job (becoming a
+painter twice is a no-op).
 
 ---
 
@@ -264,7 +284,8 @@ Last card has two buttons: **Start** → `/home` (or the page remembered in A1),
 **I have a code from my shop** → C30.
 
 **API:** `POST /api/auth/welcome/seen` on Start, Skip or the shop-code button — all
-three count as shown. Leaving is instant and the write happens behind the next screen:
-a failed write only means the tour opens once more next time, which beats a tour that
-will not close offline. "Show me around" in S1 replays it (an account whose first run
+three count as shown. Leaving is instant and the write happens behind the next screen.
+If it does not get through, the first run is still over on this phone, and the session
+sends it again at the next start (`hv.welcomeSeenPending`) — so a dropped request never
+asks the role question a second time. "Show me around" in S1 replays it (an account whose first run
 is over: nothing is written, and Start goes back).

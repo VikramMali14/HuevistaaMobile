@@ -9,6 +9,7 @@ import { authErrorMessage } from "@/features/auth/errors";
 import { formatCountdown, useCountdown } from "@/features/auth/use-countdown";
 import { useFinishSignIn } from "@/features/auth/use-finish-sign-in";
 import { t } from "@/i18n";
+import { useSubmit } from "@/lib/use-submit";
 import { useTheme } from "@/theme";
 
 /** The backend allows a resend thirty seconds after the last code. */
@@ -34,45 +35,48 @@ export default function ShopEmailCode() {
   const [hint, setHint] = useState(params.hint ?? "");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [resending, setResending] = useState(false);
+  const [resendError, setResendError] = useState<string | null>(null);
+  const verifying = useSubmit();
+  const resending = useSubmit();
   const countdown = useCountdown(RESEND_AFTER);
 
-  async function verify(entered: string) {
-    if (busy || !challenge) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const response = await authApi.shopEmailCode({ challengeToken: challenge, code: entered });
-      await finish(response);
-      // The (auth) layout takes the shop to S10.
-    } catch (err) {
-      setError(authErrorMessage(err));
-      setCode("");
-      codeRef.current?.shake();
-      codeRef.current?.focus();
-    } finally {
-      setBusy(false);
-    }
-  }
+  const verify = (entered: string) => {
+    if (!challenge || entered.length !== 6) return;
+    void verifying.run(async () => {
+      setError(null);
+      setResendError(null);
+      try {
+        const response = await authApi.shopEmailCode({ challengeToken: challenge, code: entered });
+        await finish(response);
+        // The (auth) layout takes the shop to S10.
+      } catch (err) {
+        setError(authErrorMessage(err));
+        setCode("");
+        codeRef.current?.shake();
+        codeRef.current?.focus();
+      }
+    });
+  };
 
-  async function resend() {
-    if (!countdown.done || resending || !challenge) return;
-    setResending(true);
-    setError(null);
-    try {
-      const next = await authApi.shopEmailCodeResend(challenge);
-      if (next.challengeToken) setChallenge(next.challengeToken);
-      if (next.emailHint) setHint(next.emailHint);
-      setCode("");
-      countdown.restart(RESEND_AFTER);
-      toast.show(t("auth.shopCode.resent"), "success");
-    } catch (err) {
-      setError(authErrorMessage(err));
-    } finally {
-      setResending(false);
-    }
-  }
+  const resend = () => {
+    if (!countdown.done || !challenge) return;
+    void resending.run(async () => {
+      setError(null);
+      setResendError(null);
+      try {
+        const next = await authApi.shopEmailCodeResend(challenge);
+        if (next.challengeToken) setChallenge(next.challengeToken);
+        if (next.emailHint) setHint(next.emailHint);
+        setCode("");
+        countdown.restart(RESEND_AFTER);
+        toast.show(t("auth.shopCode.resent"), "success");
+        codeRef.current?.focus();
+      } catch (err) {
+        // About sending ("at most three resends…"), not about the code.
+        setResendError(authErrorMessage(err));
+      }
+    });
+  };
 
   // Opened without a pending sign-in (a stale link, or the app was restarted mid-way).
   if (!challenge) {
@@ -96,10 +100,10 @@ export default function ShopEmailCode() {
       lead={hint ? t("auth.shopCode.sentTo", { hint }) : t("auth.shopCode.sentToGeneric")}
       footer={
         <Button
-          label={busy ? t("auth.code.verifying") : t("common.continue")}
+          label={verifying.busy ? t("auth.code.verifying") : t("common.continue")}
           onPress={() => verify(code)}
           disabled={code.length !== 6}
-          loading={busy}
+          loading={verifying.busy}
         />
       }
     >
@@ -113,16 +117,17 @@ export default function ShopEmailCode() {
         }}
         onComplete={verify}
         error={error}
-        editable={!busy}
+        editable={!verifying.busy}
         autoFocus
         testID="shop-code-input"
       />
       <Text variant="small" tone="soft">
         {t("auth.shopCode.why")}
       </Text>
+      {resendError ? <Banner tone="danger" message={resendError} /> : null}
       <View>
         {countdown.done ? (
-          <Button variant="ghost" block={false} label={t("auth.shopCode.resend")} onPress={resend} loading={resending} />
+          <Button variant="ghost" block={false} label={t("auth.shopCode.resend")} onPress={resend} loading={resending.busy} />
         ) : (
           <Text variant="small" tone="mute" accessibilityLiveRegion="polite" style={{ paddingVertical: space.xs }}>
             {t("auth.code.resendIn", { time: formatCountdown(countdown.left) })}

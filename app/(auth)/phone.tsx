@@ -6,6 +6,7 @@ import { Banner, Button, PhoneField } from "@/components/ui";
 import { AuthScreen } from "@/features/auth/AuthScreen";
 import { authErrorMessage, fieldError } from "@/features/auth/errors";
 import { t } from "@/i18n";
+import { useSubmit } from "@/lib/use-submit";
 import { isIndianMobile, mobileDigits, toE164India } from "@/lib/validation";
 
 /**
@@ -21,33 +22,32 @@ export default function PhoneNumber() {
   const [digits, setDigits] = useState(() => mobileDigits(params.digits ?? "").slice(0, 10));
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const { busy, run } = useSubmit();
 
   const complete = digits.length === 10;
   const valid = isIndianMobile(digits);
   // Only complain once ten digits are in and they still are not a mobile number.
   const shownError = error ?? (complete && !valid ? t("validation.mobile") : null);
 
-  async function send() {
-    if (!valid || busy) return;
-    setBusy(true);
-    setError(null);
-    setFormError(null);
-    const phone = toE164India(digits);
-    try {
-      const sent = await authApi.phoneStart(phone);
-      router.push({
-        pathname: "/phone-code",
-        params: { phone, masked: sent.phone, resendAfter: String(sent.resendAfterSeconds) },
-      });
-    } catch (err) {
-      const onField = fieldError(err, "phone");
-      if (onField) setError(onField);
-      else setFormError(authErrorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const send = () => {
+    if (!valid) return;
+    void run(async () => {
+      setError(null);
+      setFormError(null);
+      const phone = toE164India(digits);
+      try {
+        const sent = await authApi.phoneStart(phone);
+        router.push({
+          pathname: "/phone-code",
+          params: { phone, resendAfter: String(sent.resendAfterSeconds) },
+        });
+      } catch (err) {
+        const onField = fieldError(err, "phone");
+        if (onField) setError(onField);
+        else setFormError(authErrorMessage(err));
+      }
+    });
+  };
 
   return (
     <AuthScreen

@@ -4,6 +4,7 @@ import {
   normalizeShopCode,
   toE164India,
   validateEmail,
+  validateName,
   validateNewPassword,
   validateShopCode,
 } from "../validation";
@@ -43,5 +44,14 @@ describe("other fields", () => {
     expect(normalizeShopCode(" 7k2nq9px ")).toBe("7K2NQ9PX");
     expect(validateShopCode("7k2nq9px")).toBeNull();
     expect(validateShopCode("7K2NQ9")).toBe("validation.shopCode");
+  });
+});
+
+describe("validateName", () => {
+  it("wants at least two letters, ignoring spaces around", () => {
+    expect(validateName("")).toBe("validation.nameRequired");
+    expect(validateName("   ")).toBe("validation.nameRequired");
+    expect(validateName(" P ")).toBe("validation.nameShort");
+    expect(validateName("Al")).toBeNull();
   });
 });

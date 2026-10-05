@@ -48,7 +48,8 @@ export function messageFor(err: unknown, fallback: string = t("errors.generic"))
   if (err.kind === "network") return t("errors.network");
   if (err.kind === "timeout") return t("errors.timeout");
   if (err.status === 401) return t("errors.sessionEnded");
-  if (err.status === 429) return t("errors.tooMany");
+  // The backend's 429s say how long to wait ("Try again in about 12 minutes").
+  if (err.status === 429) return err.message || t("errors.tooMany");
   if (err.status >= 500) return t("errors.server");
   return err.message || fallback;
 }

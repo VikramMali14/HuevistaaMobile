@@ -64,6 +64,8 @@ export const en = {
       resent: "A new code is on its way.",
       changeNumber: "Change number",
       verifying: "Checking…",
+      lost: "We don't know which number this code is for. Enter your number again.",
+      enterNumber: "Enter your number",
     },
     email: {
       title: "Sign in with email",
@@ -71,6 +73,7 @@ export const en = {
       forgot: "Forgot password?",
       createAccount: "New here? Create an account",
       badCredentials: "That email and password don't match.",
+      otherWays: "If you signed up with Google or a mobile number, sign in that way instead — or set a password under Forgot password.",
       adminTitle: "Admin accounts sign in on the website",
       adminBody: "HueVistaa's admin tools are on the website. Sign in there.",
       openWebsite: "Open the website",
@@ -127,6 +130,8 @@ export const en = {
         "A painter account is for work. You can't use it to plan your own rooms — that needs a separate account.",
       chooseOne: "Choose how you'll use HueVistaa.",
       nameNeeded: "Tell us what to call you.",
+      notYou: "Not you? Sign out",
+      finishing: "Getting things ready…",
     },
     tour: {
       step1Start: "Photograph a ",
@@ -149,6 +154,9 @@ export const en = {
   },
   webOnly: {
     title: "Shop tools live on the website",
+    titleDistributor: "Distributor tools live on the website",
+    titleAdmin: "Admin tools live on the website",
+    openSite: "Open the website",
     body: "HueVistaa for shops, distributors and our team works on a wide screen at the counter or the desk — so it's on the website, not in this app.",
     openWebsite: "Open HueVistaa for shops",
     customerTitle: "Painting your own home too?",
@@ -190,6 +198,7 @@ export const en = {
     passwordHint: "At least eight characters, with a letter and a number.",
     shopCode: "Shop codes are 8 letters and numbers.",
     nameRequired: "Tell us your name.",
+    nameShort: "Use at least two letters.",
   },
   disclaimer: {
     shades:

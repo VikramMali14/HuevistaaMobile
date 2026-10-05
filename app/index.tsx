@@ -11,8 +11,8 @@ import { useTheme } from "@/theme";
  * A1 · "Where should this person go?" — every app start lands here.
  * Spec: docs/03-screens-auth.md — A1.
  *
- * TODO(A1, Phase 1): remember a deep link that opened the app (D1/D2) and open it
- * after this decision.
+ * A deep link that opened the app goes straight to its own route instead; if that
+ * needs a sign-in, the route's guard remembers it for afterwards (src/auth/guards.tsx).
  */
 export default function Start() {
   const { state, retry } = useSession();

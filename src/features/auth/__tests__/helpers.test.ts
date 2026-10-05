@@ -15,10 +15,19 @@ describe("authErrorMessage", () => {
     expect(authErrorMessage(new ApiError("http", 401, "That account is closed."))).toBe("That account is closed.");
   });
 
-  it("uses the app's sentences for rate limits, server faults and no connection", () => {
-    expect(authErrorMessage(new ApiError("http", 429, "Too Many Requests"))).toBe(
-      "Too many tries. Wait a few minutes and try again.",
+  it("shows how long to wait when the server says, and the app's own sentence when not", () => {
+    expect(authErrorMessage(new ApiError("http", 429, "Too many failed attempts. Try again in about 12 minutes."))).toBe(
+      "Too many failed attempts. Try again in about 12 minutes.",
     );
+    expect(authErrorMessage(new ApiError("http", 429, ""))).toBe("Too many tries. Wait a few minutes and try again.");
+  });
+
+  it("names the field when a form error carries one", () => {
+    const err = new ApiError("http", 400, "Some fields need your attention.", { code: "The code is six digits." });
+    expect(authErrorMessage(err)).toBe("The code is six digits.");
+  });
+
+  it("uses the app's sentences for server faults and no connection", () => {
     expect(authErrorMessage(new ApiError("http", 503, "upstream"))).toBe(
       "Something went wrong on our side. Try again in a moment.",
     );
