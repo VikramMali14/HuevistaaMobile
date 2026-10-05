@@ -69,24 +69,29 @@ export function VerifyFlow({
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
+  /** A resend that failed, on the code step — not the code's fault, so not under the boxes. */
+  const [resendError, setResendError] = useState<string | null>(null);
   const countdown = useCountdown(0);
   const sending = useSubmit();
   const confirming = useSubmit();
 
   const sendCode = (toNew: boolean) =>
     void sending.run(async () => {
-      setError(null);
       setInputError(null);
+      setResendError(null);
+      if (step !== "code") setError(null);
       try {
         const status = await send(toNew);
         setUsingNew(toNew);
         setDestination(status.destination);
         countdown.restart(status.cooldownSeconds);
         setCode("");
+        setError(null);
         setStep("code");
       } catch (err) {
         const message = authErrorMessage(err);
         if (step === "enter") setInputError(message);
+        else if (step === "code") setResendError(message);
         else setError(message);
       }
     });
@@ -153,10 +158,12 @@ export function VerifyFlow({
             label={t(strings.different)}
             onPress={() => {
               setError(null);
+              setResendError(null);
               setStep("enter");
             }}
           />
         </View>
+        {resendError ? <Banner tone="danger" message={resendError} /> : null}
       </FormScreen>
     );
   }
@@ -171,7 +178,15 @@ export function VerifyFlow({
       >
         {renderInput({ error: inputError, submit: () => inputReady && sendCode(true), clearError: () => setInputError(null) })}
         {current ? (
-          <Button variant="ghost" block={false} label={t("common.cancel")} onPress={() => setStep("view")} />
+          <Button
+            variant="ghost"
+            block={false}
+            label={t("common.cancel")}
+            onPress={() => {
+              setInputError(null);
+              setStep("view");
+            }}
+          />
         ) : null}
       </FormScreen>
     );

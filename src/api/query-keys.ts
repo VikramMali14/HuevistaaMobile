@@ -1,7 +1,7 @@
 /**
  * Every cache key in one place, so a change can say exactly what it made stale (a shop
  * code changes the balance, the catalogue and the products at once). The whole cache is
- * cleared on sign-out, so keys need not carry the account.
+ * cleared on sign-out and on a switch of profile, so keys need not carry the account.
  */
 export const keys = {
   entitlement: ["me", "entitlement"] as const,
@@ -21,13 +21,15 @@ export const keys = {
 /**
  * What a redeemed shop code changes. The rooms are read again as well: whether a room is
  * open, and for how long, can depend on the shop behind the account.
+ *
+ * `shopCodeBalance` is what the next screen needs right away (the "Start a room" button
+ * after a code leads straight to spending one) and is waited for; the rest reloads behind
+ * it — the catalogue alone can take many seconds on a slow connection.
  */
+export const shopCodeBalance = [keys.entitlement, keys.projectOptions, keys.aiCredits, keys.projects] as const;
 export const shopCodeChanges = [
-  keys.entitlement,
-  keys.projects,
+  ...shopCodeBalance,
   keys.renders,
-  keys.projectOptions,
-  keys.aiCredits,
   keys.assignedProducts,
   keys.catalogue,
   keys.shadeScheme,

@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 
 import { libraryApi } from "@/api/endpoints/library";
 import { isApiError, messageFor } from "@/api/errors";
@@ -18,6 +18,8 @@ import {
   Text,
 } from "@/components/ui";
 import { useLibrary } from "@/features/library/use-library";
+import { byRecentActivity, isInProgress } from "@/features/rooms/room-status";
+import { useProjects } from "@/features/rooms/use-rooms";
 import { t } from "@/i18n";
 import { useSubmit } from "@/lib/use-submit";
 import { hairline, useTheme } from "@/theme";
@@ -33,15 +35,18 @@ export default function LibraryRoom() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { colors, space, radius } = useTheme();
+  const viewport = useWindowDimensions();
   const { slug = "" } = useLocalSearchParams<{ slug: string }>();
   const library = useLibrary();
   const listed = library.rooms.find((r) => r.slug === slug);
   const fetched = useQuery({
     queryKey: keys.libraryRoom(slug),
     queryFn: () => libraryApi.get(slug),
-    enabled: Boolean(slug) && !listed,
+    // Asked for only once the list has answered without it (a link from outside the list).
+    enabled: Boolean(slug) && !listed && !library.isPending,
   });
   const room = listed ?? fetched.data;
+  const projects = useProjects();
   const starting = useSubmit();
   const [error, setError] = useState<string | null>(null);
 
@@ -80,26 +85,51 @@ export default function LibraryRoom() {
     );
   }
 
+  // Every "Paint this room" makes a new copy (the backend does not reuse one), so a
+  // second visit offers the copy already being painted first. A copy carries the room's
+  // title as its name until its owner renames it.
+  const copy = (projects.data ?? [])
+    .filter((p) => p.fromLibrary && isInProgress(p) && p.name === room.title)
+    .sort(byRecentActivity)[0];
+
   const ratio = room.imageWidth && room.imageHeight ? room.imageWidth / room.imageHeight : 4 / 3;
+  // A tall photo is cropped to half the screen, so the room's name and colours start
+  // above the buttons instead of under them.
+  const photoHeight = Math.min(viewport.width / Math.max(0.6, Math.min(ratio, 1.8)), viewport.height * 0.5);
   const colours = (room.colours ?? []).filter((c) => c?.hex);
 
   return (
     <Screen
       padded={false}
       footer={
-        <View style={{ gap: space.xs }}>
-          <Button label={t("library.paint")} icon="droplet" onPress={paint} loading={starting.busy} />
-          <Text variant="small" tone="mute" align="center">
-            {t("library.free")}
-          </Text>
-        </View>
+        copy ? (
+          <View style={{ gap: space.xs }}>
+            <Text variant="small" tone="mute" align="center">
+              {t("library.haveCopy")}
+            </Text>
+            <Button
+              label={t("library.openCopy")}
+              icon="droplet"
+              onPress={() => router.push({ pathname: "/room/[projectId]", params: { projectId: copy.id } } as Href)}
+              disabled={starting.busy}
+            />
+            <Button variant="ghost" label={t("library.freshCopy")} onPress={paint} loading={starting.busy} />
+          </View>
+        ) : (
+          <View style={{ gap: space.xs }}>
+            <Button label={t("library.paint")} icon="droplet" onPress={paint} loading={starting.busy} />
+            <Text variant="small" tone="mute" align="center">
+              {t("library.free")}
+            </Text>
+          </View>
+        )
       }
     >
       <ScrollView contentContainerStyle={{ paddingBottom: space.xl }}>
         <View style={{ paddingHorizontal: space.gutter }}>
           <BackButton fallback="/library" />
         </View>
-        <RemoteImage url={room.imageUrl} style={{ width: "100%", aspectRatio: Math.max(0.6, Math.min(ratio, 1.8)) }} accessibilityLabel={room.title} />
+        <RemoteImage url={room.imageUrl} style={{ width: "100%", height: photoHeight }} accessibilityLabel={room.title} />
         <View style={{ paddingHorizontal: space.gutter, gap: space.md, marginTop: space.lg }}>
           <View style={{ gap: space.xxs }}>
             {room.roomLabel ? (

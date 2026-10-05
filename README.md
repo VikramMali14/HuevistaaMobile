@@ -31,6 +31,7 @@ out comes back after sign-in.
 shade catalogue (search by code or colour word, works offline), a shade's own page,
 ready-made rooms, adding a shop code, the shop's products, Account, and the account
 screens: settings, name, email, mobile number, password and deleting the account.
+Audited end to end since; what was found and fixed is listed in the roadmap.
 
 **Next: Phase 3 — the studio.** The order is in [docs/08-roadmap.md](docs/08-roadmap.md).
 

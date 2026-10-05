@@ -86,6 +86,31 @@ against a stand-in backend, light and dark. Found on the way: Home's rooms were 
 refreshed after a shop code; the first-visit card's secondary button vanished on the
 photo; a search left the catalogue scrolled past its filters.
 
+**Audit:** 2026-10, every Phase 2 screen, hook and helper read against the backend and
+the website. Fixed, each with a test that failed before it:
+- Shade names and the company were printed while the scheme was loading or had failed
+  (now only on an explicit `true`, as the website's studio reads it).
+- A sign-in that switched profile kept the last profile's rooms, catalogue copy and
+  pictures; one whose new profile could not be read stayed on the old profile.
+- C19 showed shades outside the account's catalogue from the public list; offered
+  rooms still being read or without walls; missed links with a capitalised company.
+- C21 made a duplicate copy on every visit (the backend never reuses one): an
+  unfinished copy now opens first. The room was also fetched twice while the list
+  loaded.
+- C31 hid a shop that had picked nothing out (that means its full range) and never
+  showed the companies a shop unlocked.
+- C30's done screen waited for the whole catalogue to download again.
+- Home and Account greeted and showed the stand-in name of an account with none.
+- S1/S9 offered Delete account on a shop's customer profile (the website does not).
+- S3's refused resend appeared under the code boxes as if the code were wrong; S5's
+  empty current password repeated the field label; S2's unchanged Save could go back
+  to nothing.
+- Pull to refresh spun on every background reload; pictures were downloaded again
+  each time the token refreshed; a picture that failed once stayed failed for a new
+  address.
+- Layout: C21's tall photo pushed the room's name under the buttons; Account's
+  balance squeezed its title onto two lines; C19's status bar now reads on the colour.
+
 ## Phase 3 — The studio
 
 **Start with the colour-engine spike** ([07](07-architecture.md#the-colour-engine-the-biggest-risk)).

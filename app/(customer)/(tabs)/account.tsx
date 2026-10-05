@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 
 import { useSession } from "@/auth/session";
 import { Avatar, Banner, ConfirmSheet, ListGroup, ListRow, Screen, Text } from "@/components/ui";
+import { givenName } from "@/features/account/display-name";
 import { SwitchToShop } from "@/features/account/SwitchToShop";
 import { useBalance } from "@/features/account/use-balance";
 import { useProjects } from "@/features/rooms/use-rooms";
@@ -46,6 +47,7 @@ export default function Account() {
         .join(" · ")
     : undefined;
   const mobile = profile.phoneNumber ? `+91 ${formatMobileForDisplay(profile.phoneNumber)}` : null;
+  const name = givenName(profile);
   const { version, build } = appVersion();
 
   return (
@@ -58,13 +60,13 @@ export default function Account() {
         onPress={linked ? undefined : () => router.push("/edit-name")}
         disabled={linked}
         accessibilityRole={linked ? "summary" : "button"}
-        accessibilityLabel={[profile.name, mobile, profile.email].filter(Boolean).join(", ")}
+        accessibilityLabel={[name ?? t("account.addName"), mobile, profile.email].filter(Boolean).join(", ")}
         style={styles.header}
       >
-        <Avatar name={profile.name} size={56} />
+        <Avatar name={name} size={56} />
         <View style={{ flex: 1, gap: 2 }}>
-          <Text variant="title3" numberOfLines={1}>
-            {profile.name}
+          <Text variant="title3" numberOfLines={1} tone={name ? undefined : "mute"}>
+            {name ?? t("account.addName")}
           </Text>
           {mobile ? (
             <Text variant="small" tone="mute">
@@ -80,7 +82,9 @@ export default function Account() {
       </Pressable>
 
       <ListGroup>
-        <ListRow icon="home" title={t("account.balance")} value={balanceValue} onPress={() => router.push("/balance")} />
+        {/* The balance goes under the title: beside it, "No rooms left · 12 AI credits"
+            squeezed "Your balance" onto two lines. */}
+        <ListRow icon="home" title={t("account.balance")} detail={balanceValue} onPress={() => router.push("/balance")} />
       </ListGroup>
 
       <ListGroup title={t("account.shop")}>
@@ -99,7 +103,7 @@ export default function Account() {
         <Banner tone="info" message={t("account.linkedNote")} />
       ) : (
         <ListGroup title={t("account.signIn")}>
-          <ListRow title={t("account.name")} value={profile.name} onPress={() => router.push("/edit-name")} />
+          <ListRow title={t("account.name")} value={name ?? t("account.noName")} onPress={() => router.push("/edit-name")} />
           <ListRow
             title={t("account.email")}
             value={profile.email ?? t("account.noEmail")}

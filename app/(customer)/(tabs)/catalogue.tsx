@@ -26,11 +26,12 @@ import {
   type CatalogueFilter,
   type GridItem,
 } from "@/features/catalogue/filter";
-import { shownName, useCatalogue, useShadeScheme } from "@/features/catalogue/use-catalogue";
+import { namesShown, shownName, useCatalogue, useShadeScheme } from "@/features/catalogue/use-catalogue";
 import { shadeHref } from "@/features/catalogue/links";
 import { useLibrary } from "@/features/library/use-library";
 import { t, type MessageKey } from "@/i18n";
 import { displayCodeOf } from "@/lib/shade-codes";
+import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { useTheme } from "@/theme";
 
 const COLUMNS = 3;
@@ -49,6 +50,7 @@ export default function CatalogueScreen() {
   const catalogue = useCatalogue();
   const scheme = useShadeScheme();
   const library = useLibrary();
+  const pull = usePullToRefresh(catalogue.refetch);
 
   const [filter, setFilter] = useState<CatalogueFilter>(NO_FILTER);
   const query = useDeferredValue(filter.query);
@@ -64,8 +66,8 @@ export default function CatalogueScreen() {
   const brands = catalogue.data?.brands ?? [];
   const families = useMemo(() => familiesPresent(shades ?? []), [shades]);
   const shown = useMemo(
-    () => filterShades(shades ?? [], { ...filter, query }, { hideCodes: !scheme.showRealCodes, hideNames: scheme.showNames === false }),
-    [shades, filter, query, scheme.showRealCodes, scheme.showNames],
+    () => filterShades(shades ?? [], { ...filter, query }, { hideCodes: !scheme.showRealCodes, hideNames: !namesShown(scheme) }),
+    [shades, filter, query, scheme],
   );
   const items = useMemo(() => gridItems(shown, COLUMNS), [shown]);
 
@@ -241,8 +243,8 @@ export default function CatalogueScreen() {
             <Disclaimer kind="shades" />
           </View>
         }
-        onRefresh={() => void catalogue.refetch()}
-        refreshing={catalogue.refreshing}
+        onRefresh={pull.onRefresh}
+        refreshing={pull.refreshing}
       />
     );
   }

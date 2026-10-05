@@ -122,14 +122,23 @@ anything else                   → /web-only
 
 - Every read goes through React Query with a key from `src/api/query-keys.ts`. A change
   says what it made stale there — `shopCodeChanges` lists everything a redeemed code
-  touches. The whole cache is cleared on sign-out.
+  touches (`shopCodeBalance`, the part worth waiting for). The whole cache — with the
+  catalogue copy and the picture cache — is cleared on sign-out **and** when a sign-in
+  brings a different profile (S10, C5's switch back), so keys need not carry the account.
 - `useBalance()` (`src/features/account`) is the one place the rooms balance and the next
   step are worked out (`balanceFrom`, unit-tested).
 - `useCatalogue()` (`src/features/catalogue`) keeps the account's catalogue on the phone
   in the website's packed shade format and filters it locally (`filter.ts`).
+  `useShadeScheme()` answers one frozen `{}` until the scheme arrives (or when it fails),
+  and `namesShown()` / `brandShown()` read only an explicit `true` — so nothing a shop
+  hides can flash up while it loads.
 - Pictures from the backend go through `RemoteImage` / `mediaSource()`
   (`src/api/media.ts`): an outside (presigned) link as it is, the backend's own
-  `/api/…` file routes with the Bearer token.
+  `/api/…` file routes with the Bearer token. They are cached by address alone (not by
+  token, which changes every 15 minutes); the cache is cleared with the account's data.
+  A failed picture shows an icon, and a new address is tried afresh.
+- Pull to refresh goes through `usePullToRefresh()` (`src/lib`): the spinner turns for a
+  pull only, never for a reload the queries start themselves.
 - Lists that can run to thousands use `FlashList`; in Jest it renders through
   `FlatList` (`jest.setup.ts`), because FlashList draws nothing before it has measured a
   window.

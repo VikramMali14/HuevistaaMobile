@@ -14,6 +14,7 @@ import {
 import { LibraryCard } from "@/features/library/LibraryCard";
 import { useLibrary } from "@/features/library/use-library";
 import { t } from "@/i18n";
+import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { useTheme } from "@/theme";
 
 type Space = "all" | "INTERIOR" | "EXTERIOR";
@@ -29,6 +30,7 @@ export default function LibraryScreen() {
   const { space } = useTheme();
   const { width } = useWindowDimensions();
   const library = useLibrary();
+  const pull = usePullToRefresh(library.refetch);
   const [where, setWhere] = useState<Space>("all");
 
   const spaces = new Set(library.rooms.map((r) => (r.space === "EXTERIOR" ? "EXTERIOR" : "INTERIOR")));
@@ -60,7 +62,7 @@ export default function LibraryScreen() {
   }
 
   return (
-    <Screen scroll onRefresh={() => void library.refetch()} refreshing={library.isRefetching} contentStyle={{ gap: space.lg, paddingBottom: space.xl }}>
+    <Screen scroll onRefresh={pull.onRefresh} refreshing={pull.refreshing} contentStyle={{ gap: space.lg, paddingBottom: space.xl }}>
       <BackButton fallback="/home" />
       <View style={{ gap: space.xs }}>
         <Text variant="title1" accessibilityRole="header">

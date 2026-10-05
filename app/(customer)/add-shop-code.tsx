@@ -6,7 +6,7 @@ import { View } from "react-native";
 
 import { meApi } from "@/api/endpoints/me";
 import { isApiError, messageFor } from "@/api/errors";
-import { shopCodeChanges } from "@/api/query-keys";
+import { shopCodeBalance, shopCodeChanges } from "@/api/query-keys";
 import type { RedeemedCode } from "@/api/types";
 import { Banner, Button, CodeInput, Screen, Text, type CodeInputHandle } from "@/components/ui";
 import { FormScreen } from "@/components/FormScreen";
@@ -39,7 +39,9 @@ export default function AddShopCode() {
       try {
         const redeemed = await meApi.redeemCode(code);
         // A code changes the balance, the companies on show and what the shop unlocked.
-        await Promise.all(shopCodeChanges.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
+        // Only the balance is waited for; the catalogue reloads behind the "done" screen.
+        const reloads = shopCodeChanges.map((queryKey) => queryClient.invalidateQueries({ queryKey }));
+        await Promise.all(reloads.slice(0, shopCodeBalance.length));
         setAdded(redeemed);
       } catch (err) {
         setError(isApiError(err) && err.status === 404 ? t("addCode.unknown") : messageFor(err));

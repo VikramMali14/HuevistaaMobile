@@ -16,14 +16,17 @@ These live in `app/(account)/` and need a signed-in session of any role.
   pages in the in-app browser, so they are always current.
 - **App version** and build number (tap 7 times → copy diagnostics for support: version,
   build, platform, account id and role — never a token).
-- **Sign out** (confirm) · **Delete account** → S9.
+- **Sign out** (confirm) · **Delete account** → S9 — not on a shop's customer profile,
+  which is turned off from the shop (the website's account page leaves it out too).
 
 ### S2 · Your name
 
 **Route** `(account)/edit-name.tsx` · **Phase** 2
 
 One field and **Save**. `PATCH /api/auth/profile { name }` — two to 80 characters
-(the backend's minimum is two). Unchanged → just goes back. Saved → toast "Name saved."
+(the backend's minimum is two). Unchanged → just goes back (to Account when there is
+nothing behind it). Saved → toast "Name saved." An account still wearing its stand-in
+name opens with the field empty.
 
 ### S3 · Email
 
@@ -33,7 +36,8 @@ Add or confirm an email: `POST /api/auth/verify/email/send { email? }` → 6-dig
 `POST /api/auth/verify/email/confirm { code }`. A confirmed email shows **Change email**;
 an unconfirmed one **Send code** or **Use a different email**; none goes straight to
 the field. Nothing changes on the account until the code comes back. Resend waits the
-server's `cooldownSeconds`. A shop's customer profile (`linkedProfile`) sees a note
+server's `cooldownSeconds`; a resend that is refused ("Too many codes…") is said in a
+banner under the buttons, not under the code boxes — it is not the code that was wrong. A shop's customer profile (`linkedProfile`) sees a note
 instead — its sign-in is the shop's. (S3 and S4 share `src/features/account/VerifyFlow.tsx`.)
 
 ### S4 · Mobile number
@@ -56,7 +60,8 @@ instead — its sign-in is the shop's. (S3 and S4 share `src/features/account/Ve
   every device, this one included → A5 with the email filled in and a toast. The app
   does not call logout again (the server already ended the session) and lands there
   through `signOut({ serverAlreadyKnows, landing })`, so nothing is remembered for the
-  next sign-in. A wrong current password is said under that field.
+  next sign-in. A wrong current password is said under that field; an empty one says
+  "Enter your current password."
 - `hasPassword` false, mobile or walk-in accounts → "Set a password" (new only) →
   `POST /api/auth/set-password`. It signs in beside the email, so it needs a confirmed
   email first ("Add or confirm an email" → S3). Same sign-out and landing as a change.
@@ -92,12 +97,14 @@ question** (`POST /api/community/questions { body, displayName }`) · **My quest
 **Route** `(account)/delete-account.tsx` · **Phase** 2 · **Web reference** `components/app/delete-account-button.tsx`
 
 Google Play requires in-app account deletion. List exactly what goes: rooms, boards, AI
-images, credits (customers); points, vouchers not yet delivered, the nearby listing
+images, rooms and credits not used — not refunded (the backend's delete ends any plan
+and refunds nothing) (customers); points, vouchers not yet delivered, the nearby listing
 (painters). A tick box "I understand this can't be undone" enables **Delete my
 account** (`danger`) → `DELETE /api/auth/account` → clear the session (no logout call
 — the account is gone) → A2 with "Your account has been deleted." A shop customer is
 also told the rooms the shop gave can't be given back. A refusal (e.g. an account that
-owns a shop) is the backend's own sentence.
+owns a shop) is the backend's own sentence. A shop's customer profile gets a note
+instead of the form: it is turned off from the shop, which keeps its rooms.
 
 ### S10 · Web-only accounts
 

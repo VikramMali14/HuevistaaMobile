@@ -84,15 +84,36 @@ export function useCatalogue() {
   };
 }
 
-/** How codes and names are shown to this viewer. A failed read means the safe default. */
+const NO_SCHEME: ShadeCodeScheme = Object.freeze({});
+
+/**
+ * How codes and names are shown to this viewer. While it loads, and when it fails, the
+ * answer is `{}`: HV codes, no names, no company — the safe default (lib/shade-codes.ts).
+ */
 export function useShadeScheme(): ShadeCodeScheme {
   const query = useQuery({ queryKey: keys.shadeScheme, queryFn: shadesApi.scheme, staleTime: 60 * 60_000 });
-  return query.data ?? {};
+  // One object, not a new `{}` each render: the catalogue memoises its filtering and its
+  // rows on this, and thousands of shades should not be re-filtered for nothing.
+  return query.data ?? NO_SCHEME;
 }
 
-/** Names are printed only when the scheme allows it AND the shade carries a real one. */
+/**
+ * Names are printed only when the scheme says so AND the shade carries a real one. The
+ * backend always sends the flag, so "not said" means the scheme has not arrived (or
+ * failed) — and a shop that hides names must never have them flash up meanwhile. The
+ * website's studio reads it the same way (visualizer.tsx: `showNames !== true`).
+ */
+export function namesShown(scheme: ShadeCodeScheme): boolean {
+  return scheme.showNames === true;
+}
+
+/** The company against a single shade: never for a customer, never before the scheme says so. */
+export function brandShown(scheme: ShadeCodeScheme): boolean {
+  return scheme.showBrands === true;
+}
+
 export function shownName(scheme: ShadeCodeScheme, shade: Pick<PaintShade, "name" | "code" | "hvCode">): string | null {
-  if (scheme.showNames === false) return null;
+  if (!namesShown(scheme)) return null;
   const name = shade.name?.trim();
   if (!name || name === shade.code || name === shade.hvCode) return null;
   return name;

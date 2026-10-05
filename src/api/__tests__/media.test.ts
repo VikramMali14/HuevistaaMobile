@@ -17,6 +17,10 @@ describe("mediaSource", () => {
     });
   });
 
+  it("keys the cache on the address alone, so a refreshed token does not fetch every picture again", () => {
+    expect(mediaSource("/api/images/files/a.jpg")).toMatchObject({ cacheKey: "https://api.test/api/images/files/a.jpg" });
+  });
+
   it("adds the token to an absolute link on the API too", () => {
     expect(mediaSource("https://api.test/api/images/files/b.jpg")).toMatchObject({ headers: { Authorization: expect.any(String) } });
   });

@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Image } from "expo-image";
 import {
   createContext,
   useCallback,
@@ -29,6 +30,24 @@ const PROFILE_CACHE_KEY = "hv.profile";
 const WELCOME_SEEN_PENDING_KEY = "hv.welcomeSeenPending";
 /** Sign-out never waits longer than this for the server to hear about it. */
 const LOGOUT_WAIT_MS = 3000;
+/** features/catalogue/use-catalogue.ts CATALOGUE_CACHE_KEY (not imported: it imports this file). */
+const CATALOGUE_CACHE_KEY = "hv.catalogue";
+
+/**
+ * Everything kept for one account: the screens' data, the catalogue copy (a shop
+ * customer's is limited to their shop) and the pictures. Dropped on sign-out AND when a
+ * sign-in brings a different profile (S10, C5's switch back), so one profile's rooms
+ * never show under the other's name.
+ */
+async function forgetAccountData(): Promise<void> {
+  queryClient.clear();
+  await AsyncStorage.removeItem(CATALOGUE_CACHE_KEY).catch(() => {});
+  try {
+    await Promise.all([Image.clearMemoryCache(), Image.clearDiskCache()]);
+  } catch {
+    // Not every platform keeps one; nothing to clear then.
+  }
+}
 
 export type SessionState =
   | { status: "loading" }
@@ -144,9 +163,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const forget = useCallback(async (byChoice = false, landing?: string) => {
     forgetRememberedRoute();
     await tokens.clear();
-    queryClient.clear();
-    // The catalogue copy is this account's own (a shop customer's is limited to their shop).
-    await AsyncStorage.multiRemove([PROFILE_CACHE_KEY, WELCOME_SEEN_PENDING_KEY, "hv.catalogue"]).catch(() => {});
+    await forgetAccountData();
+    await AsyncStorage.multiRemove([PROFILE_CACHE_KEY, WELCOME_SEEN_PENDING_KEY]).catch(() => {});
     setState({ status: "signedOut", byChoice, ...(landing ? { landing } : {}) });
   }, []);
 
@@ -192,6 +210,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         if (!response.accessToken || !response.refreshToken) {
           throw new Error("completeSignIn() needs an answer that carries tokens");
         }
+        // Signed in already: this is a switch to another profile (S10, C5).
+        const previousId = state.status === "signedIn" && !state.preview ? state.profile.id : null;
         await tokens.setTokens({
           accessToken: response.accessToken,
           refreshToken: response.refreshToken,
@@ -204,9 +224,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         } catch (err) {
           // Never leave tokens saved behind a screen that says "signed out": the next
           // start would sign this person in without them knowing. They try again.
-          await tokens.clear();
+          // Mid-switch, the old profile's session was handed over for the new one, so
+          // there is nothing left to stay signed in with: say so, rather than keep the
+          // old profile on screen with no session behind it.
+          if (previousId) await forget();
+          else await tokens.clear();
           throw err;
         }
+        if (previousId && previousId !== profile.id) await forgetAccountData();
         await cacheProfile(profile);
         signedIn(profile);
         return profile;

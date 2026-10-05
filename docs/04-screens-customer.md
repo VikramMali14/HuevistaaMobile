@@ -32,7 +32,9 @@ than "0 rooms". This lives in one hook, `useBalance()`, used everywhere.
 **Route** `(tabs)/home.tsx` · **Phase** 2 · **Web reference** `app/(app)/dashboard/page.tsx`, `components/app/customer-next-step.tsx`, `dashboard-projects.tsx`
 
 **Layout (top to bottom):**
-1. Greeting by time of day — "Good evening, Priya" — and the avatar (→ Account).
+1. Greeting by time of day — "Good evening, Priya" — and the avatar (→ Account). An
+   account still wearing its stand-in name (`namePending`, a mobile sign-up) is greeted
+   without one — "Good evening" — never "Good evening, User".
 2. Two `BalanceChip`s: "3 rooms left", "12 AI credits" (→ C27).
 3. **Next-step card** — one sentence of what they hold and the one button for their
    state (table above).
@@ -47,7 +49,8 @@ than "0 rooms". This lives in one hook, `useBalance()`, used everywhere.
 room picture above it (the words and buttons stay on the card's surface, so every
 button reads in both themes); loading → skeleton chips and cards; the balance
 unreadable → no chips and no card (never "0 rooms"); rooms unreadable → "Your rooms
-didn't load" + Try again; pull to refresh.
+didn't load" + Try again; pull to refresh (the spinner turns only for a pull, not
+when the data reloads by itself).
 
 The rooms strip shows rooms not finished and not past their time, newest activity
 first; a room opens at `/room/{id}` (CR picks the step). Shop customers in the
@@ -106,8 +109,10 @@ changes rarely and filtering locally works offline and instantly.
 
 **Codes and names:** `GET /api/me/shade-code-scheme` says how to show codes. For
 everyone but an administrator the backend sends the HV code ("HV0348") and no shade
-name, so tiles print the HV code; a name appears only when the scheme allows names and
-the shade carries one. Search matches only what is on screen (the HV code, a shown
+name, so tiles print the HV code; a name appears only when the scheme says
+`showNames: true` and the shade carries one. The backend always sends the flag, so a
+scheme that is still loading or failed to load means **no names** — a shop that hides
+names never has them flash up (the website's studio reads it the same way). Search matches only what is on screen (the HV code, a shown
 name, the hex) plus colour words. Ported unchanged from the website:
 `color`, `color-science`, `colour-search`, `colour-families`, `shade-codes`,
 `shade-codec` (with their tests), and `shade-mapping` with the company slug added.
@@ -141,8 +146,9 @@ to get one ("Take a colour board from any room and it appears here").
 **Route** `(tabs)/account.tsx` · **Phase** 2 · **Web reference** `app/(app)/account/`, `components/app/account-details.tsx`
 
 **Layout (grouped list):**
-- Header card: avatar, name, mobile and email with "verified" marks → S2.
-- **Your balance** → C27.
+- Header card: avatar, name, mobile and email with "verified" marks → S2. With no name
+  given yet (`namePending`) it reads "Add your name" and the Name row "No name yet".
+- **Your balance** → C27 (the rooms and credits under the title, so neither wraps).
 - **Shop:** "Add a shop code" → C30. Shop customers also see **My products** → C31.
 - **Painters and shops near you** → C32.
 - **Help:** Help & support → S6 · Questions & answers → S8.
@@ -154,7 +160,11 @@ to get one ("Take a colour board from any room and it appears here").
   which explains that shop tools are on the website (S10). Its sign-in details are the
   shop's to change, so they are replaced by a note. Going back into the shop can ask for
   the shop's emailed code; A8 lives in the signed-out screens, so the code is taken in a
-  sheet here (`SwitchToShop`), then the guard moves on to S10.
+  sheet here (`SwitchToShop`), then the guard moves on to S10. A sign-in that brings a
+  different profile (this switch, or S10's "Continue as customer") drops everything the
+  last profile left on the phone — the screens' data, the catalogue copy and the cached
+  pictures — so one profile's rooms never show under the other's name. If the new
+  profile cannot be read, the switch ends signed out rather than on the old profile.
 - A Google account's Password row reads "Google sign-in".
 
 ---
@@ -409,17 +419,23 @@ Status `NEW`/`IN_REVIEW` → "being redrawn"; `FIXED` → "fixed, here is what c
 **Route** `shade/[brand]/[code].tsx` · **Phase** 2
 
 **Layout:** the colour fills the top third · name (only when shown) · **code**
-(`ShadeCode`, large, long-press to copy) · company — **only when the scheme's
-`showBrands` allows it, which it never does for a customer**: company + name + code
-together identify a shade, so the company goes with the other two · family (the parent
-family and the company's own, once) · depth and light reflectance · finishes · good
-for (rooms) · the backend's description · **Try it on a room** (a sheet of open rooms
-→ `/room/{id}/paint?shade=&brand=`; no room open → C6 with the same params) · **Find a
-shop near you** (→ C32 `?tab=shops`) · the shade disclaimer.
+(`ShadeCode`, large, long-press to copy) · company — **only when the scheme says
+`showBrands: true`, which it never does for a customer** (and not while the scheme is
+loading or failed): company + name + code together identify a shade, so the company
+goes with the other two · family (the parent family and the company's own, once) ·
+depth and light reflectance · finishes · good for (rooms) · the backend's description ·
+**Try it on a room** (a sheet of the rooms **ready to paint** — walls marked, not
+closed — → `/room/{id}/paint?shade=&brand=`; none ready → C6 with the same params) ·
+**Find a shop near you** (→ C32 `?tab=shops`) · the shade disclaimer. The status bar
+takes dark or light text to read on the colour behind it, and goes back to the app's
+own when the screen is left.
 
-**API:** read from the catalogue copy first; `GET /api/shades/{brandSlug}/{hvCode}` for
-the description and rooms, and for a shade not in the copy. Not found → "We couldn't
-find this shade" + **Open the catalogue**.
+**API:** the catalogue copy is the list of what this account may see. A shade not in it
+is "We couldn't find this shade" + **Open the catalogue** — the public
+`GET /api/shades/{brandSlug}/{hvCode}` stands in for the shade only when the catalogue
+could not be loaded at all, and otherwise just adds the description and rooms. While
+the live catalogue is still replacing an older copy, a missing shade waits for it. The
+company slug in a link is read in lower case.
 
 ### C20 · Ready-made rooms
 
@@ -432,11 +448,18 @@ when the library is empty. **API:** `GET /api/free-projects`.
 
 **Route** `library/[slug].tsx` · **Phase** 2
 
-Large photo, name, a line about it, **Paint this room**. Free — it does not use one of
-your rooms (the backend spends no quota, credit or points). The walls come already
-marked, so it opens straight on C11.
+Photo (a tall one is cropped to half the screen, so the name starts above the buttons),
+name, a line about it, **Paint this room**. Free — it does not use one of your rooms
+(the backend spends no quota, credit or points). The walls come already marked, so it
+opens straight on C11.
 
-**API:** the listing first, else `GET /api/free-projects/{slug}` · `POST
+Every start makes a **new** copy (the backend never reuses one). So when this account
+already has an unfinished copy — `fromLibrary`, still open, and still carrying the
+room's title — the screen says "You're already painting this room." with **Open your
+copy** (→ `/room/{id}`) first and **Start a fresh copy** under it.
+
+**API:** the listing first, else `GET /api/free-projects/{slug}` (asked for only once the
+listing has answered without it) · `POST
 /api/free-projects/{slug}/start` → project id → `/room/{id}/paint` (the room list is
 refreshed). A room that has gone (404) → "This room isn't available any more" + **See
 the other rooms**. The colours it was painted in are listed with the shade disclaimer.
@@ -551,14 +574,21 @@ Sharma Paints gave you 3 rooms." The rooms and boards already on the account sta
 — each in plain words from the server's message; an unknown code (404) gets the app's
 own sentence ("We don't know that code. Check it with your shop — it's 8 letters and
 numbers."). A pasted WhatsApp message gives up its code (`shopCodeFromText`). Adding a
-code refreshes the balance, rooms, AI images, catalogue, scheme and products. Done →
+code refreshes the balance, rooms, AI images, catalogue, scheme and products; only the
+balance and rooms are waited for (the next button spends a room), the rest reloads
+behind the done screen — the catalogue alone can take many seconds. Done →
 "Added. Sharma Paints gave you 2 rooms." + **Start a room** / **Go home**.
 
 ### C31 · My products
 
 **Route** `my-products.tsx` · **Phase** 2 · **Web reference** `components/app/assigned-products.tsx`
 
-What the shop unlocked: companies and product lines. **API:** `GET /api/me/assigned-products`.
+Every shop behind the account, each with its address, hours and **Call** button, and
+what it unlocked: the **companies** it picked (chips) and its **product lines** grouped
+by company, with the shop's own price. A shop that picked nothing out still shows, with
+"This shop hasn't narrowed anything down for you — you get the full range it carries."
+(nothing picked means everything, not nothing — the website says the same). No shop at
+all → "No shop yet" + **Add a shop code**. **API:** `GET /api/me/assigned-products`.
 Shown only to shop customers.
 
 ### C32 · Painters and shops near you

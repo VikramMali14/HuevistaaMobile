@@ -28,11 +28,16 @@ export default function EditName() {
   const key = validateName(name);
   const unchanged = Boolean(profile && !profile.namePending && name.trim() === profile.name);
 
+  const leave = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/account");
+  };
+
   const save = () => {
     setTried(true);
     if (key) return;
     if (unchanged) {
-      router.back();
+      leave();
       return;
     }
     void run(async () => {
@@ -41,8 +46,7 @@ export default function EditName() {
       try {
         await updateProfile(await authApi.updateProfile({ name: name.trim() }));
         toast.show(t("editName.saved"), "success");
-        if (router.canGoBack()) router.back();
-        else router.replace("/account");
+        leave();
       } catch (err) {
         const { field, message } = fieldErrorOr(err, "name");
         if (field) setFieldErr(field);

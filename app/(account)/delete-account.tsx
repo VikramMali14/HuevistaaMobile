@@ -30,6 +30,14 @@ export default function DeleteAccount() {
   const items = (profile?.role === "PAINTER" ? t("deleteScreen.painterItems") : t("deleteScreen.customerItems")).split("|");
   if (profile?.role === "CUSTOMER" && balance.entitlement) items.push(t("deleteScreen.shopKeeps"));
 
+  if (profile?.linkedProfile) {
+    return (
+      <FormScreen title={t("deleteScreen.title")} backFallback="/settings">
+        <Banner tone="info" message={t("deleteScreen.linked")} />
+      </FormScreen>
+    );
+  }
+
   const remove = () => {
     if (!understood) return;
     void run(async () => {

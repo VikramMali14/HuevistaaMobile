@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { useLocalSearchParams, useRouter, type Href } from "expo-router";
-import { useMemo, useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo-router";
+import { setStatusBarStyle } from "expo-status-bar";
+import { useCallback, useMemo, useState } from "react";
+import { ScrollView, StyleSheet, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { shadesApi } from "@/api/endpoints/shades";
@@ -19,14 +20,15 @@ import {
   Text,
 } from "@/components/ui";
 import { toneOf } from "@/features/catalogue/filter";
-import { shownName, useCatalogue, useShadeScheme } from "@/features/catalogue/use-catalogue";
-import { byRecentActivity, isInProgress, roomChip, roomChipLabel } from "@/features/rooms/room-status";
+import { brandShown, shownName, useCatalogue, useShadeScheme } from "@/features/catalogue/use-catalogue";
+import { byRecentActivity, roomChip } from "@/features/rooms/room-status";
 import { useProjects } from "@/features/rooms/use-rooms";
 import { t, type MessageKey } from "@/i18n";
 import { parentFamilyOf } from "@/lib/colour-families";
 import { displayCodeOf } from "@/lib/shade-codes";
 import { mapToPaintShade } from "@/lib/shade-mapping";
 import type { PaintShade } from "@/lib/shade-types";
+import { barStyleOn } from "@/lib/status-bar";
 import { useTheme } from "@/theme";
 
 const slugify = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -49,8 +51,10 @@ export default function ShadeDetail() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, space, radius } = useTheme();
+  const appScheme = useColorScheme();
   const params = useLocalSearchParams<{ brand: string; code: string }>();
-  const brand = params.brand ?? "";
+  // Slugs are lower case; a link typed or shared by hand may not be.
+  const brand = (params.brand ?? "").toLowerCase();
   const code = (params.code ?? "").toUpperCase();
   const catalogue = useCatalogue();
   const scheme = useShadeScheme();
@@ -73,11 +77,27 @@ export default function ShadeDetail() {
     staleTime: 60 * 60_000,
   });
 
+  // The catalogue is the list of what this account may see (a shop customer: their shop's
+  // companies). Once it is here, a shade that is not in it is not shown — the public
+  // detail is only the stand-in for a catalogue that could not be loaded at all.
   const shade: PaintShade | null =
-    fromCatalogue ?? (detail.data ? mapToPaintShade({ ...detail.data, name: detail.data.name ?? undefined }) : null);
+    fromCatalogue ??
+    (!catalogue.data && detail.data ? mapToPaintShade({ ...detail.data, name: detail.data.name ?? undefined }) : null);
+
+  // The colour runs up under the clock: its text has to read on the colour, and go back
+  // to the app's own once this screen is left.
+  const hex = shade?.hex;
+  useFocusEffect(
+    useCallback(() => {
+      if (!hex) return undefined;
+      setStatusBarStyle(barStyleOn(hex));
+      return () => setStatusBarStyle(appScheme === "dark" ? "light" : "dark");
+    }, [hex, appScheme]),
+  );
 
   if (!shade) {
-    const stillLooking = catalogue.loading || detail.isPending;
+    // The copy on the phone may be older than this shade: wait for the live list.
+    const stillLooking = catalogue.loading || catalogue.refreshing || (!catalogue.data && detail.isPending);
     return (
       <View style={[styles.fill, { backgroundColor: colors.bg, paddingTop: insets.top, paddingHorizontal: space.gutter }]}>
         <BackButton fallback="/catalogue" />
@@ -105,11 +125,13 @@ export default function ShadeDetail() {
   const parent = parentFamilyOf(shade.family);
   const tone = toneOf(shade.lrv);
   const rooms = detail.data?.suitableRooms?.filter(Boolean) ?? [];
-  const openRooms = (projects.data ?? []).filter(isInProgress).sort(byRecentActivity);
+  // Only rooms whose walls are marked can take a colour now; the rest are still being
+  // read, waiting for walls, failed or closed.
+  const readyRooms = (projects.data ?? []).filter((p) => roomChip(p) === "ready").sort(byRecentActivity);
   const shadeParams = { shade: shownCode, brand: shade.brandSlug ?? brand };
 
   const tryOnRoom = () => {
-    if (openRooms.length === 0) router.push({ pathname: "/room/new", params: shadeParams });
+    if (readyRooms.length === 0) router.push({ pathname: "/room/new", params: shadeParams });
     else setChoosing(true);
   };
 
@@ -143,7 +165,7 @@ export default function ShadeDetail() {
           </View>
 
           <ListGroup>
-            {scheme.showBrands !== false ? <ListRow title={t("shade.company")} value={shade.brand} /> : null}
+            {brandShown(scheme) ? <ListRow title={t("shade.company")} value={shade.brand} /> : null}
             <ListRow
               title={t("shade.family")}
               value={familyLabel(parent, shade.family)}
@@ -178,12 +200,11 @@ export default function ShadeDetail() {
           {t("shade.chooseRoomLead")}
         </Text>
         <ListGroup>
-          {openRooms.slice(0, 8).map((room) => (
+          {readyRooms.slice(0, 8).map((room) => (
             <ListRow
               key={room.id}
               icon="image"
               title={room.name?.trim() || t("rooms.untitled")}
-              detail={t(roomChipLabel[roomChip(room)])}
               onPress={() => {
                 setChoosing(false);
                 router.push({ pathname: "/room/[projectId]/paint", params: { projectId: room.id, ...shadeParams } } as Href);

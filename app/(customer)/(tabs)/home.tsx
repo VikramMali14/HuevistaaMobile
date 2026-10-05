@@ -14,6 +14,7 @@ import {
   Skeleton,
   Text,
 } from "@/components/ui";
+import { givenName } from "@/features/account/display-name";
 import { useBalance } from "@/features/account/use-balance";
 import { NextStepCard } from "@/features/home/NextStepCard";
 import { LibraryCard } from "@/features/library/LibraryCard";
@@ -23,9 +24,10 @@ import { byRecentActivity, isInProgress } from "@/features/rooms/room-status";
 import { useProjects, useRenders } from "@/features/rooms/use-rooms";
 import { t } from "@/i18n";
 import { istHour } from "@/lib/dates";
+import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { useTheme } from "@/theme";
 
-function greeting(name: string | undefined): string {
+function greeting(name: string | null): string {
   const hour = istHour();
   const g = hour < 12 ? t("greeting.morning") : hour < 17 ? t("greeting.afternoon") : t("greeting.evening");
   const first = name?.trim().split(/\s+/)[0];
@@ -52,19 +54,13 @@ export default function Home() {
   const latestImage = (renders.data ?? []).find((r) => r.status === "READY" && r.imageUrl);
   const firstVisit = projects.isSuccess && projects.data.length === 0;
 
-  const refreshing = projects.isRefetching || renders.isRefetching;
-  const refresh = () => {
-    void balance.refetch();
-    void projects.refetch();
-    void renders.refetch();
-    void library.refetch();
-  };
+  const pull = usePullToRefresh(() => Promise.all([balance.refetch(), projects.refetch(), renders.refetch(), library.refetch()]));
 
   return (
-    <Screen scroll edges={["top"]} onRefresh={refresh} refreshing={refreshing} contentStyle={{ gap: space.xl }}>
+    <Screen scroll edges={["top"]} onRefresh={pull.onRefresh} refreshing={pull.refreshing} contentStyle={{ gap: space.xl }}>
       <View style={[styles.header, { marginTop: space.md }]}>
         <Text variant="title1" accessibilityRole="header" style={styles.greeting}>
-          {greeting(profile?.name)}
+          {greeting(givenName(profile))}
         </Text>
         <Pressable
           onPress={() => router.push("/account")}
@@ -72,7 +68,7 @@ export default function Home() {
           accessibilityLabel={t("home.account")}
           hitSlop={8}
         >
-          <Avatar name={profile?.name} />
+          <Avatar name={givenName(profile)} />
         </Pressable>
       </View>
 

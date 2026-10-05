@@ -4,10 +4,12 @@
  * store, the clipboard and the system browser are faked.
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
+import { router } from "expo-router";
+import { act, fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
 
 import { ApiError } from "@/api/errors";
 import { queryClient } from "@/api/query-client";
+import { keys } from "@/api/query-keys";
 import type { CustomerEntitlement, FreeProject, ProjectSummary, UserProfile } from "@/api/types";
 import { forgetRememberedRoute } from "@/auth/pending-route";
 import { encodeShades } from "@/lib/shade-codec";
@@ -329,7 +331,7 @@ describe("C19 · Shade detail", () => {
 
   it("prints the company when the scheme allows it", async () => {
     signedInAs(person());
-    mockShades.scheme.mockResolvedValue({});
+    mockShades.scheme.mockResolvedValue({ showBrands: true, showNames: true });
     renderRouter("./app", { initialUrl: "/shade/asian-paints/HV0002" });
     await waitFor(() => expect(screen.getByText("Company")).toBeTruthy());
     expect(screen.getByText("Asian Paints")).toBeTruthy();
@@ -618,5 +620,247 @@ describe("S1–S9 · account screens", () => {
     expect(mockAuth.deleteAccount).toHaveBeenCalled();
     expect(mockAuth.logout).not.toHaveBeenCalled();
     expect(mockSecure["hv.refresh"]).toBeUndefined();
+  });
+});
+
+// ── Phase 2 audit ─────────────────────────────────────────────────────────────
+// Each of these failed before its fix.
+
+describe("Phase 2 audit", () => {
+  const named = { ...backendShade("HV0005", "#f2e394", "Yellows", 70), name: "Lemon Zest" };
+
+  it("C3: never prints shade names before the scheme says so — nor when it fails", async () => {
+    signedInAs(person());
+    mockShades.mine.mockResolvedValue([...SHADES, named]);
+    mockShades.scheme.mockRejectedValue(new ApiError("network", 0, "offline"));
+    renderRouter("./app", { initialUrl: "/catalogue" });
+    await waitFor(() => expect(screen.getByText("HV0005")).toBeTruthy());
+    expect(screen.queryByText("Lemon Zest")).toBeNull();
+    // Nor can a hidden name be found by searching for it.
+    type("Search shades", "lemon zest");
+    await waitFor(() => expect(screen.queryByText("HV0005")).toBeNull());
+  });
+
+  it("C3: prints names when the shop shows them", async () => {
+    signedInAs(person());
+    mockShades.mine.mockResolvedValue([...SHADES, named]);
+    mockShades.scheme.mockResolvedValue({ showNames: true, showBrands: false, showRealCodes: false });
+    renderRouter("./app", { initialUrl: "/catalogue" });
+    await waitFor(() => expect(screen.getByText("Lemon Zest")).toBeTruthy());
+  });
+
+  it("C19: no company and no name while the scheme cannot be read", async () => {
+    signedInAs(person());
+    mockShades.mine.mockResolvedValue([...SHADES, named]);
+    mockShades.scheme.mockRejectedValue(new ApiError("network", 0, "offline"));
+    renderRouter("./app", { initialUrl: "/shade/asian-paints/HV0005" });
+    await waitFor(() => expect(screen.getByText("HV0005")).toBeTruthy());
+    expect(screen.queryByText("Company")).toBeNull();
+    expect(screen.queryByText("Asian Paints")).toBeNull();
+    expect(screen.queryByText("Lemon Zest")).toBeNull();
+  });
+
+  it("C19: a shade outside this account's catalogue is not shown from the public list", async () => {
+    signedInAs(person());
+    mockShades.detail.mockResolvedValue({ shadeCode: "HV7777", hvCode: "HV7777", hexCode: "#123456", brandName: "Nerolac", brandSlug: "nerolac" });
+    renderRouter("./app", { initialUrl: "/shade/nerolac/HV7777" });
+    await waitFor(() => expect(screen.getByText("We couldn't find this shade")).toBeTruthy());
+    expect(screen.queryByText("HV7777")).toBeNull();
+  });
+
+  it("C19: falls back to the public detail only when the catalogue could not load", async () => {
+    signedInAs(person());
+    mockShades.mine.mockRejectedValue(new ApiError("network", 0, "offline"));
+    mockShades.detail.mockResolvedValue({ shadeCode: "HV0002", hvCode: "HV0002", hexCode: "#f5d33f", brandName: "Asian Paints", brandSlug: "asian-paints", shadeFamily: "Yellows", lrv: 62 });
+    renderRouter("./app", { initialUrl: "/shade/asian-paints/HV0002" });
+    await waitFor(() => expect(screen.getByText("HV0002")).toBeTruthy());
+  });
+
+  it("C19: a link with the company in capitals still opens the shade", async () => {
+    signedInAs(person());
+    renderRouter("./app", { initialUrl: "/shade/Asian-Paints/hv0002" });
+    await waitFor(() => expect(screen.getByText("HV0002")).toBeTruthy());
+  });
+
+  it("C19: offers only rooms ready to paint — and none ready means a new room", async () => {
+    signedInAs(person());
+    mockMe.projects.mockResolvedValue([
+      room(),
+      room({ id: "p2", name: "Kitchen", status: "SEGMENTING", regionCount: 0 }),
+      room({ id: "p3", name: "Bedroom", regionCount: 0 }),
+    ]);
+    renderRouter("./app", { initialUrl: "/shade/asian-paints/HV0002" });
+    await waitFor(() => expect(screen.getByText("Try it on a room")).toBeTruthy());
+    await waitFor(() => expect(mockMe.projects).toHaveBeenCalled());
+    press("Try it on a room");
+    await waitFor(() => expect(screen.getByText("Which room?")).toBeTruthy());
+    expect(screen.getByText("Living room")).toBeTruthy();
+    expect(screen.queryByText("Kitchen")).toBeNull();
+    expect(screen.queryByText("Bedroom")).toBeNull();
+  });
+
+  it("C19: with no room ready, goes straight to a new room", async () => {
+    signedInAs(person());
+    mockMe.projects.mockResolvedValue([room({ id: "p2", name: "Kitchen", status: "SEGMENTING", regionCount: 0 })]);
+    renderRouter("./app", { initialUrl: "/shade/asian-paints/HV0002" });
+    await waitFor(() => expect(screen.getByText("Try it on a room")).toBeTruthy());
+    await waitFor(() => expect(mockMe.projects).toHaveBeenCalled());
+    press("Try it on a room");
+    await waitFor(() => expect(screen).toHavePathname("/room/new"));
+  });
+
+  it("C21: a room already being painted opens that copy instead of making another", async () => {
+    signedInAs(person());
+    mockLibrary.list.mockResolvedValue([libraryRoom]);
+    mockMe.projects.mockResolvedValue([room({ id: "p7", name: "Sunlit lounge", fromLibrary: true })]);
+    mockLibrary.start.mockResolvedValue({ projectId: "p9", name: "Sunlit lounge", status: "SEGMENTED", regionCount: 3 });
+    renderRouter("./app", { initialUrl: "/library/sunlit-lounge" });
+    await waitFor(() => expect(screen.getByText("Open your copy")).toBeTruthy());
+    expect(screen.getByText("You're already painting this room.")).toBeTruthy();
+    expect(screen.queryByText("Paint this room")).toBeNull();
+    press("Open your copy");
+    await waitFor(() => expect(screen).toHavePathname("/room/p7"));
+    expect(mockLibrary.start).not.toHaveBeenCalled();
+  });
+
+  it("C21: a fresh copy is still one tap away", async () => {
+    signedInAs(person());
+    mockLibrary.list.mockResolvedValue([libraryRoom]);
+    mockMe.projects.mockResolvedValue([room({ id: "p7", name: "Sunlit lounge", fromLibrary: true })]);
+    mockLibrary.start.mockResolvedValue({ projectId: "p9", name: "Sunlit lounge", status: "SEGMENTED", regionCount: 3 });
+    renderRouter("./app", { initialUrl: "/library/sunlit-lounge" });
+    await waitFor(() => expect(screen.getByText("Start a fresh copy")).toBeTruthy());
+    press("Start a fresh copy");
+    await waitFor(() => expect(screen).toHavePathname("/room/p9/paint"));
+  });
+
+  it("C21: does not fetch a listed room a second time while the list loads", async () => {
+    signedInAs(person());
+    mockLibrary.list.mockResolvedValue([libraryRoom]);
+    renderRouter("./app", { initialUrl: "/library/sunlit-lounge" });
+    await waitFor(() => expect(screen.getByText("Paint this room")).toBeTruthy());
+    expect(mockLibrary.get).not.toHaveBeenCalled();
+  });
+
+  it("C1: never greets someone by the stand-in name of an account without one", async () => {
+    signedInAs(person({ name: "User", namePending: true }));
+    renderRouter("./app", { initialUrl: "/home" });
+    await waitFor(() => expect(screen.getByText(/^Good (morning|afternoon|evening)$/)).toBeTruthy());
+    expect(screen.queryByText(/User/)).toBeNull();
+  });
+
+  it("C5: asks for a name instead of showing the stand-in", async () => {
+    signedInAs(person({ name: "User", namePending: true }));
+    renderRouter("./app", { initialUrl: "/account" });
+    await waitFor(() => expect(screen.getByText("Add your name")).toBeTruthy());
+    expect(screen.getByText("No name yet")).toBeTruthy();
+    expect(screen.queryByText("User")).toBeNull();
+  });
+
+  it("C5: a switch of profile drops the last profile's rooms and catalogue copy", async () => {
+    signedInAs(person({ id: "u2", name: "Sharma Paints", linkedProfile: true, switchTo: "SHOP" }));
+    mockMe.projects.mockResolvedValue([room({ name: "Customer room" })]);
+    await AsyncStorage.setItem("hv.catalogue", JSON.stringify({ userId: "u2", savedAt: 1, packed: "", brands: [] }));
+    mockAuth.switchProfile.mockResolvedValue({ accessToken: "a-shop", refreshToken: "r-shop" });
+    renderRouter("./app", { initialUrl: "/account" });
+    await waitFor(() => expect(screen.getByTestId("switch-back")).toBeTruthy());
+    await waitFor(() => expect(queryClient.getQueryData(keys.projects)).toBeTruthy());
+    mockAuth.profile.mockResolvedValue(person({ id: "u1", name: "Sharma Paints", role: "RETAILER", switchTo: "CUSTOMER" }));
+    fireEvent.press(screen.getByTestId("switch-back"));
+    await waitFor(() => expect(screen.getByText("Switch to the shop")).toBeTruthy());
+    press("Switch to the shop");
+    await waitFor(() => expect(screen).toHavePathname("/web-only"));
+    const kept = (queryClient.getQueryData(keys.projects) as ProjectSummary[] | undefined) ?? [];
+    expect(kept.some((p) => p.name === "Customer room")).toBe(false);
+    expect(await AsyncStorage.getItem("hv.catalogue")).toBeNull();
+  });
+
+  it("C5: a switch whose new profile cannot be read ends signed out, not on the old profile", async () => {
+    signedInAs(person({ id: "u2", name: "Sharma Paints", linkedProfile: true, switchTo: "SHOP" }));
+    mockAuth.switchProfile.mockResolvedValue({ accessToken: "a-shop", refreshToken: "r-shop" });
+    renderRouter("./app", { initialUrl: "/account" });
+    await waitFor(() => expect(screen.getByTestId("switch-back")).toBeTruthy());
+    mockAuth.profile.mockRejectedValue(new ApiError("http", 500, "Server error"));
+    fireEvent.press(screen.getByTestId("switch-back"));
+    await waitFor(() => expect(screen.getByText("Switch to the shop")).toBeTruthy());
+    press("Switch to the shop");
+    await waitFor(() => expect(screen).toHavePathname("/welcome"));
+    expect(mockSecure["hv.refresh"]).toBeUndefined();
+  });
+
+  it("C30: the done screen does not wait for the whole catalogue to download again", async () => {
+    signedInAs(person());
+    mockMe.redeemCode.mockResolvedValue({ id: "c1", code: "7K2NQ9PX", organizationId: "o1", organizationName: "Sharma Paints", projectQuota: 3, projectsRemaining: 3 });
+    renderRouter("./app", { initialUrl: "/catalogue" });
+    await waitFor(() => expect(screen.getByText("HV0002")).toBeTruthy());
+    // The catalogue stays open underneath, and its next download never finishes.
+    mockShades.mine.mockReturnValue(new Promise(() => {}));
+    act(() => router.push("/add-shop-code"));
+    await waitFor(() => expect(screen.getByTestId("shop-code")).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId("shop-code"), "7K2NQ9PX");
+    press("Add code");
+    await waitFor(() => expect(screen.getByText("Sharma Paints gave you 3 rooms.")).toBeTruthy());
+  });
+
+  it("C31: a shop that picked nothing out still shows, as its full range", async () => {
+    signedInAs(person());
+    mockMe.assignedProducts.mockResolvedValue({ shops: [{ shopId: "s1", shopName: "Mehta Paints", allowedBrands: [], products: [] }] });
+    renderRouter("./app", { initialUrl: "/my-products" });
+    await waitFor(() => expect(screen.getByText("Mehta Paints")).toBeTruthy());
+    expect(screen.getByText(/hasn't narrowed anything down for you/)).toBeTruthy();
+    expect(screen.queryByText("No shop yet")).toBeNull();
+  });
+
+  it("C31: lists the companies a shop unlocked", async () => {
+    signedInAs(person());
+    mockMe.assignedProducts.mockResolvedValue({ shops: [{ shopId: "s1", shopName: "Mehta Paints", allowedBrands: ["Berger", "Nerolac"], products: [] }] });
+    renderRouter("./app", { initialUrl: "/my-products" });
+    await waitFor(() => expect(screen.getByText("Companies")).toBeTruthy());
+    expect(screen.getByText("Berger")).toBeTruthy();
+    expect(screen.getByText("Nerolac")).toBeTruthy();
+  });
+
+  it("S2: saving an unchanged name with nothing behind it goes to Account", async () => {
+    signedInAs(person());
+    renderRouter("./app", { initialUrl: "/edit-name" });
+    await waitFor(() => expect(screen.getByLabelText("Name").props.value).toBe("Priya Sharma"));
+    press("Save");
+    await waitFor(() => expect(screen).toHavePathname("/account"));
+    expect(mockAuth.updateProfile).not.toHaveBeenCalled();
+  });
+
+  it("S3: a resend that fails is said apart from the code boxes", async () => {
+    signedInAs(person());
+    mockAuth.sendEmailCode.mockResolvedValueOnce({ channel: "EMAIL", destination: "p***@example.com", expiresInSeconds: 600, cooldownSeconds: 0 });
+    renderRouter("./app", { initialUrl: "/verify-email" });
+    await waitFor(() => expect(screen.getByLabelText("Email")).toBeTruthy());
+    type("Email", "priya@example.com");
+    press("Send code");
+    await waitFor(() => expect(screen.getByText("We emailed a code to p***@example.com.")).toBeTruthy());
+    mockAuth.sendEmailCode.mockRejectedValueOnce(new ApiError("http", 429, "Too many codes. Try again in 10 minutes."));
+    await waitFor(() => expect(screen.getByText("Send a new code")).toBeTruthy());
+    press("Send a new code");
+    await waitFor(() => expect(screen.getByText("Too many codes. Try again in 10 minutes.")).toBeTruthy());
+    expect(screen.getByTestId("verify-code").props.accessibilityHint).toBeUndefined();
+  });
+
+  it("S5: an empty current password says what to do, not just its label", async () => {
+    signedInAs(person({ email: "priya@example.com", emailVerified: true, hasPassword: true }));
+    renderRouter("./app", { initialUrl: "/password" });
+    await waitFor(() => expect(screen.getByLabelText("Current password")).toBeTruthy());
+    type("New password", "newpass456");
+    press("Save password");
+    await waitFor(() => expect(screen.getByText("Enter your current password.")).toBeTruthy());
+    expect(mockAuth.changePassword).not.toHaveBeenCalled();
+  });
+
+  it("S1/S9: a shop's customer profile is not deleted from here", async () => {
+    signedInAs(person({ id: "u2", name: "Sharma Paints", linkedProfile: true, switchTo: "SHOP" }));
+    renderRouter("./app", { initialUrl: "/settings" });
+    await waitFor(() => expect(screen.getByTestId("settings-version")).toBeTruthy());
+    expect(screen.queryByText("Delete account")).toBeNull();
+    act(() => router.push("/delete-account"));
+    await waitFor(() => expect(screen.getByText(/turned off from the shop/)).toBeTruthy());
+    expect(screen.queryByText("Delete my account")).toBeNull();
   });
 });

@@ -100,7 +100,7 @@ export default function Password() {
             setCurrent(v);
             setCurrentError(null);
           }}
-          error={currentError ?? (tried && !current ? t("passwordScreen.current") : null)}
+          error={currentError ?? (tried && !current ? t("passwordScreen.currentMissing") : null)}
           revealable
           autoCapitalize="none"
           autoCorrect={false}

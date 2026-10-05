@@ -31,7 +31,8 @@ function isOwnApi(url: string): boolean {
 
 function withToken(uri: string): ImageSource {
   const token = tokens.accessToken;
-  // The token is part of the cache key on purpose: a picture fetched for one session is
-  // never handed to the next.
-  return token ? { uri, headers: { Authorization: `Bearer ${token}` }, cacheKey: `${uri}#${token.slice(-12)}` } : { uri };
+  // Cached by the address alone. The token changes every few minutes, and keying on it
+  // downloaded every picture again each time; one account's pictures are kept from the
+  // next by clearing the cache on sign-out and on a switch of profile (auth/session.tsx).
+  return token ? { uri, headers: { Authorization: `Bearer ${token}` }, cacheKey: uri } : { uri };
 }

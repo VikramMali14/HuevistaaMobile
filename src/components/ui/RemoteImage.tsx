@@ -22,7 +22,9 @@ export function RemoteImage({
   accessibilityLabel?: string;
 }) {
   const { colors } = useTheme();
-  const [failed, setFailed] = useState(false);
+  // Remembered per address: a card that is handed a different picture tries it afresh.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const failed = Boolean(url) && failedUrl === url;
   const source = mediaSource(url);
   return (
     <View
@@ -37,7 +39,7 @@ export function RemoteImage({
           style={StyleSheet.absoluteFill}
           contentFit={contentFit}
           transition={150}
-          onError={() => setFailed(true)}
+          onError={() => setFailedUrl(url ?? null)}
         />
       ) : (
         <Feather name="image" size={22} color={colors.fgMute} />

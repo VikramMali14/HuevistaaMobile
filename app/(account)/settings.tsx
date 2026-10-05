@@ -75,7 +75,11 @@ export default function Settings() {
 
       <ListGroup>
         <ListRow icon="log-out" title={t("common.signOut")} tone="danger" onPress={() => setConfirmSignOut(true)} />
-        <ListRow icon="trash-2" title={t("settings.deleteAccount")} tone="danger" onPress={() => router.push("/delete-account")} />
+        {/* Not on a shop's customer profile: that is turned off from the shop, which keeps
+            its rooms (the website's account page leaves it out too). */}
+        {profile && !profile.linkedProfile ? (
+          <ListRow icon="trash-2" title={t("settings.deleteAccount")} tone="danger" onPress={() => router.push("/delete-account")} />
+        ) : null}
       </ListGroup>
 
       <ConfirmSheet
