@@ -53,3 +53,12 @@ export function messageFor(err: unknown, fallback: string = t("errors.generic"))
   if (err.status >= 500) return t("errors.server");
   return err.message || fallback;
 }
+
+/**
+ * A form's failure, split: the server's message for `fieldName` when it sent one (to show
+ * under that field), otherwise the sentence for a banner.
+ */
+export function fieldErrorOr(err: unknown, fieldName: string): { field: string | null; message: string } {
+  const field = isApiError(err) ? (err.fieldErrors?.[fieldName] ?? null) : null;
+  return { field, message: messageFor(err) };
+}

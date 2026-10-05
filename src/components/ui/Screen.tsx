@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
   KeyboardAvoidingView,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   View,
@@ -32,6 +33,9 @@ export interface ScreenProps {
    */
   offlineBanner?: boolean;
   contentStyle?: StyleProp<ViewStyle>;
+  /** Pull to refresh (scrolling pages only). */
+  onRefresh?: () => void;
+  refreshing?: boolean;
 }
 
 /** The page: warm background, safe areas, optional scroll, keyboard avoidance. */
@@ -44,6 +48,8 @@ export function Screen({
   deep = false,
   offlineBanner = true,
   contentStyle,
+  onRefresh,
+  refreshing = false,
 }: ScreenProps) {
   const { colors, space } = useTheme();
   const gutter = padded ? { paddingHorizontal: space.gutter } : null;
@@ -52,6 +58,11 @@ export function Screen({
     <ScrollView
       contentContainerStyle={[styles.scrollContent, gutter, contentStyle]}
       keyboardShouldPersistTaps="handled"
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.fgMute} colors={[colors.accent]} />
+        ) : undefined
+      }
     >
       {children}
     </ScrollView>

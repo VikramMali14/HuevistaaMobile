@@ -1,6 +1,140 @@
-import { PlannedScreen } from "@/components/PlannedScreen";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocalSearchParams, useRouter, type Href } from "expo-router";
+import { useState } from "react";
+import { ScrollView, StyleSheet, View } from "react-native";
 
-/** C21 — planned. Spec: docs/04-screens-customer.md — C21. Replace this placeholder when building it. */
-export default function ReadyRoomScreen() {
-  return <PlannedScreen id="C21" />;
+import { libraryApi } from "@/api/endpoints/library";
+import { isApiError, messageFor } from "@/api/errors";
+import { keys } from "@/api/query-keys";
+import {
+  BackButton,
+  Banner,
+  Button,
+  EmptyState,
+  RemoteImage,
+  Screen,
+  Skeleton,
+  Text,
+} from "@/components/ui";
+import { useLibrary } from "@/features/library/use-library";
+import { t } from "@/i18n";
+import { useSubmit } from "@/lib/use-submit";
+import { hairline, useTheme } from "@/theme";
+
+/**
+ * C21 · Ready-made room. Spec: docs/04-screens-customer.md — C21.
+ *
+ * One published room, and **Paint this room**: the caller gets their own copy with the
+ * walls already marked, so it opens straight on the paint step. Free — the backend spends
+ * no room, credit or points on it.
+ */
+export default function LibraryRoom() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { colors, space, radius } = useTheme();
+  const { slug = "" } = useLocalSearchParams<{ slug: string }>();
+  const library = useLibrary();
+  const listed = library.rooms.find((r) => r.slug === slug);
+  const fetched = useQuery({
+    queryKey: keys.libraryRoom(slug),
+    queryFn: () => libraryApi.get(slug),
+    enabled: Boolean(slug) && !listed,
+  });
+  const room = listed ?? fetched.data;
+  const starting = useSubmit();
+  const [error, setError] = useState<string | null>(null);
+
+  const paint = () =>
+    void starting.run(async () => {
+      setError(null);
+      try {
+        const started = await libraryApi.start(slug);
+        void queryClient.invalidateQueries({ queryKey: keys.projects });
+        router.replace({ pathname: "/room/[projectId]/paint", params: { projectId: started.projectId } } as Href);
+      } catch (err) {
+        setError(messageFor(err));
+      }
+    });
+
+  if (!room) {
+    const gone = fetched.isError && isApiError(fetched.error) && fetched.error.status === 404;
+    return (
+      <Screen scroll>
+        <BackButton fallback="/library" />
+        {library.isPending || fetched.isPending ? (
+          <View style={{ gap: space.md, marginTop: space.md }} testID="library-room-loading">
+            <Skeleton height={260} radius={radius.lg} />
+            <Skeleton width={200} height={28} />
+          </View>
+        ) : (
+          <EmptyState
+            icon="image"
+            title={gone ? t("library.notFound") : t("errors.generic")}
+            body={gone ? t("library.notFoundBody") : messageFor(fetched.error)}
+            actionLabel={gone ? t("library.seeOthers") : t("common.retry")}
+            onAction={() => (gone ? router.replace("/library") : void fetched.refetch())}
+          />
+        )}
+      </Screen>
+    );
+  }
+
+  const ratio = room.imageWidth && room.imageHeight ? room.imageWidth / room.imageHeight : 4 / 3;
+  const colours = (room.colours ?? []).filter((c) => c?.hex);
+
+  return (
+    <Screen
+      padded={false}
+      footer={
+        <View style={{ gap: space.xs }}>
+          <Button label={t("library.paint")} icon="droplet" onPress={paint} loading={starting.busy} />
+          <Text variant="small" tone="mute" align="center">
+            {t("library.free")}
+          </Text>
+        </View>
+      }
+    >
+      <ScrollView contentContainerStyle={{ paddingBottom: space.xl }}>
+        <View style={{ paddingHorizontal: space.gutter }}>
+          <BackButton fallback="/library" />
+        </View>
+        <RemoteImage url={room.imageUrl} style={{ width: "100%", aspectRatio: Math.max(0.6, Math.min(ratio, 1.8)) }} accessibilityLabel={room.title} />
+        <View style={{ paddingHorizontal: space.gutter, gap: space.md, marginTop: space.lg }}>
+          <View style={{ gap: space.xxs }}>
+            {room.roomLabel ? (
+              <Text variant="label" tone="mute">
+                {room.roomLabel}
+              </Text>
+            ) : null}
+            <Text variant="title1" accessibilityRole="header">
+              {room.title}
+            </Text>
+          </View>
+          {room.description ? <Text variant="body" tone="soft">{room.description}</Text> : null}
+          {colours.length ? (
+            <View style={{ gap: space.sm }}>
+              <Text variant="label" tone="mute">
+                {t("library.colours")}
+              </Text>
+              {colours.map((c, i) => (
+                <View key={`${c.hex}${i}`} style={styles.colour}>
+                  <View style={[styles.swatch, { backgroundColor: c.hex, borderColor: colors.ruleStrong, borderRadius: radius.xs }]} />
+                  <Text variant="body" style={{ flex: 1 }}>
+                    {c.label || "—"}
+                  </Text>
+                  {c.shadeCode ? <Text variant="code">{c.shadeCode}</Text> : null}
+                </View>
+              ))}
+            </View>
+          ) : null}
+          {error ? <Banner tone="danger" message={error} /> : null}
+        </View>
+      </ScrollView>
+    </Screen>
+  );
 }
+
+const styles = StyleSheet.create({
+  colour: { flexDirection: "row", alignItems: "center", gap: 12 },
+  swatch: { width: 28, height: 28, borderWidth: hairline },
+});

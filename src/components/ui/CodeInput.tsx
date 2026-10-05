@@ -25,6 +25,11 @@ export interface CodeInputProps {
   editable?: boolean;
   autoFocus?: boolean;
   testID?: string;
+  /**
+   * Letters and numbers rather than digits — a shop's 8-character code (C30). `clean`
+   * turns whatever was typed or pasted into the code.
+   */
+  alphanumeric?: { clean: (text: string) => string };
 }
 
 /**
@@ -35,7 +40,7 @@ export interface CodeInputProps {
  * box at once. The boxes only draw what it holds.
  */
 export const CodeInput = forwardRef<CodeInputHandle, CodeInputProps>(function CodeInput(
-  { value, onChange, onComplete, length = 6, label, error, editable = true, autoFocus = true, testID },
+  { value, onChange, onComplete, length = 6, label, error, editable = true, autoFocus = true, testID, alphanumeric },
   ref,
 ) {
   const { colors, radius } = useTheme();
@@ -62,7 +67,7 @@ export const CodeInput = forwardRef<CodeInputHandle, CodeInputProps>(function Co
   }, [autoFocus, editable]);
 
   const change = (text: string) => {
-    const digits = text.replace(/\D/g, "").slice(0, length);
+    const digits = alphanumeric ? alphanumeric.clean(text).slice(0, length) : text.replace(/\D/g, "").slice(0, length);
     onChange(digits);
     if (digits.length === length) onComplete?.(digits);
   };
@@ -103,10 +108,21 @@ export const CodeInput = forwardRef<CodeInputHandle, CodeInputProps>(function Co
           value={value}
           onChangeText={change}
           editable={editable}
-          keyboardType="number-pad"
-          inputMode="numeric"
-          textContentType="oneTimeCode"
-          autoComplete="sms-otp"
+          {...(alphanumeric
+            ? {
+                keyboardType: "default" as const,
+                autoCapitalize: "characters" as const,
+                autoCorrect: false,
+                spellCheck: false,
+                autoComplete: "off" as const,
+                textContentType: "none" as const,
+              }
+            : {
+                keyboardType: "number-pad" as const,
+                inputMode: "numeric" as const,
+                textContentType: "oneTimeCode" as const,
+                autoComplete: "sms-otp" as const,
+              })}
           // No maxLength: it would cut a pasted "123 456" or "Your code is 123456" before
           // change() picks the digits out of it.
           caretHidden

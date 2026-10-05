@@ -1,4 +1,4 @@
-import { Redirect, useGlobalSearchParams, usePathname, useSegments } from "expo-router";
+import { Redirect, useGlobalSearchParams, usePathname, useSegments, type Href } from "expo-router";
 import type { ReactElement } from "react";
 import { View } from "react-native";
 
@@ -50,7 +50,7 @@ export function useGuard(allow: (profile: UserProfile) => boolean): ReactElement
       // A link opened while signed out, or a session that ran out: come back here after
       // sign-in. Not after "Sign out" — whoever signs in next may be someone else.
       if (!state.byChoice) rememberRoute(href);
-      return <Redirect href="/welcome" />;
+      return <Redirect href={(state.landing ?? "/welcome") as Href} />;
     case "signedIn":
       return allow(state.profile) ? null : <Redirect href={homeFor(state.profile)} />;
   }

@@ -1,4 +1,4 @@
-import { Redirect } from "expo-router";
+import { Redirect, type Href } from "expo-router";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 
 import { useSession } from "@/auth/session";
@@ -18,7 +18,7 @@ export default function Start() {
   const { state, retry } = useSession();
   const { colors, space } = useTheme();
 
-  if (state.status === "signedOut") return <Redirect href="/welcome" />;
+  if (state.status === "signedOut") return <Redirect href={(state.landing ?? "/welcome") as Href} />;
   if (state.status === "signedIn") return <Redirect href={homeFor(state.profile)} />;
 
   // Only reached once the splash has hidden: either still loading after 8 s, or the

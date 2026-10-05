@@ -2,6 +2,7 @@ import {
   formatMobileForDisplay,
   isIndianMobile,
   normalizeShopCode,
+  shopCodeFromText,
   toE164India,
   validateEmail,
   validateName,
@@ -53,5 +54,17 @@ describe("validateName", () => {
     expect(validateName("   ")).toBe("validation.nameRequired");
     expect(validateName(" P ")).toBe("validation.nameShort");
     expect(validateName("Al")).toBeNull();
+  });
+});
+
+describe("shopCodeFromText", () => {
+  it("cleans a typed code", () => {
+    expect(shopCodeFromText("7k2n-q9px")).toBe("7K2NQ9PX");
+    expect(shopCodeFromText("7k2")).toBe("7K2");
+  });
+
+  it("finds the code in a pasted WhatsApp message", () => {
+    expect(shopCodeFromText("Your HueVistaa code: 7K2NQ9PX. Open huevistaa.com/unlock and sign in")).toBe("7K2NQ9PX");
+    expect(shopCodeFromText("Use 7K2NQ9PX at huevistaa.com")).toBe("7K2NQ9PX");
   });
 });

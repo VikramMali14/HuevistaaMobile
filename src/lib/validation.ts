@@ -61,6 +61,25 @@ export function normalizeShopCode(value: string): string {
   return value.trim().toUpperCase();
 }
 
+export const SHOP_CODE_LENGTH = 8;
+
+/**
+ * The shop code out of whatever was typed or pasted. Shops send it on WhatsApp as a
+ * sentence ("Your HueVistaa code: 7K2NQ9PX. Open …"), and copying the whole message is
+ * far easier on a phone than picking eight characters out of it; a code written as
+ * "7K2N-Q9PX" loses its dash. Ported from HueVistaFrontEnd app/unlock/unlock-form.tsx.
+ */
+export function shopCodeFromText(text: string): string {
+  const upper = text.toUpperCase();
+  const bare = upper.replace(/[^A-Z0-9]/g, "");
+  if (bare.length <= SHOP_CODE_LENGTH) return bare;
+  const labelled = /CODE\W{0,3}([A-Z0-9]{8})\b/.exec(upper);
+  if (labelled) return labelled[1]!;
+  // Otherwise the one 8-character word that mixes letters and digits.
+  const words = (upper.match(/\b[A-Z0-9]{8}\b/g) ?? []).filter((w) => /\d/.test(w) && /[A-Z]/.test(w));
+  return words.length === 1 ? words[0]! : bare.slice(0, SHOP_CODE_LENGTH);
+}
+
 export function validateShopCode(value: string): MessageKey | null {
   return /^[A-Z0-9]{8}$/.test(normalizeShopCode(value)) ? null : "validation.shopCode";
 }

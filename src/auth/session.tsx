@@ -38,7 +38,12 @@ export type SessionState =
    * `byChoice`: the person signed out themselves. Then no page is remembered for after the
    * next sign-in (A1) — the next person to sign in on this phone may be someone else.
    */
-  | { status: "signedOut"; byChoice?: boolean }
+  | {
+      status: "signedOut";
+      byChoice?: boolean;
+      /** Where the guards send this sign-out instead of Welcome (e.g. A5 after a password change). */
+      landing?: string;
+    }
   | { status: "signedIn"; profile: UserProfile; preview: boolean };
 
 export interface SessionValue {
@@ -57,7 +62,12 @@ export interface SessionValue {
    * that needs to know.
    */
   markWelcomeSeen(): Promise<UserProfile>;
-  signOut(): Promise<void>;
+  /**
+   * Sign out on this phone. `serverAlreadyKnows`: the backend has just ended every session
+   * itself (a password change, a deleted account), so it is not told again. `landing`:
+   * where to go instead of Welcome.
+   */
+  signOut(options?: { serverAlreadyKnows?: boolean; landing?: string }): Promise<void>;
   /** Try the start-up restore again (from the "can't reach" state). */
   retry(): void;
   /**
@@ -131,12 +141,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     await cacheProfile(profile);
   }, []);
 
-  const forget = useCallback(async (byChoice = false) => {
+  const forget = useCallback(async (byChoice = false, landing?: string) => {
     forgetRememberedRoute();
     await tokens.clear();
     queryClient.clear();
-    await AsyncStorage.multiRemove([PROFILE_CACHE_KEY, WELCOME_SEEN_PENDING_KEY]).catch(() => {});
-    setState({ status: "signedOut", byChoice });
+    // The catalogue copy is this account's own (a shop customer's is limited to their shop).
+    await AsyncStorage.multiRemove([PROFILE_CACHE_KEY, WELCOME_SEEN_PENDING_KEY, "hv.catalogue"]).catch(() => {});
+    setState({ status: "signedOut", byChoice, ...(landing ? { landing } : {}) });
   }, []);
 
   // A1: restore the saved session.
@@ -230,8 +241,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         }
       },
 
-      async signOut() {
-        if (tokens.hasSession()) {
+      async signOut(options) {
+        if (tokens.hasSession() && !options?.serverAlreadyKnows) {
           // Best effort: tell the server, but never keep someone waiting on a dead
           // connection — signing out locally is what they asked for.
           await Promise.race([
@@ -239,7 +250,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             new Promise((resolve) => setTimeout(resolve, LOGOUT_WAIT_MS)),
           ]);
         }
-        await forget(true);
+        await forget(true, options?.landing);
       },
 
       retry() {
