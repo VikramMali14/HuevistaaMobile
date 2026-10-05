@@ -145,6 +145,7 @@ export default function WallsFound() {
                   accessibilityLabel={`${t("walls.paintThis")}: ${wallLabel(w)}`}
                   trackColor={{ true: colors.accent, false: colors.ruleStrong }}
                   thumbColor={colors.ivory}
+                  {...{ activeThumbColor: colors.ivory }}
                   testID={`plan-${w.id}`}
                 />
               </Pressable>

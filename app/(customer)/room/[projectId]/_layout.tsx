@@ -3,10 +3,8 @@ import { Stack } from "expo-router";
 import { useTheme } from "@/theme";
 
 /**
- * One room's studio (C8–C18).
- *
- * TODO(Phase 3): load the room once here (GET /api/projects/{id}) with React Query, so
- * every step reads it from the cache instead of fetching it again.
+ * One room's studio (C8–C18). Every step reads the room with `useRoom()` — one query-cache
+ * entry (`GET /api/projects/{id}`) shared by all of them, which C8's poll keeps current.
  */
 export default function RoomLayout() {
   const { colors } = useTheme();

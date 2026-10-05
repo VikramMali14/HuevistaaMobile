@@ -118,7 +118,7 @@ export default function Suggestions() {
                     const matched = [combo.primaryShade, combo.accentShade, combo.trimShade][slot];
                     const name = namesShown(scheme) ? matched?.name?.trim() : null;
                     return (
-                      <View key={slot} style={[styles.slot, { gap: 4 }]}>
+                      <View key={slot} style={[styles.slot, { gap: 4, opacity: targets[slot] ? 1 : 0.45 }]}>
                         <View style={[styles.chip, { backgroundColor: c.hex, borderColor: colors.rule, borderRadius: radius.sm }]} />
                         <Text variant="caption" tone="mute" numberOfLines={1}>
                           {targets[slot] ? wallLabel(targets[slot]) : t(ROLES[slot]!)}

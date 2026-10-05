@@ -268,9 +268,7 @@ export default function AdjustWalls() {
           label={t("common.back")}
           onPress={() => (dirty ? setLeaving(true) : router.canGoBack() ? router.back() : router.replace("/studio"))}
         />
-        <View style={styles.fill}>
-          <StepDots current="adjust" />
-        </View>
+        <View style={styles.fill} />
         {!fixed ? (
           <>
             <IconButton icon="corner-up-left" label={t("adjust.undo")} onPress={undoOne} disabled={ops.length === 0} />
@@ -281,6 +279,7 @@ export default function AdjustWalls() {
       </View>
 
       <View style={{ paddingHorizontal: space.gutter, gap: space.xs, paddingTop: space.xs }}>
+        <StepDots current="adjust" />
         {fixed ? <Banner tone="info" message={t("adjust.fixed")} /> : null}
         {notice ? <Banner tone="info" message={notice} /> : null}
         {error ? <Banner tone="danger" message={error} /> : null}

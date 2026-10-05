@@ -213,19 +213,65 @@ never decided on the phone or on that page.
 
 ## The colour engine (the biggest risk)
 
-The website's `lib/webgl-recolor.ts` (805 lines) is WebGL2 with GLSL ES 3.00 shaders.
-`expo-gl` gives a WebGL2-style context on the phone, so the shaders should carry
-over. What does not carry over: everything that uses `document.createElement("canvas")`
-to load the photo and masks into textures. Those parts are rewritten to decode images
-with `expo-image-manipulator` / `expo-gl`'s asset loading.
+`src/features/studio/engine/`. The website's `lib/webgl-recolor.ts` shaders (`VERT`,
+`FRAG`) are copied **unchanged** into `shaders.ts` (checked character for character), so a
+wall reads the same colour on the phone as on the website: multiplicative shading anchored to
+the cleaned photo, the form/detail split, the one-pixel antialiased mask edge. The
+studio's fixed settings come with them (`paint-model.ts`): paint follows the photo's
+light at 85%, detected walls grow one photo pixel (the edge nudge), drawn walls none,
+catalogue shades paint at their measured LRV. The studio passes no white point or relief
+map (nor does the website's), so of `canvas-light.ts` only `REF_WHITE` is needed.
 
-**Do this first in Phase 3, as a spike, before building C8–C18:** load one project's
-cleaned photo + masks, recolour one wall on `expo-gl`, measure on a real mid-range
-Android. If `expo-gl` cannot keep up, the fallback is `@shopify/react-native-skia`
-runtime shaders (SkSL — the shader needs translating).
+What the website did on a 2D canvas runs as GPU passes in `recolor-gl.ts` (`RecolorGL`,
+one per `expo-gl` context):
 
-Port alongside: `lib/canvas-light.ts` (scene light), `lib/color-science.ts`,
-`lib/mask-feather.ts`, `lib/mask-grow.ts`.
+- **The form layer** — the canvas's `filter: blur(r)` becomes a separable Gaussian of
+  sigma r at a quarter of the photo's size (`BLUR_FRAG`).
+- **The edge nudge** — `mask-feather.ts`'s `offsetCoverage` as `NUDGE_FRAG`, which also
+  normalises every mask to opaque white-on-black (red × alpha).
+- **Tapping a wall and each wall's light** — small copies (192 px) read back with
+  `readPixels`; `wallAt()` and `meanLumaInMask()` work on those (unit-tested).
+- **Before and after** — the walls are drawn right of a scissor line, so a snapshot of the
+  view is the comparison itself.
+
+Pictures reach the GPU through `texture-loader.ts`: on a phone the bytes are fetched once
+into the cache (`fetchMedia()`, with the session for the backend's own files) and handed
+to `expo-gl` as `{ localUri }`; the web build decodes an `<img>`. Masks come through the
+backend's own mask route (with the session: no expiring link, no CORS), cached by the
+stored file they name. `RoomCanvas` lays the GL view out at the photo's aspect ratio and is
+used by C9, C10, C11, C14 and the live-colour check.
+
+**The live-colour check** (`app/(account)/engine-check.tsx`; Settings → press and hold the
+version) paints a sample room bundled with the app — the welcome photo and two wall masks
+taken from its own repaints — 60 times, timing each change with `gl.finish()`, and passes
+when 95% are under 100 ms. In a phone-sized Chromium it passes easily, which says nothing
+about a phone: **it has to be run on a real mid-range Android.** If it fails, the fallback
+is `@shopify/react-native-skia` runtime shaders (SkSL — the shader needs translating). With
+no WebGL 2 at all the canvas says so and the rest of the studio still works.
+
+**Editing masks (C10)** happens on the GPU too: a wall's mask is redrawn at the photo's
+size, and strokes (discs joined by quads) and shapes (ear-clipped, so an L fills as an L)
+are drawn into it from a list of operations — Undo is a shorter list, so history costs no
+GPU memory. Saving reads the mask back at full size and encodes an 8-bit greyscale PNG
+in JS (`mask-ops.ts`, `fflate` for the deflate; a full-size mask is tens of KB), well
+under the backend's limit of about 4 MB of base64.
+
+## The studio's state
+
+- **The room** — `useRoom(id)` (`GET /api/projects/{id}`), shared by every step through
+  the query cache; C8's poll writes each answer into the same entry. Polling is every 2 s,
+  5 s after a minute, paused in the background, at once on return.
+- **The colours** — `paint-store.ts`, per room: colours per wall, the selected wall, an
+  Undo history, and the changes not yet saved. C11, C12 and C13 all write to it. A change
+  is saved 600 ms after the last one (`PUT /regions`, HV codes — the backend maps them
+  back); a failed save keeps the changes, says so, and tries again in 10 s or as soon as
+  the phone is back online. A refetch never undoes a tap still waiting to be saved.
+- **Recent shades** and **the board tray** (combinations kept until a board is made,
+  Phase 4) live on the phone; **which rooms were painted here** decides whether a room
+  opens on Walls or Paint. All of it is cleared on sign-out and on a switch of profile.
+- **The photo upload** — `photo-upload.ts`: C6 shrinks the photo (2048 px, JPEG 0.85) and
+  starts the upload; C7 shows its progress (XHR, so it can) and creates the room when it
+  is done. A 422 (not a room) asks for a retake rather than a retry.
 
 ## The colour board PDF
 

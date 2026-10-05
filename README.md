@@ -33,7 +33,14 @@ ready-made rooms, adding a shop code, the shop's products, Account, and the acco
 screens: settings, name, email, mobile number, password and deleting the account.
 Audited end to end since; what was found and fixed is listed in the roadmap.
 
-**Next: Phase 3 — the studio.** The order is in [docs/08-roadmap.md](docs/08-roadmap.md).
+**Phase 3 — the studio — is built.** The website's colour engine running live on the
+phone (expo-gl), your rooms, adding a photo (camera or gallery, shrunk and uploaded while
+the room is named), Tidy up, the walls found, painting them, the shade picker, suggested
+palettes, before and after, adjusting walls by hand and reporting walls that are wrong.
+One thing is left for a real phone: Settings → press and hold the version → run the
+live-colour check (each colour change should show in under 100 ms).
+
+**Next: Phase 4 — boards and payments.** The order is in [docs/08-roadmap.md](docs/08-roadmap.md).
 
 ## The plan
 

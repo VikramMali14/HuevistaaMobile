@@ -241,28 +241,23 @@ export default function Paint() {
                   {selectedWall ? t("paint.holdHint") : t("paint.pickWall")}
                 </Text>
               )}
-              <View style={[styles.actions, { paddingHorizontal: space.gutter, gap: space.xs }]}>
-                <View style={styles.fill}>
-                  <Button
-                    label={t("paint.browse")}
-                    icon="droplet"
-                    onPress={() =>
-                      router.push({ pathname: "/shade-picker", params: { projectId: id, regionId: paint.selected ?? "" } })
-                    }
-                    disabled={!paint.selected}
-                  />
-                </View>
-                <View style={styles.fill}>
-                  <Button
-                    variant="secondary"
-                    label={t("paint.suggestions")}
-                    icon="star"
-                    onPress={() => router.push({ pathname: "/room/[projectId]/suggestions", params: { projectId: id } } as Href)}
-                  />
-                </View>
+              <View style={{ paddingHorizontal: space.gutter }}>
+                <Button
+                  label={t("paint.browse")}
+                  icon="droplet"
+                  onPress={() => router.push({ pathname: "/shade-picker", params: { projectId: id, regionId: paint.selected ?? "" } })}
+                  disabled={!paint.selected}
+                />
               </View>
-              <View style={[styles.actions, { paddingHorizontal: space.gutter, justifyContent: "space-between" }]}>
-                <Button variant="ghost" block={false} label={t("paint.save")} icon="plus" onPress={saveThis} />
+              <View style={[styles.actions, { paddingHorizontal: space.xs }]}>
+                <Button
+                  variant="ghost"
+                  block={false}
+                  label={t("paint.suggestions")}
+                  onPress={() => router.push({ pathname: "/room/[projectId]/suggestions", params: { projectId: id } } as Href)}
+                />
+                <Button variant="ghost" block={false} label={t("paint.save")} onPress={saveThis} />
+                <View style={styles.fill} />
                 <IconButton icon="info" label={t("paint.info")} onPress={() => setInfo(true)} />
               </View>
             </>

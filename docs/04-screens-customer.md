@@ -79,13 +79,16 @@ cards · **New room** button pinned at the bottom.
 
 `GET /api/projects` sends no `boardsUsed`, `readOnlyReason` or `MANUAL` status, so the
 chip is worked out from what it does send (`src/features/rooms/room-status.ts`, used
-on Home since Phase 2). "Board taken" vs "Closed" needs the room itself (Phase 3).
+on Home since Phase 2). "Board taken" vs "Closed" needs the room itself, so the list
+says Finished for both.
 
 Plus "12 days left" from `accessExpiresAt` (in `warmText` under 3 days).
 
 **Actions:** tap → `room/[id]` (opens the right step). Long-press menu: Rename
 (`PATCH /api/projects/{id}`), Share (C17), Delete (`ConfirmSheet`: "Deleting a room is
 permanent and does not give the room back to your balance." → `DELETE /api/projects/{id}`).
+Share joins the menu with C17 in Phase 4; until then it has Rename and Delete. Screen
+readers hear a hint and get the menu as an action on the card.
 
 **States:** empty → "No rooms yet" + **Start a room** and **Try a ready-made room** ·
 New room with no balance → the `exhausted`/`missing` card instead of the camera.
@@ -186,8 +189,11 @@ Apply colour**. Only the current step is labelled; a working step spins.
 | `SEGMENTED` and painted before | C11 |
 | closed | C25 |
 
-`room/[projectId]/_layout.tsx` loads the room once (`GET /api/projects/{id}`) and
-shares it with every step through the query cache.
+Until C25 is built (Phase 4), a closed or view-only room opens on C11 to look at. "Painted
+before" is remembered on the phone (a room painted on the website opens on C9 the first
+time here). Every step reads the room with `useRoom()` — one cache entry for
+`GET /api/projects/{id}`, which C8's poll keeps current. A shade passed from C19 rides
+along to C11 and paints the first wall.
 
 ### C6 · Add photo (step 1)
 
@@ -215,6 +221,10 @@ line: "Whole wall in frame · lights on · step back a little".
   walls you want to paint." + Retake.
 - Upload failed → keep the photo, **Try again**.
 
+The gallery is always offered beside the camera, before permission is asked too. The
+upload lives in `photo-upload.ts`, outside both screens, so it carries on while C7 is
+filled in; **Retake** on C7 drops it and starts over.
+
 ### C7 · Name it (still step 1)
 
 **Route** `room/details.tsx` · **Phase** 3 · **Web reference** `components/atelier/project-details-gate.tsx`
@@ -225,7 +235,9 @@ painting?" chips: Living room · Bedroom · Kitchen · Bathroom · Office · Hal
 Exterior · Other · a plain line: "This uses 1 of your 3 rooms." · **Create** (enabled
 once the upload is done).
 
-**API:** `POST /api/projects { imageId, name, roomType }` → C8.
+**API:** `POST /api/projects { imageId, name, roomType }` → C8. The "uses 1 of your 3
+rooms" line is left out while the balance is unknown — never "0 rooms". If the room
+can't be made, the reason shows above **Create** and the uploaded photo is kept.
 
 ### C8 · Tidy up (steps 2 and 3, working)
 
@@ -271,6 +283,10 @@ carries on on the server and the room card says "Working…".
 **States:** a report on this room (`GET /api/projects/{id}/mask-reports/latest`) shows
 a banner: "We're redrawing these walls — usually within a day" or "Fixed: …".
 
+A wall switched off keeps its shape and colour; it is just not one of the surfaces
+being painted (the website's `wall-plan.ts`). With every wall switched off, **Start
+painting** waits for one.
+
 ### C10 · Adjust walls (step 4)
 
 **Route** `room/[projectId]/adjust.tsx` · **Phase** 3 · **Web reference** `components/atelier/mask-studio.tsx`, `lib/mask-grow.ts`, `lib/mask-feather.ts`, `lib/mask-autofit.ts`
@@ -290,6 +306,13 @@ cannot be deleted, only reshaped).
 the website's feathering; "Done" saves and goes to C11. Masks must be at the cleaned
 image's resolution.
 
+**As built:** one finger draws, two pinch and pan (`ZoomView`). The edits are kept as a
+list and replayed on the GPU, so Undo/Redo are instant; the walls show as see-through
+tints, the one being edited stronger. Done saves only the walls that changed, as 8-bit
+PNGs made on the phone (07, "Editing masks"). Leaving with unsaved edits asks first.
+**Not yet:** the magnifier, and edge snapping (`mask-autofit.ts`) — the soft edge comes
+from the engine's own one-pixel antialiasing.
+
 ### C11 · Paint (step 5) — the most important screen
 
 **Route** `room/[projectId]/paint.tsx` · **Phase** 3 · **Web reference** `components/atelier/visualizer.tsx`, `lib/webgl-recolor.ts`, `lib/canvas-light.ts`, `lib/recolor-engine.ts`
@@ -298,10 +321,12 @@ image's resolution.
 - The room fills the screen (tab bar hidden). Light and shadow stay real — this is the
   ported WebGL engine on `expo-gl`.
 - Tap a wall on the photo to select it (hit-test the masks). The selected wall gets a
-  thin outline.
+  thin outline. *(Built without the outline so far: the selected wall shows in the wall
+  strip.)*
 - **Wall strip** just above the dock: chips with each wall's current colour + name.
 - **Dock:** horizontal row of recently used and suggested swatches · **Browse shades**
-  (→ C12) · **Suggestions** (→ C13).
+  (→ C12) · **Suggestions** (→ C13). As built: the recent swatches, **Browse shades** full
+  width, then **Suggestions**, **Save this combination** and the ⓘ on one line.
 - Top bar: back, room name, **Compare** (→ C14), **Undo**, and the board tray button
   with a count badge (→ C15).
 - **Press and hold** anywhere on the photo to see the original underneath.
@@ -309,17 +334,20 @@ image's resolution.
   the phone until the board is made; the website keeps the tray client-side too).
 
 **Autosave:** each colour change → `PUT /api/projects/{id}/regions [{ regionId, shadeCode, hexCode }]`,
-debounced 600 ms, queued while offline and sent on reconnect.
+debounced 600 ms, queued while offline and sent on reconnect. A failed save keeps the
+changes, says "Your colours aren't saved yet — we'll keep trying.", and retries in 10 s; a refetch never
+undoes a change still waiting to be saved (07, "The studio's state").
 
 **States:**
 - `readOnly` → banner with `readOnlyReason`; painting disabled, viewing allowed.
 - Access ending → banner "3 days left on this room".
 - GL not available (very old phone) → "Your phone can't show live colour. You can
-  still pick shades and take a board." (Check the engine's fallback in the spike.)
+  still pick shades and take a board." The rest of the screen keeps working.
 - The shade disclaimer is one tap away (ⓘ) and printed on the board.
 
 **Performance target:** colour change visible in < 100 ms, 60 fps pan/zoom on a
-mid-range Android (e.g. 4 GB RAM).
+mid-range Android (e.g. 4 GB RAM). Measured with the live-colour check (Settings → press
+and hold the version) — still to be run on a real phone.
 
 ### C12 · Shade picker
 
@@ -333,6 +361,11 @@ swatch paints the selected wall straight away; the sheet stays open to try anoth
 
 **Params:** `projectId`, `regionId`.
 
+As built: a route (`formSheet`, half and 85% height) rather than an in-screen sheet, so
+the back button and gestures behave; it writes to the same paint store as C11, so the
+room above changes as each swatch is tapped. The catalogue is grouped by company rather
+than tabbed.
+
 ### C13 · Suggested palettes
 
 **Route** `room/[projectId]/suggestions.tsx` (sheet) · **Phase** 3 · **Web reference** `components/atelier/coordinate-suggestions.tsx`, `lib/harmony.ts`
@@ -344,12 +377,19 @@ set. Free and instant.
 **API:** `POST /api/projects/{id}/recommendations?round={n}`. 402 → the room's access
 has closed.
 
+As built: a modal route sharing C11's paint store. Each palette shows which wall each
+colour will go on (main, accent, trim from the paint plan — the website's
+`shade-grid.tsx`); a colour with no wall to go on is shown faded.
+
 ### C14 · Before and after
 
 **Route** `room/[projectId]/compare.tsx` · **Phase** 3
 
 Full screen. A draggable divider between the original photo and the painted room.
 **Share this view** saves a JPEG of the split and opens sharing (WhatsApp first).
+
+The engine draws the split itself (the walls are painted only right of the line), so the
+shared JPEG is a snapshot of exactly what is on screen (`expo-sharing`).
 
 ### C15 · Colour board — choose and confirm
 

@@ -113,27 +113,47 @@ the website. Fixed, each with a test that failed before it:
 
 ## Phase 3 — The studio
 
-**Start with the colour-engine spike** ([07](07-architecture.md#the-colour-engine-the-biggest-risk)).
-Do not build C8–C14 until it runs well on a real mid-range Android.
+**The colour engine came first** ([07](07-architecture.md#the-colour-engine-the-biggest-risk)):
+the website's shaders run on `expo-gl` unchanged and render correctly under real WebGL 2
+(a phone-sized Chromium, light and dark). **Still to do on a real mid-range Android:**
+open Settings, press and hold the version, and run the live-colour check — it paints a
+sample room 60 times and passes when 95% of changes show in under 100 ms. If it fails,
+the fallback in 07 applies.
 
 | | Screen | Spec |
 |---|---|---|
-| ☐ | Spike: one wall recoloured on `expo-gl` | [07](07-architecture.md#the-colour-engine-the-biggest-risk) |
-| ☐ | C2 Studio — my rooms | [04](04-screens-customer.md#c2--studio--my-rooms) |
-| ☐ | C6 Add photo | [04](04-screens-customer.md#c6--add-photo-step-1) |
-| ☐ | C7 Name it | [04](04-screens-customer.md#c7--name-it-still-step-1) |
-| ☐ | C8 Tidy up | [04](04-screens-customer.md#c8--tidy-up-steps-2-and-3-working) |
-| ☐ | C9 Walls found | [04](04-screens-customer.md#c9--walls-found-step-3) |
-| ☐ | C11 Paint | [04](04-screens-customer.md#c11--paint-step-5--the-most-important-screen) |
-| ☐ | C12 Shade picker | [04](04-screens-customer.md#c12--shade-picker) |
-| ☐ | C13 Suggested palettes | [04](04-screens-customer.md#c13--suggested-palettes) |
-| ☐ | C14 Before and after | [04](04-screens-customer.md#c14--before-and-after) |
-| ☐ | C10 Adjust walls | [04](04-screens-customer.md#c10--adjust-walls-step-4) |
-| ☐ | C18 The walls are wrong | [04](04-screens-customer.md#c18--the-walls-are-wrong) |
+| ☑ | Spike: walls recoloured on `expo-gl` (kept as the live-colour check) | [07](07-architecture.md#the-colour-engine-the-biggest-risk) |
+| ☑ | C2 Studio — my rooms | [04](04-screens-customer.md#c2--studio--my-rooms) |
+| ☑ | C6 Add photo | [04](04-screens-customer.md#c6--add-photo-step-1) |
+| ☑ | C7 Name it | [04](04-screens-customer.md#c7--name-it-still-step-1) |
+| ☑ | CR Open a room at its step | [04](04-screens-customer.md#the-studio--one-room-five-steps) |
+| ☑ | C8 Tidy up | [04](04-screens-customer.md#c8--tidy-up-steps-2-and-3-working) |
+| ☑ | C9 Walls found | [04](04-screens-customer.md#c9--walls-found-step-3) |
+| ☑ | C11 Paint | [04](04-screens-customer.md#c11--paint-step-5--the-most-important-screen) |
+| ☑ | C12 Shade picker | [04](04-screens-customer.md#c12--shade-picker) |
+| ☑ | C13 Suggested palettes | [04](04-screens-customer.md#c13--suggested-palettes) |
+| ☑ | C14 Before and after | [04](04-screens-customer.md#c14--before-and-after) |
+| ☑ | C10 Adjust walls | [04](04-screens-customer.md#c10--adjust-walls-step-4) |
+| ☑ | C18 The walls are wrong | [04](04-screens-customer.md#c18--the-walls-are-wrong) |
 
-Packages: `npx expo install expo-camera expo-image-picker expo-image-manipulator expo-gl expo-file-system`
-(gesture handler and reanimated are already installed).
-UI kit to add: `StepDots`, `WorkingState`, `IconButton`.
+Packages: `expo-gl`, `expo-camera`, `expo-image-picker`, `expo-image-manipulator`,
+`expo-file-system`, `expo-sharing`, `fflate` (the mask PNG's deflate); `pngjs` for tests.
+UI kit added: `StepDots`, `WorkingState`, `IconButton`, `ZoomView` (pinch and two-finger
+pan on the UI thread). `ListRow` and `Card` take a press and hold.
+
+**Done:** 2026-10. Route tests for every screen (`src/__tests__/phase3-studio.test.tsx`),
+unit tests for the paint store, mask geometry and PNG encoder, step routing, polling,
+the paint plan and the engine's arithmetic; walked through end to end in a phone-sized
+browser against a stand-in backend with real wall masks — a new photo from the gallery,
+upload, Tidy up, the walls, painting, a shade, a palette, before and after, a brush
+stroke saved as a mask, a report — light and dark. Found on the way: a room never
+reported (204) handed React Query `undefined`; the paint dock's buttons wrapped; web
+switches had the browser's thumb colour.
+
+Not yet: the magnifier above the finger in C10, and edge snapping there; the outline
+on the selected wall in C11 (the wall strip shows which is selected); C25 for finished
+rooms (they open on Paint, view only, until Phase 4); the board tray's screen (C15,
+Phase 4 — combinations are already kept).
 
 ## Phase 4 — Boards and payments
 

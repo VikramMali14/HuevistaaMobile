@@ -70,9 +70,12 @@ export const projectsApi = {
       query: { round },
     }),
 
-  /** C9/C18. Undefined when the room was never reported (204). */
-  latestReport: (id: string) =>
-    api.request<MaskReport | undefined>(`api/projects/${encodeURIComponent(id)}/mask-reports/latest`),
+  /**
+   * C9/C18. Null when the room was never reported — the backend answers 204, and a query
+   * may not hold `undefined`.
+   */
+  latestReport: async (id: string) =>
+    (await api.request<MaskReport | undefined>(`api/projects/${encodeURIComponent(id)}/mask-reports/latest`)) ?? null,
 
   /** C18. Reporting again updates the open report. */
   report: (id: string, body: { issues: MaskReportIssue[]; note?: string }) =>

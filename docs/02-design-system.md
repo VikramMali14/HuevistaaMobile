@@ -144,7 +144,7 @@ that need it. ✅ = included in the starting scaffold.
 | `Screen` ✅ | Safe-area page with the warm background, optional scroll, keyboard avoidance | — |
 | `Text` ✅ | Every text role above, theme-aware | — |
 | `Button` ✅ | A capsule, mapped from the website: `primary` ← `.btn-brass` (brass, ink text) · `secondary` ← `.btn-ghost` (outline, `ruleStrong`) · `danger` ← `.btn-warm` (`warmFill`, white text) · `ghost` = a text link in `accentText`; inline (`block={false}`) its words line up with the text above. Label Inter 600 16, wrapping to two lines (never an ellipsis) at large text sizes | default · pressed (fills fade to .85, outlines raise to `surfaceSoft`) · **disabled (drained: `surfaceSoft`, `fgMute` text, `ruleStrong`, .55 — never a faded brass)** · loading |
-| `IconButton` | Round, 48 dp target | default · pressed · disabled |
+| `IconButton` ✅ | Round, 48 dp target; `onPhoto` = a translucent paper disc that reads on any picture; an optional count badge (the board tray) | default · pressed · disabled |
 | `TextField` ✅ | ← `.field`: `fieldLabel` above in `fgSoft`; box `surface`, 1 dp `ruleStrong`, radius 16, padding 13/14, Inter 16; placeholder `fgMuteDeep`; error Inter 500 13 in `dangerText` | empty · focused (border `fg` — brass would be 2.7:1 on paper) · filled · error (border `dangerText`) · disabled |
 | `PhoneField` ✅ | `+91` prefix, numeric pad, groups digits 5-5; deleting the space deletes the digit before it | as TextField |
 | `CodeInput` ✅ | 6 boxes for texted/emailed codes; paste (the digits are picked out of a whole SMS) and SMS autofill. With `alphanumeric` it is the shop-code input (8 letters and numbers; a pasted WhatsApp message gives up its code) | as TextField |
@@ -157,14 +157,15 @@ that need it. ✅ = included in the starting scaffold.
 | `ShadeCode` ✅ | Large tabular code, long-press to copy (toast "Code copied.", a light haptic) | — |
 | `BalanceChip` ✅ | "3 rooms left", "12 AI credits" on a brass hairline; taps through to C27 | zero ("No rooms left") |
 | `TabBar` ✅ | `src/navigation/tab-bar.ts`, shared by both tab bars: **60 dp + the phone's bottom inset** (the navigator's 49 clips Inter labels), labels Inter 600 11/14, active in `accentText`, inactive `fgMute`. The painter's Scan is a custom brass button that reads the navigator's `aria-selected` | active · inactive |
-| `StepDots` | The studio's five steps; only the active one labelled; spinner on a working step | — |
+| `StepDots` ✅ | The studio's five steps; only the active one labelled; spinner on a working step | — |
+| `ZoomView` ✅ | Two fingers pinch (1–4×) and pan on the UI thread; one finger is left to what is underneath (tap a wall, draw a mask) | — |
 | `Sheet` ✅ | Bottom sheet with grabber; the page dims; tall content scrolls inside, up to 85%. Closes on the backdrop and the phone's back button | — |
 | `ConfirmSheet` ✅ | Title, what happens, a plain consequences list, confirm + cancel; an error is said inside it | default · destructive · loading · error |
 | `Toast` ✅ | Short message at the top, clear of the action pinned at the bottom | info · success · error |
 | `Banner` ✅ | Inline message across a screen (offline, notice, warning) | info · warning · danger |
 | `EmptyState` ✅ | Picture/illustration, one line, one action | — |
 | `ErrorState` ✅ | Plain reason, Retry, "Get help" | — |
-| `WorkingState` | The AI working pattern: stage name, plain sentence, elapsed time, rough estimate, "Leave this running" | — |
+| `WorkingState` ✅ | The AI working pattern: stage name, plain sentence, elapsed time, rough estimate, "Leave this running" | — |
 | `Skeleton` ✅ | Blocks shaped like the content, breathing slowly; still under "Reduce motion" | — |
 | `Disclaimer` ✅ | The two fixed texts (`shades`, `ai`) | — |
 | `BrandMark` ✅ | The two-chip H, in `mark` | — |
