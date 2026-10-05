@@ -152,7 +152,9 @@ beforeEach(async () => {
   mockCopy.mockClear();
   queryClient.clear();
   // A failed read is retried twice in the app (patchy 4G); tests see the failure at once.
-  queryClient.setDefaultOptions({ queries: { retry: false } });
+  // Only `retry` changes: the app's 30-second freshness stays, so a test sees exactly what
+  // a person would (a screen does not refetch just because it was opened again).
+  queryClient.setDefaultOptions({ queries: { retry: false, staleTime: 30_000 }, mutations: { retry: false } });
   forgetRememberedRoute();
   await AsyncStorage.clear();
 });
@@ -414,6 +416,23 @@ describe("C30 · Add a shop code", () => {
     await waitFor(() => expect(screen.getByText("Sharma Paints gave you 3 rooms.")).toBeTruthy());
     expect(mockMe.redeemCode).toHaveBeenCalledWith("7K2NQ9PX");
     expect(mockMe.entitlement.mock.calls.length).toBeGreaterThanOrEqual(before);
+  });
+
+  it("reads the rooms again after a code, so Home is up to date", async () => {
+    signedInAs(person());
+    mockMe.redeemCode.mockResolvedValue({ id: "c1", code: "7K2NQ9PX", organizationId: "o1", organizationName: "Sharma Paints", projectQuota: 3, projectsRemaining: 3 });
+    renderRouter("./app", { initialUrl: "/home" });
+    await waitFor(() => expect(screen.getByText("No rooms yet")).toBeTruthy());
+    mockMe.entitlement.mockResolvedValue(entitlement(3));
+    mockMe.projects.mockResolvedValue([room()]);
+    press("I have a shop code");
+    await waitFor(() => expect(screen).toHavePathname("/add-shop-code"));
+    fireEvent.changeText(screen.getByTestId("shop-code"), "7K2NQ9PX");
+    press("Add code");
+    await waitFor(() => expect(screen.getByText("Go home")).toBeTruthy());
+    press("Go home");
+    await waitFor(() => expect(screen.getByText("Rooms in progress")).toBeTruthy());
+    expect(screen.getByText("3 rooms ready")).toBeTruthy();
   });
 
   it("puts an unknown code in plain words", async () => {

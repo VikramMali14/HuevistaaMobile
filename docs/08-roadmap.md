@@ -57,25 +57,34 @@ through in a phone-sized browser against a stand-in backend, light and dark.
 
 | | Screen | Spec |
 |---|---|---|
-| ☐ | C1 Home | [04](04-screens-customer.md#c1--home) |
-| ☐ | C3 Catalogue | [04](04-screens-customer.md#c3--catalogue) |
-| ☐ | C19 Shade detail | [04](04-screens-customer.md#c19--shade-detail) |
-| ☐ | C20 Ready-made rooms | [04](04-screens-customer.md#c20--ready-made-rooms) |
-| ☐ | C21 Ready-made room | [04](04-screens-customer.md#c21--ready-made-room) |
-| ☐ | C30 Add a shop code | [04](04-screens-customer.md#c30--add-a-shop-code) |
-| ☐ | C31 My products | [04](04-screens-customer.md#c31--my-products) |
-| ☐ | C5 Account | [04](04-screens-customer.md#c5--account) |
-| ☐ | S1 Settings | [06](06-screens-shared.md#s1--settings) |
-| ☐ | S2 Your name | [06](06-screens-shared.md#s2--your-name) |
-| ☐ | S3 Email | [06](06-screens-shared.md#s3--email) |
-| ☐ | S4 Mobile number | [06](06-screens-shared.md#s4--mobile-number) |
-| ☐ | S5 Password | [06](06-screens-shared.md#s5--password) |
-| ☐ | S9 Delete account | [06](06-screens-shared.md#s9--delete-account) |
+| ☑ | C1 Home | [04](04-screens-customer.md#c1--home) |
+| ☑ | C3 Catalogue | [04](04-screens-customer.md#c3--catalogue) |
+| ☑ | C19 Shade detail | [04](04-screens-customer.md#c19--shade-detail) |
+| ☑ | C20 Ready-made rooms | [04](04-screens-customer.md#c20--ready-made-rooms) |
+| ☑ | C21 Ready-made room | [04](04-screens-customer.md#c21--ready-made-room) |
+| ☑ | C30 Add a shop code | [04](04-screens-customer.md#c30--add-a-shop-code) |
+| ☑ | C31 My products | [04](04-screens-customer.md#c31--my-products) |
+| ☑ | C5 Account | [04](04-screens-customer.md#c5--account) |
+| ☑ | S1 Settings | [06](06-screens-shared.md#s1--settings) |
+| ☑ | S2 Your name | [06](06-screens-shared.md#s2--your-name) |
+| ☑ | S3 Email | [06](06-screens-shared.md#s3--email) |
+| ☑ | S4 Mobile number | [06](06-screens-shared.md#s4--mobile-number) |
+| ☑ | S5 Password | [06](06-screens-shared.md#s5--password) |
+| ☑ | S9 Delete account | [06](06-screens-shared.md#s9--delete-account) |
 
-Packages: `npx expo install @shopify/flash-list`.
-UI kit to add: `SwatchTile`, `ShadeCode`, `Chip`, `ListRow`, `BalanceChip`, `Skeleton`,
-`Sheet`, `ConfirmSheet`. (`Segmented` arrived in Phase 1.) Port: `money.ts`, `shade-codes.ts`, `shade-codec.ts`,
-`colour-families.ts`, `colour-search.ts`.
+Packages: `@shopify/flash-list` (2.0.2). UI kit added: `SwatchTile`, `ShadeCode`, `Chip`,
+`ListRow`/`ListGroup`, `BalanceChip`, `Skeleton`, `Sheet`, `ConfirmSheet`, `Avatar`,
+`RemoteImage`, `SectionHeader`, `FormScreen`; `CodeInput` takes letters for shop codes.
+Ported unchanged from the website (with their tests): `color`, `color-science`,
+`colour-search`, `colour-families`, `shade-codes`, `shade-codec`; `shade-mapping` with the
+company slug added. (`money.ts` came in Phase 0.)
+
+**Done:** 2026-10. Route tests for every screen's states
+(`src/__tests__/phase2-screens.test.tsx`) and unit tests for the balance, catalogue
+filter, room status, dates and image helper; walked through in a phone-sized browser
+against a stand-in backend, light and dark. Found on the way: Home's rooms were not
+refreshed after a shop code; the first-visit card's secondary button vanished on the
+photo; a search left the catalogue scrolled past its filters.
 
 ## Phase 3 — The studio
 

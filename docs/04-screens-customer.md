@@ -44,8 +44,14 @@ than "0 rooms". This lives in one hook, `useBalance()`, used everywhere.
    one of ours."
 
 **States:** first visit with nothing → the next-step card fills the screen with a
-room picture behind it; loading → skeleton chips and cards; offline → cached content +
-banner.
+room picture above it (the words and buttons stay on the card's surface, so every
+button reads in both themes); loading → skeleton chips and cards; the balance
+unreadable → no chips and no card (never "0 rooms"); rooms unreadable → "Your rooms
+didn't load" + Try again; pull to refresh.
+
+The rooms strip shows rooms not finished and not past their time, newest activity
+first; a room opens at `/room/{id}` (CR picks the step). Shop customers in the
+`exhausted` state are never offered a purchase.
 
 **API:** balance hook · `GET /api/projects` · `GET /api/me/renders` (first item) ·
 `GET /api/free-projects`.
@@ -62,12 +68,15 @@ cards · **New room** button pinned at the bottom.
 | Chip | When |
 |---|---|
 | Working… | `status = SEGMENTING` |
-| Mark your walls | `CREATED`, or `MANUAL` with no walls yet |
-| Ready to paint | `SEGMENTED` |
+| Mark your walls | `CREATED`, or `SEGMENTED` with no walls (`regionCount = 0`) |
+| Ready to paint | `SEGMENTED` with walls |
 | Didn't work | `FAILED` |
-| Board taken | `closedAt` set and `boardsUsed > 0` |
-| Closed | `closedAt` set, no board |
-| View only | `readOnly` (show `readOnlyReason` when opened) |
+| Finished | `closedAt` set |
+| View only | `readOnly` |
+
+`GET /api/projects` sends no `boardsUsed`, `readOnlyReason` or `MANUAL` status, so the
+chip is worked out from what it does send (`src/features/rooms/room-status.ts`, used
+on Home since Phase 2). "Board taken" vs "Closed" needs the room itself (Phase 3).
 
 Plus "12 days left" from `accessExpiresAt` (in `warmText` under 3 days).
 
@@ -95,8 +104,19 @@ shades (already limited to what this account may see — a shop customer gets on
 their shop's companies). Cache it on the phone and filter on the device: the list
 changes rarely and filtering locally works offline and instantly.
 
-**Codes and names:** `GET /api/me/shade-code-scheme` says how to show codes (shop
-numbering, or hidden names). Port `lib/shade-codes.ts` + `lib/shade-codec.ts`.
+**Codes and names:** `GET /api/me/shade-code-scheme` says how to show codes. For
+everyone but an administrator the backend sends the HV code ("HV0348") and no shade
+name, so tiles print the HV code; a name appears only when the scheme allows names and
+the shade carries one. Search matches only what is on screen (the HV code, a shown
+name, the hex) plus colour words. Ported unchanged from the website:
+`color`, `color-science`, `colour-search`, `colour-families`, `shade-codes`,
+`shade-codec` (with their tests), and `shade-mapping` with the company slug added.
+
+**The copy on the phone:** the catalogue is kept in AsyncStorage in the website's
+compact format (~50 bytes a shade), tagged with the account id — another account's copy
+is never shown (a shop customer sees only their shop's companies) — and cleared on
+sign-out. The copy shows at once; the live list replaces it. A new search or filter
+scrolls back to the top.
 
 **States:** no match → "No shade called 'xyz'. Try a code like L124 or a colour like
 'ivory'." · loading → grey tile skeletons · offline with cache → works fully.
@@ -127,10 +147,15 @@ to get one ("Take a colour board from any room and it appears here").
 - **Painters and shops near you** → C32.
 - **Help:** Help & support → S6 · Questions & answers → S8.
 - **Sign-in details:** Name → S2 · Email → S3 · Mobile → S4 · Password → S5.
-- **More:** Work as a painter → C33 (hidden when the backend would refuse) · Settings → S1.
-- **Sign out** (confirm) · app version in `caption`.
+- **More:** Work as a painter → C33 — shown only once the account is known to have no
+  shop code and no rooms (the backend refuses otherwise) · Settings → S1.
+- **Sign out** (`ConfirmSheet`) · app version in `caption`.
 - A shop's customer profile (`switchTo = "SHOP"`) gets **Switch back to your shop**,
-  which explains that shop tools are on the website (S10).
+  which explains that shop tools are on the website (S10). Its sign-in details are the
+  shop's to change, so they are replaced by a note. Going back into the shop can ask for
+  the shop's emailed code; A8 lives in the signed-out screens, so the code is taken in a
+  sheet here (`SwitchToShop`), then the guard moves on to S10.
+- A Google account's Password row reads "Google sign-in".
 
 ---
 
@@ -383,12 +408,18 @@ Status `NEW`/`IN_REVIEW` → "being redrawn"; `FIXED` → "fixed, here is what c
 
 **Route** `shade/[brand]/[code].tsx` · **Phase** 2
 
-**Layout:** the colour fills the top third · name · **code** (`ShadeCode`, large,
-long-press to copy) · company · family · tone · **Try it on a room** (pick an open room
-→ C11 with this shade ready; no room → C6) · **Find a shop near you** (→ C32 shops) ·
-the shade disclaimer.
+**Layout:** the colour fills the top third · name (only when shown) · **code**
+(`ShadeCode`, large, long-press to copy) · company — **only when the scheme's
+`showBrands` allows it, which it never does for a customer**: company + name + code
+together identify a shade, so the company goes with the other two · family (the parent
+family and the company's own, once) · depth and light reflectance · finishes · good
+for (rooms) · the backend's description · **Try it on a room** (a sheet of open rooms
+→ `/room/{id}/paint?shade=&brand=`; no room open → C6 with the same params) · **Find a
+shop near you** (→ C32 `?tab=shops`) · the shade disclaimer.
 
-**API:** `GET /api/shades/{brand}/{code}`. Codes shown through the shade-code scheme.
+**API:** read from the catalogue copy first; `GET /api/shades/{brandSlug}/{hvCode}` for
+the description and rooms, and for a shade not in the copy. Not found → "We couldn't
+find this shade" + **Open the catalogue**.
 
 ### C20 · Ready-made rooms
 
@@ -405,7 +436,10 @@ Large photo, name, a line about it, **Paint this room**. Free — it does not us
 your rooms (the backend spends no quota, credit or points). The walls come already
 marked, so it opens straight on C11.
 
-**API:** `GET /api/free-projects/{slug}` · `POST /api/free-projects/{slug}/start` → project id.
+**API:** the listing first, else `GET /api/free-projects/{slug}` · `POST
+/api/free-projects/{slug}/start` → project id → `/room/{id}/paint` (the room list is
+refreshed). A room that has gone (404) → "This room isn't available any more" + **See
+the other rooms**. The colours it was painted in are listed with the shade disclaimer.
 
 ---
 
@@ -514,7 +548,11 @@ with `POST /api/billing/attempts/{reference}/events`. Full flow in
 Sharma Paints gave you 3 rooms." The rooms and boards already on the account stay.
 
 **States:** wrong code · expired code · already used · code for another kind of account
-— each in plain words from the server's message.
+— each in plain words from the server's message; an unknown code (404) gets the app's
+own sentence ("We don't know that code. Check it with your shop — it's 8 letters and
+numbers."). A pasted WhatsApp message gives up its code (`shopCodeFromText`). Adding a
+code refreshes the balance, rooms, AI images, catalogue, scheme and products. Done →
+"Added. Sharma Paints gave you 2 rooms." + **Start a room** / **Go home**.
 
 ### C31 · My products
 

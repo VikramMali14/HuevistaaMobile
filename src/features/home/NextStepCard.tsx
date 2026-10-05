@@ -16,7 +16,9 @@ import { useTheme } from "@/theme";
  * next-step states", from the website's customer-next-step.tsx): start a room, ask the
  * shop for another, or buy one. Every second choice is a quiet link beside it.
  *
- * `hero`: a first visit with nothing yet — the card takes the screen, a room behind it.
+ * `hero`: a first visit with nothing yet — the card takes the screen, a room above it.
+ * The words and buttons stay on the card's own surface, so every button reads in both
+ * themes (over the photo, a secondary button's ink would vanish into a dark wall).
  */
 export function NextStepCard({
   balance,
@@ -74,10 +76,10 @@ export function NextStepCard({
   const content = (
     <View style={{ gap: space.md }}>
       <View style={{ gap: space.xs }}>
-        <Text variant={hero ? "display" : "title2"} accessibilityRole="header" style={hero ? { color: colors.ivory } : null}>
+        <Text variant={hero ? "display" : "title2"} accessibilityRole="header">
           {headline}
         </Text>
-        <Text variant="body" tone="soft" style={hero ? { color: colors.ivory, opacity: 0.86 } : null}>
+        <Text variant="body" tone="soft">
           {detail}
         </Text>
       </View>
@@ -93,19 +95,22 @@ export function NextStepCard({
   if (!hero) return <Card lit={nextStep !== "ready"}>{content}</Card>;
 
   return (
-    <View style={[styles.hero, { borderRadius: 22, backgroundColor: colors.bgDeep }]}>
-      <Image source={welcomeFrames[2]?.source} style={StyleSheet.absoluteFill} contentFit="cover" accessible={false} />
-      <LinearGradient
-        colors={["rgba(10,9,8,0.05)", "rgba(10,9,8,0.55)", "rgba(10,9,8,0.92)"]}
-        locations={[0, 0.45, 1]}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-      <View style={{ padding: space.lg }}>{content}</View>
-    </View>
+    <Card lit style={{ padding: 0, overflow: "hidden" }}>
+      <View style={styles.photo}>
+        <Image source={welcomeFrames[2]?.source} style={StyleSheet.absoluteFill} contentFit="cover" accessible={false} />
+        {/* The photo settles into the card instead of ending on a hard edge. */}
+        <LinearGradient
+          colors={[`${colors.surface}00`, colors.surface]}
+          locations={[0.6, 1]}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+      </View>
+      <View style={{ padding: space.lg, paddingTop: space.xs }}>{content}</View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: { minHeight: 460, overflow: "hidden", justifyContent: "flex-end" },
+  photo: { height: 240 },
 });

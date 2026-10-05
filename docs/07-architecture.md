@@ -118,6 +118,22 @@ PAINTER                         → /painter
 anything else                   → /web-only
 ```
 
+## Data on screen
+
+- Every read goes through React Query with a key from `src/api/query-keys.ts`. A change
+  says what it made stale there — `shopCodeChanges` lists everything a redeemed code
+  touches. The whole cache is cleared on sign-out.
+- `useBalance()` (`src/features/account`) is the one place the rooms balance and the next
+  step are worked out (`balanceFrom`, unit-tested).
+- `useCatalogue()` (`src/features/catalogue`) keeps the account's catalogue on the phone
+  in the website's packed shade format and filters it locally (`filter.ts`).
+- Pictures from the backend go through `RemoteImage` / `mediaSource()`
+  (`src/api/media.ts`): an outside (presigned) link as it is, the backend's own
+  `/api/…` file routes with the Bearer token.
+- Lists that can run to thousands use `FlashList`; in Jest it renders through
+  `FlatList` (`jest.setup.ts`), because FlashList draws nothing before it has measured a
+  window.
+
 ## API client
 
 `src/api/client.ts`:

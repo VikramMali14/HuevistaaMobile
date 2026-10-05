@@ -1,7 +1,7 @@
 import Feather from "@expo/vector-icons/Feather";
-import { FlashList } from "@shopify/flash-list";
+import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { useRouter, type Href } from "expo-router";
-import { useCallback, useDeferredValue, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 
 import {
@@ -52,6 +52,13 @@ export default function CatalogueScreen() {
 
   const [filter, setFilter] = useState<CatalogueFilter>(NO_FILTER);
   const query = useDeferredValue(filter.query);
+  const listRef = useRef<FlashListRef<GridItem>>(null);
+
+  // A new search or filter starts at the top, so its first matches (and the filters
+  // themselves) are in view rather than wherever the last list was scrolled to.
+  useEffect(() => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, [query, filter.brand, filter.family, filter.tone]);
 
   const shades = catalogue.data?.shades;
   const brands = catalogue.data?.brands ?? [];
@@ -122,12 +129,12 @@ export default function CatalogueScreen() {
         <Card onPress={() => router.push("/library")} accessibilityLabel={t("catalogue.readyRooms")} style={{ paddingVertical: space.sm }}>
           <View style={styles.inline}>
             <Feather name="image" size={18} color={colors.accentText} />
-            <Text variant="bodyStrong" style={{ flex: 1 }}>
-              {t("catalogue.readyRooms")}
-            </Text>
-            <Text variant="small" tone="mute">
-              {t("home.readyRoomsLead")}
-            </Text>
+            <View style={{ flex: 1 }}>
+              <Text variant="bodyStrong">{t("catalogue.readyRooms")}</Text>
+              <Text variant="small" tone="mute">
+                {t("home.readyRoomsLead")}
+              </Text>
+            </View>
             <Feather name="chevron-right" size={18} color={colors.fgMute} />
           </View>
         </Card>
@@ -219,6 +226,7 @@ export default function CatalogueScreen() {
   } else {
     body = (
       <FlashList
+        ref={listRef}
         data={items}
         renderItem={renderItem}
         keyExtractor={(item) => item.key}

@@ -37,7 +37,7 @@ export function ListRow({ title, detail, value, icon, onPress, tone = "default",
         ) : null}
       </View>
       {value ? (
-        <Text variant="small" tone="mute" numberOfLines={1} style={styles.value}>
+        <Text variant="small" tone="mute" numberOfLines={2} style={styles.value}>
           {value}
         </Text>
       ) : null}
@@ -95,7 +95,7 @@ export function ListGroup({ title, children }: { title?: string; children: React
 const styles = StyleSheet.create({
   row: { minHeight: 56, flexDirection: "row", alignItems: "center", paddingVertical: 10 },
   text: { flex: 1, gap: 2 },
-  value: { maxWidth: "45%" },
+  value: { maxWidth: "55%", textAlign: "right" },
   group: { borderWidth: hairline, overflow: "hidden" },
   rule: { height: hairline },
 });

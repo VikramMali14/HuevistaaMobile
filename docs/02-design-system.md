@@ -146,31 +146,33 @@ that need it. ✅ = included in the starting scaffold.
 | `Button` ✅ | A capsule, mapped from the website: `primary` ← `.btn-brass` (brass, ink text) · `secondary` ← `.btn-ghost` (outline, `ruleStrong`) · `danger` ← `.btn-warm` (`warmFill`, white text) · `ghost` = a text link in `accentText`; inline (`block={false}`) its words line up with the text above. Label Inter 600 16, wrapping to two lines (never an ellipsis) at large text sizes | default · pressed (fills fade to .85, outlines raise to `surfaceSoft`) · **disabled (drained: `surfaceSoft`, `fgMute` text, `ruleStrong`, .55 — never a faded brass)** · loading |
 | `IconButton` | Round, 48 dp target | default · pressed · disabled |
 | `TextField` ✅ | ← `.field`: `fieldLabel` above in `fgSoft`; box `surface`, 1 dp `ruleStrong`, radius 16, padding 13/14, Inter 16; placeholder `fgMuteDeep`; error Inter 500 13 in `dangerText` | empty · focused (border `fg` — brass would be 2.7:1 on paper) · filled · error (border `dangerText`) · disabled |
-| `PhoneField` | `+91` prefix, numeric pad, groups digits 5-5; deleting the space deletes the digit before it | as TextField |
-| `CodeInput` | 6 boxes for texted/emailed codes; paste (the digits are picked out of a whole SMS) and SMS autofill | as TextField |
-| `ShopCodeInput` | Character boxes for a shop's access code | as TextField |
+| `PhoneField` ✅ | `+91` prefix, numeric pad, groups digits 5-5; deleting the space deletes the digit before it | as TextField |
+| `CodeInput` ✅ | 6 boxes for texted/emailed codes; paste (the digits are picked out of a whole SMS) and SMS autofill. With `alphanumeric` it is the shop-code input (8 letters and numbers; a pasted WhatsApp message gives up its code) | as TextField |
 | `Card` ✅ | `surface`, radius 16, 1 dp `rule`, padding 20; `lit` = brass top edge | default · pressed (`surfaceSoft`, if tappable) |
-| `ListRow` | Icon, title, subtitle, trailing value/chevron | default · pressed · destructive |
-| `Chip` | Filter pill | off · on · disabled |
-| `Segmented` | Two to three options (e.g. Colour boards / AI images) | — |
+| `ListRow` ✅ | Icon, title, detail line, trailing value (wraps to two lines, never an ellipsis) and chevron. `ListGroup` puts rows on one surface split by hairlines, with a `label` heading | default · pressed · destructive |
+| `Chip` ✅ | Filter pill (`.hv-studio-pill`); chosen is inverted, like `Segmented` | off · on |
+| `Segmented` ✅ | Two to three options (e.g. Colour boards / AI images) | — |
 | `Swatch` | A small colour dot in a row: radius 6, 1 dp `ruleStrong` edge so pale shades still show | — |
-| `SwatchTile` | ← `.hv-shade-card`: a square swatch, radius 10, 1 dp `rule` outline inside (so "Bone China" on cream is still a swatch); name Inter 500 15 on one line; code in `code` 15; in the three shapes (name+code, code, neither) | default · pressed · selected (two inset rings: 2 dp `fg`, then 2 dp `bg` — shows on white and black swatches alike) |
-| `ShadeCode` | Large tabular code, long-press to copy (toast "Copied") | — |
-| `BalanceChip` | "3 rooms left", "12 AI credits" | zero state (muted) |
+| `SwatchTile` ✅ | ← `.hv-shade-card`: a square swatch, radius 10, 1 dp `rule` outline (so "Bone China" on cream is still a swatch); the code in `code`; the name under it only when the viewer may see names and the shade has one. Fixed size and memoised for the catalogue grid | default · pressed · selected (two inset rings: 2 dp `fg`, then 2 dp `bg` — shows on white and black swatches alike) |
+| `ShadeCode` ✅ | Large tabular code, long-press to copy (toast "Code copied.", a light haptic) | — |
+| `BalanceChip` ✅ | "3 rooms left", "12 AI credits" on a brass hairline; taps through to C27 | zero ("No rooms left") |
 | `TabBar` ✅ | `src/navigation/tab-bar.ts`, shared by both tab bars: **60 dp + the phone's bottom inset** (the navigator's 49 clips Inter labels), labels Inter 600 11/14, active in `accentText`, inactive `fgMute`. The painter's Scan is a custom brass button that reads the navigator's `aria-selected` | active · inactive |
 | `StepDots` | The studio's five steps; only the active one labelled; spinner on a working step | — |
-| `Sheet` | Bottom sheet with grabber; 50% / 85% / full | — |
-| `ConfirmSheet` | Title, plain consequences list, confirm + cancel | default · destructive |
-| `Toast` | Short message at the top, clear of the action pinned at the bottom | info · success · error |
-| `Banner` | Inline message across a screen (offline, notice, warning) | info · warning · danger |
+| `Sheet` ✅ | Bottom sheet with grabber; the page dims; tall content scrolls inside, up to 85%. Closes on the backdrop and the phone's back button | — |
+| `ConfirmSheet` ✅ | Title, what happens, a plain consequences list, confirm + cancel; an error is said inside it | default · destructive · loading · error |
+| `Toast` ✅ | Short message at the top, clear of the action pinned at the bottom | info · success · error |
+| `Banner` ✅ | Inline message across a screen (offline, notice, warning) | info · warning · danger |
 | `EmptyState` ✅ | Picture/illustration, one line, one action | — |
 | `ErrorState` ✅ | Plain reason, Retry, "Get help" | — |
 | `WorkingState` | The AI working pattern: stage name, plain sentence, elapsed time, rough estimate, "Leave this running" | — |
-| `Skeleton` | Shimmer blocks shaped like the content | — |
+| `Skeleton` ✅ | Blocks shaped like the content, breathing slowly; still under "Reduce motion" | — |
 | `Disclaimer` ✅ | The two fixed texts (`shades`, `ai`) | — |
 | `BrandMark` ✅ | The two-chip H, in `mark` | — |
 | `OfflineBanner` ✅ | X1 — the slim bar shown while offline. `Screen` renders it at the top of every page, **in the flow** (it pushes content down, never covers a back button); canvas screens can turn it off | online (hidden) · offline · unknown (hidden) |
-| `Avatar` | Initials on brass-soft | — |
+| `Avatar` ✅ | Initials in `accentText` on `surfaceSoft`, brass hairline | — |
+| `RemoteImage` ✅ | A picture the backend serves (adds the token for its own `/api/…` files); soft surface while loading, a quiet icon if it fails | loading · loaded · failed |
+| `SectionHeader` ✅ | A section title with an optional "See all" | — |
+| `FormScreen` ✅ | `src/components/FormScreen.tsx`: back arrow, title, lead, the form, the main button pinned at the bottom — every sign-in and account form | — |
 | `Stars` | Rating input and display | — |
 | `Slider` | Radius for nearby search | — |
 | `Switch` | On/off rows | — |

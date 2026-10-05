@@ -10,6 +10,7 @@ import {
   BackButton,
   Banner,
   Button,
+  Disclaimer,
   EmptyState,
   RemoteImage,
   Screen,
@@ -128,6 +129,7 @@ export default function LibraryRoom() {
             </View>
           ) : null}
           {error ? <Banner tone="danger" message={error} /> : null}
+          {colours.length ? <Disclaimer kind="shades" /> : null}
         </View>
       </ScrollView>
     </Screen>

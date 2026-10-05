@@ -31,6 +31,13 @@ import { useTheme } from "@/theme";
 
 const slugify = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
+/** "Yellows & golds · Lemon Yellows" — the company's own family once, never "Blues · Blues". */
+function familyLabel(parent: string, own: string): string {
+  if (parent === "Other") return own;
+  const label = t(`families.${parent}` as MessageKey);
+  return label.toLowerCase() === own.trim().toLowerCase() ? label : `${label} · ${own}`;
+}
+
 /**
  * C19 · Shade detail. Spec: docs/04-screens-customer.md — C19.
  *
@@ -139,7 +146,7 @@ export default function ShadeDetail() {
             {scheme.showBrands !== false ? <ListRow title={t("shade.company")} value={shade.brand} /> : null}
             <ListRow
               title={t("shade.family")}
-              value={parent === "Other" ? shade.family : `${t(`families.${parent}` as MessageKey)} · ${shade.family}`}
+              value={familyLabel(parent, shade.family)}
             />
             <ListRow title={t("shade.depth")} value={`${t(`tones.${tone}` as MessageKey)} · ${t("shade.lrv", { n: shade.lrv })}`} />
             {shade.finishes.length ? <ListRow title={t("shade.finishes")} value={shade.finishes.join(", ")} /> : null}

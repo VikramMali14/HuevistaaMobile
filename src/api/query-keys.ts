@@ -18,9 +18,14 @@ export const keys = {
   shadeDetail: (brand: string, code: string) => ["shades", "detail", brand, code] as const,
 };
 
-/** What a redeemed shop code changes. */
+/**
+ * What a redeemed shop code changes. The rooms are read again as well: whether a room is
+ * open, and for how long, can depend on the shop behind the account.
+ */
 export const shopCodeChanges = [
   keys.entitlement,
+  keys.projects,
+  keys.renders,
   keys.projectOptions,
   keys.aiCredits,
   keys.assignedProducts,

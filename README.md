@@ -27,8 +27,12 @@ email sign-in, create an account, forgot password, a shop's emailed code, Google
 sign-in, About you, the tour, and the web-only screen — and a link opened while signed
 out comes back after sign-in.
 
-**Next: Phase 2 — Home, catalogue, account.** The order is in
-[docs/08-roadmap.md](docs/08-roadmap.md).
+**Phase 2 — Home, catalogue, account — is done.** Home with the one next step, the
+shade catalogue (search by code or colour word, works offline), a shade's own page,
+ready-made rooms, adding a shop code, the shop's products, Account, and the account
+screens: settings, name, email, mobile number, password and deleting the account.
+
+**Next: Phase 3 — the studio.** The order is in [docs/08-roadmap.md](docs/08-roadmap.md).
 
 ## The plan
 

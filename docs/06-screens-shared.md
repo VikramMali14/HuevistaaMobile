@@ -14,31 +14,38 @@ These live in `app/(account)/` and need a signed-in session of any role.
 - **Language:** English. (Hindi in Phase 8 — every string is already in `src/i18n`.)
 - **Legal:** Terms · Privacy · Refunds · About · Contact — the website's `/legal/…`
   pages in the in-app browser, so they are always current.
-- **App version** and build number (tap 7 times → copy diagnostics for support).
+- **App version** and build number (tap 7 times → copy diagnostics for support: version,
+  build, platform, account id and role — never a token).
 - **Sign out** (confirm) · **Delete account** → S9.
 
 ### S2 · Your name
 
 **Route** `(account)/edit-name.tsx` · **Phase** 2
 
-One field and **Save**. `PATCH /api/auth/profile { name }`.
+One field and **Save**. `PATCH /api/auth/profile { name }` — two to 80 characters
+(the backend's minimum is two). Unchanged → just goes back. Saved → toast "Name saved."
 
 ### S3 · Email
 
 **Route** `(account)/verify-email.tsx` · **Phase** 2 · **Web reference** `components/app/account-verification.tsx`
 
 Add or confirm an email: `POST /api/auth/verify/email/send { email? }` → 6-digit code →
-`POST /api/auth/verify/email/confirm { code }`. Hidden on a shop's customer profile
-(`linkedProfile`), which has no sign-in of its own.
+`POST /api/auth/verify/email/confirm { code }`. A confirmed email shows **Change email**;
+an unconfirmed one **Send code** or **Use a different email**; none goes straight to
+the field. Nothing changes on the account until the code comes back. Resend waits the
+server's `cooldownSeconds`. A shop's customer profile (`linkedProfile`) sees a note
+instead — its sign-in is the shop's. (S3 and S4 share `src/features/account/VerifyFlow.tsx`.)
 
 ### S4 · Mobile number
 
 **Route** `(account)/mobile-number.tsx` · **Phase** 2 · **Web reference** `components/app/phone-move.tsx`
 
-- **Add / confirm:** `POST /api/auth/verify/phone/send { phoneNumber? }` →
-  `POST /api/auth/verify/phone/confirm { code }`.
-- **Change number:** `POST /api/auth/verify/phone/move/send { phoneNumber }` →
-  `POST /api/auth/verify/phone/move/confirm { code }`.
+- **Add / confirm / change:** `POST /api/auth/verify/phone/send { phoneNumber? }` →
+  `POST /api/auth/verify/phone/confirm { code }`. Changing the number is the same call
+  with the new number; it moves onto the account only when the code comes back.
+- `…/verify/phone/move/*` is **not** for customers: it is how a shop proves a number
+  that signs a separate customer account in and moves that account into the shop's
+  customer profile (the website's `phone-move.tsx`).
 - Say plainly that this number signs the account in.
 
 ### S5 · Password
@@ -46,9 +53,15 @@ Add or confirm an email: `POST /api/auth/verify/email/send { email? }` → 6-dig
 **Route** `(account)/password.tsx` · **Phase** 2
 
 - `hasPassword` true → current + new → `POST /api/auth/change-password`. This signs out
-  every device, this one included → back to A5 with a toast.
-- `hasPassword` false (mobile or Google accounts) → "Set a password" (new only) →
-  `POST /api/auth/set-password`.
+  every device, this one included → A5 with the email filled in and a toast. The app
+  does not call logout again (the server already ended the session) and lands there
+  through `signOut({ serverAlreadyKnows, landing })`, so nothing is remembered for the
+  next sign-in. A wrong current password is said under that field.
+- `hasPassword` false, mobile or walk-in accounts → "Set a password" (new only) →
+  `POST /api/auth/set-password`. It signs in beside the email, so it needs a confirmed
+  email first ("Add or confirm an email" → S3). Same sign-out and landing as a change.
+- Google accounts have no HueVistaa password: an explanation, no form (the backend
+  refuses both calls). A shop's customer profile sees the linked-profile note.
 
 ### S6 · Help and support
 
@@ -81,7 +94,10 @@ question** (`POST /api/community/questions { body, displayName }`) · **My quest
 Google Play requires in-app account deletion. List exactly what goes: rooms, boards, AI
 images, credits (customers); points, vouchers not yet delivered, the nearby listing
 (painters). A tick box "I understand this can't be undone" enables **Delete my
-account** (`danger`) → `DELETE /api/auth/account` → clear the session → A2.
+account** (`danger`) → `DELETE /api/auth/account` → clear the session (no logout call
+— the account is gone) → A2 with "Your account has been deleted." A shop customer is
+also told the rooms the shop gave can't be given back. A refusal (e.g. an account that
+owns a shop) is the backend's own sentence.
 
 ### S10 · Web-only accounts
 
