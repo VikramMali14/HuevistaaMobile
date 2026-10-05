@@ -1,0 +1,68 @@
+{
+  "expo": {
+    "name": "HueVistaa",
+    "slug": "huevistaa",
+    "description": "See your walls in your chosen colour — before you paint a single stroke.",
+    "version": "0.1.0",
+    "scheme": "huevista",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#100e0c",
+    "primaryColor": "#c08b4e",
+    "ios": {
+      "bundleIdentifier": "com.gridstore.huevistaa",
+      "supportsTablet": false
+    },
+    "android": {
+      "package": "com.gridstore.huevistaa",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "monochromeImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#100e0c"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 120,
+          "resizeMode": "contain",
+          "backgroundColor": "#f6f3ec",
+          "dark": {
+            "image": "./assets/images/splash-icon.png",
+            "backgroundColor": "#0a0908"
+          }
+        }
+      ],
+      "expo-font",
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-image",
+      "expo-asset",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "HueVistaa uses the camera to photograph the walls you want to paint.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "HueVistaa opens your photos so you can pick a room to paint.",
+          "cameraPermission": "HueVistaa uses the camera to photograph the walls you want to paint.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-sharing"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
