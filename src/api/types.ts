@@ -128,6 +128,22 @@ export interface AiCreditSummary {
   soonestExpiryAt?: string | null;
   expiringCredits?: number;
   currency: string;
+  /** What each quality of AI image costs, in credits (C23). */
+  renderTiers?: { quality: string; credits: number }[];
+  /** The wallet's latest movements, newest first (C27's statement). */
+  recentActivity?: AiCreditActivity[];
+}
+
+/** One movement in the AI credit wallet (backend AiCreditSummaryResponse.ActivityRow). */
+export interface AiCreditActivity {
+  id: string;
+  /** Signed: positive is bought or handed back, negative is spent. */
+  credits: number;
+  /** PURCHASED · SPENT_ON_RENDER · RENDER_REFUNDED · GRANTED · EXPIRED */
+  type: string;
+  balanceAfter: number;
+  note?: string | null;
+  createdAt?: string;
 }
 
 // ── Rooms ─────────────────────────────────────────────────────────────────────
@@ -201,11 +217,16 @@ export interface RoomDetail {
   cleanAngle?: "AS_SHOT" | "BEST_VIEW" | null;
   regions: RoomRegion[];
   hasShareLink?: boolean;
+  /** Owner view only, while a link is live: when it stops working, and its token. */
+  shareExpiresAt?: string | null;
+  shareToken?: string | null;
   createdAt?: string;
   updatedAt?: string;
   closedAt?: string | null;
   boardsUsed?: number;
   boardsAllowed?: number;
+  /** Combinations its colour boards handed over (a reopened room keeps them). */
+  comboCount?: number;
   fromLibrary?: boolean;
   readOnly?: boolean;
   readOnlyReason?: string | null;
@@ -331,6 +352,162 @@ export interface StartedFreeProject {
   name: string;
   status: string;
   regionCount: number;
+}
+
+// ── Colour boards (C15, C16, C25, C4) ─────────────────────────────────────────
+
+/** One colour on a board page, as it is reported once the board is built. */
+export interface ColourBoardPageShade {
+  regionId?: number | null;
+  regionLabel?: string | null;
+  /** The code the catalogue has; for a customer that is the HV code. */
+  shadeCode?: string | null;
+  shadeName?: string | null;
+  /** #rrggbb — validated by the backend. */
+  hex: string;
+}
+
+/** POST /api/projects/{id}/colour-boards — one page each; the server keeps shades, not pictures. */
+export interface ColourBoardPage {
+  title?: string;
+  shades: ColourBoardPageShade[];
+}
+
+/** GET /api/billing/pdf-allowance. A customer's is unmetered; only `imagesPerPdf` matters. */
+export interface PdfAllowance {
+  imagesPerPdf: number;
+  monthlyLimit: number;
+  used: number;
+  remaining: number;
+  unlimited: boolean;
+}
+
+/** What recording (and charging for) a colour board answers. */
+export interface ColourBoardResult {
+  allowance: PdfAllowance;
+  boardsUsed: number;
+  boardsAllowed: number;
+  /** This board was the room's last: the room has closed. */
+  closed: boolean;
+}
+
+/** GET /api/projects/{id}/reward-code — the QR on the board's last page (204: none). */
+export interface RewardCode {
+  token: string;
+  /** What the QR encodes: a website address, so any camera app opens it. */
+  scanUrl: string;
+  expiresAt: string;
+  /** False on a room the customer did not buy: the QR is for their review only. */
+  paysPoints?: boolean;
+}
+
+/** GET /api/projects/{id}/combos (one row): one page of one of the room's boards. */
+export interface ProjectCombo {
+  id: string;
+  /** Which board (1-based) and where on it (0-based). */
+  boardIndex: number;
+  pageIndex: number;
+  title?: string | null;
+  /** An AI image of it already exists. */
+  rendered: boolean;
+  shades: {
+    regionId?: number | null;
+    regionLabel?: string | null;
+    shadeCode?: string | null;
+    shadeName?: string | null;
+    hvCode?: string | null;
+    hex: string;
+  }[];
+}
+
+/** GET /api/me/renderable-projects (one row): a room with board combinations. */
+export interface RenderableProject {
+  id: string;
+  name: string;
+  roomType?: string | null;
+  imageUrl: string;
+  cleanedImageUrl?: string | null;
+  /** Null while the room is still open (a reopened room keeps its combinations). */
+  closedAt?: string | null;
+  comboCount: number;
+}
+
+/** POST /api/projects/{id}/share — created, or the same link refreshed. */
+export interface ShareLink {
+  shareUrl: string;
+  shareToken: string;
+  expiresAt?: string | null;
+}
+
+// ── Buying (C27, C28, C29, D3) ────────────────────────────────────────────────
+
+/** GET /api/billing/cart — the customer's counter. Every amount is in paise. */
+export interface CartCatalogue {
+  /** False for an account this counter is not for (it answers 403 to an order). */
+  eligible: boolean;
+  projectPricePaise: number;
+  creditPricePaise: number;
+  /** The combo: cheaper than its parts bought separately. */
+  comboPricePaise: number;
+  comboProjects: number;
+  comboCredits: number;
+  /** The special offer; `bundleAvailable` false takes it off the counter. */
+  bundleAvailable?: boolean;
+  bundlePricePaise?: number;
+  bundleListPricePaise?: number;
+  bundleProjects?: number;
+  bundleCredits?: number;
+  /** How long everything bought here lasts. */
+  validDays: number;
+  /** The most of any one line one order may hold. */
+  maxQuantity: number;
+  /** Percentage offers, weakest first; the best one a basket reaches applies itself. */
+  offers: { code: string; minSubtotalPaise: number; percentOff: number }[];
+  /** Whether those offers also come off the combo and the bundle. */
+  offersApplyToPackages?: boolean;
+  availableProjects: number;
+  creditBalance: number;
+  creditsExpireAt?: string | null;
+  creditsExpiring?: number;
+  currency: string;
+}
+
+/** The four lines the server prices — what an order sends. */
+export interface CartSplit {
+  projects: number;
+  credits: number;
+  combos: number;
+  bundles: number;
+}
+
+/** POST /api/billing/cart/order — the Razorpay order and the bill behind it. */
+export interface CartOrder {
+  orderId: string;
+  subtotalPaise: number;
+  discountCode?: string | null;
+  discountPercent: number;
+  discountPaise: number;
+  /** What Checkout charges. */
+  amountPaise: number;
+  /** What it hands over once paid — packages already unpacked. */
+  projectsGranted: number;
+  creditsGranted: number;
+  validDays: number;
+  currency: string;
+  razorpayKeyId: string;
+}
+
+/** POST /api/billing/attempts/{reference}/events — what happened to a checkout. */
+export interface CheckoutEventBody {
+  status: "OPENED" | "ABANDONED" | "FAILED" | "VERIFY_FAILED";
+  pageUrl?: string;
+  referrer?: string;
+  paymentId?: string;
+  errorCode?: string;
+  errorDescription?: string;
+  errorSource?: string;
+  errorStep?: string;
+  errorReason?: string;
 }
 
 // ── Shades ────────────────────────────────────────────────────────────────────

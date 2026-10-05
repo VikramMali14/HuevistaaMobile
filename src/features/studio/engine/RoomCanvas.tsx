@@ -52,12 +52,22 @@ export interface RoomCanvasHandle {
    * and wait for the GPU. Returns the milliseconds it took. For the engine check.
    */
   renderTimed(colours?: ReadonlyMap<string, string>): number;
-  /** A JPEG of what the canvas shows now (C14 "Share this view"); null without a context. */
-  snapshot(): Promise<string | null>;
+  /**
+   * A JPEG of what the canvas shows now (C14 "Share this view"); null without a context.
+   * With `only`, of the room painted in exactly those colours (wall id → colour), every
+   * other wall left as the photo — C15 photographs each option on the board this way.
+   */
+  snapshot(only?: ReadonlyMap<string, SnapshotPaint>): Promise<string | null>;
   /** C10: a wall's mask at the photo's full size with `ops` drawn on it — what is saved. */
   bake(id: string, ops: readonly MaskOp[]): Readback | null;
   /** Fetch again what failed: the photo, or walls whose mask didn't come. */
   retry(): void;
+}
+
+/** A wall's colour in a snapshot of one combination. */
+export interface SnapshotPaint {
+  hex: string;
+  lrv: number | null;
 }
 
 /** C10: the wall being reshaped (or a new one, with no mask yet) and the edits so far. */
@@ -170,7 +180,7 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
     return { width, height };
   }, [source, box]);
 
-  const paint = useCallback((colours?: ReadonlyMap<string, string>) => {
+  const paint = useCallback((colours?: ReadonlyMap<string, string>, only?: ReadonlyMap<string, SnapshotPaint>) => {
     const e = engine.current;
     if (!e) return;
     const { walls: ws, cleaned: cl, showOriginal: orig, splitAt: split, edit: ed } = latest.current;
@@ -188,7 +198,11 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
       return;
     }
     const painted: WallPaint[] = ws
-      .map((w) => ({ ...w, hex: colours?.get(w.id) ?? w.hex, lrv: colours?.has(w.id) ? null : w.lrv }))
+      .map((w) =>
+        only
+          ? { ...w, hex: only.get(w.id)?.hex ?? null, lrv: only.get(w.id)?.lrv ?? null }
+          : { ...w, hex: colours?.get(w.id) ?? w.hex, lrv: colours?.has(w.id) ? null : w.lrv },
+      )
       .filter((w) => w.hex && e.hasMask(w.id))
       .map((w) => ({ id: w.id, hex: w.hex!, lrv: w.lrv, manual: w.manual, strength: w.strength }));
     e.renderRegions(regionPaints(painted, { baseL: baseL.current, cleaned: cl }), split);
@@ -341,12 +355,17 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
       if (!engine.current) setPhotoAttempt((n) => n + 1);
       else if (missing.current.size) setMaskAttempt((n) => n + 1);
     },
-    async snapshot() {
+    async snapshot(only) {
       const gl = glRef.current;
       if (!gl || !engine.current) return null;
-      paint();
-      const shot = await GLView.takeSnapshotAsync(gl, { format: "jpeg", compress: 0.9 });
-      return typeof shot.uri === "string" ? shot.uri : shot.uri ? URL.createObjectURL(shot.uri) : null;
+      paint(undefined, only);
+      try {
+        const shot = await GLView.takeSnapshotAsync(gl, { format: "jpeg", compress: 0.9 });
+        return typeof shot.uri === "string" ? shot.uri : shot.uri ? URL.createObjectURL(shot.uri) : null;
+      } finally {
+        // Back to what the screen is showing.
+        if (only) paint();
+      }
     },
   }));
 

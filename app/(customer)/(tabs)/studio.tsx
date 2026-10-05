@@ -22,6 +22,7 @@ import {
   TextField,
   useToast,
 } from "@/components/ui";
+import { forgetBoard } from "@/features/boards/made-boards";
 import { useLibrary } from "@/features/library/use-library";
 import { forgetRoom } from "@/features/studio/paint-store";
 import { forgetTray } from "@/features/studio/tray-store";
@@ -39,7 +40,8 @@ type Tab = "open" | "done";
  * C2 · Studio — your rooms. Spec: docs/04-screens-customer.md — C2.
  *
  * Every room, newest activity first, split into In progress and Finished; a tap opens the
- * room at its step, a long press renames or deletes it. New room is always one tap away.
+ * room at its step, a long press renames, shares or deletes it. New room is always one tap
+ * away.
  */
 export default function StudioScreen() {
   const router = useRouter();
@@ -91,6 +93,7 @@ export default function StudioScreen() {
         // Nothing of it is kept or sent again: its unsaved colours, its tray, its cache.
         forgetRoom(room.id);
         forgetTray(room.id);
+        forgetBoard(room.id);
         queryClient.removeQueries({ queryKey: keys.room(room.id) });
         await refreshRooms();
         setDeleting(null);
@@ -185,6 +188,15 @@ export default function StudioScreen() {
               setName(menu?.name ?? "");
               setRenaming(menu);
               setMenu(null);
+            }}
+          />
+          <ListRow
+            icon="share-2"
+            title={t("studio.share")}
+            onPress={() => {
+              const room = menu;
+              setMenu(null);
+              if (room) router.push({ pathname: "/room/[projectId]/share", params: { projectId: room.id } } as Href);
             }}
           />
           <ListRow

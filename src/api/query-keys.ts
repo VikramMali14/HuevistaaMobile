@@ -9,18 +9,25 @@ export const keys = {
   aiCredits: ["me", "ai-credits"] as const,
   projects: ["me", "projects"] as const,
   renders: ["me", "renders"] as const,
+  /** C4: rooms that took a colour board. */
+  boards: ["me", "boards"] as const,
+  cart: ["me", "cart"] as const,
+  pdfAllowance: ["me", "pdf-allowance"] as const,
   assignedProducts: ["me", "assigned-products"] as const,
   shopCombos: ["me", "shop-combos"] as const,
   library: ["library"] as const,
   libraryRoom: (slug: string) => ["library", slug] as const,
   catalogue: ["shades", "mine"] as const,
   catalogueCache: ["shades", "mine", "cache"] as const,
+  /** The companies this account may use (C17's picker). Under the catalogue's key. */
+  myBrands: ["shades", "mine", "brands"] as const,
   shadeScheme: ["shades", "scheme"] as const,
   shadeDetail: (brand: string, code: string) => ["shades", "detail", brand, code] as const,
   /** One room with its walls. Under "me", "projects" so a change to the list reaches it. */
   room: (id: string) => ["me", "projects", id] as const,
   roomReport: (id: string) => ["me", "projects", id, "report"] as const,
   suggestions: (id: string, round: number) => ["me", "projects", id, "suggestions", round] as const,
+  combos: (id: string) => ["me", "projects", id, "combos"] as const,
 };
 
 /**
@@ -40,3 +47,12 @@ export const shopCodeChanges = [
   keys.catalogue,
   keys.shadeScheme,
 ] as const;
+
+/** What a verified payment changes: everything that counts rooms or credits. */
+export const paymentChanges = [keys.entitlement, keys.projectOptions, keys.aiCredits, keys.cart] as const;
+
+/**
+ * What a colour board changes: the room (it may have closed — under "me", "projects", so the
+ * room list and its combinations go with it) and the Boards tab.
+ */
+export const boardChanges = (id: string) => [keys.room(id), keys.projects, keys.boards] as const;

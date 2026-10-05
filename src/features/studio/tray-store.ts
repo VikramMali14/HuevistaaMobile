@@ -5,8 +5,7 @@ import type { Colours, WallColour } from "./paint-store";
 
 /**
  * The board tray (C11 "Save this combination"): colourings kept on the phone until a
- * colour board is made from them (C15, Phase 4) — the website keeps its tray in the
- * browser too.
+ * colour board is made from them (C15) — the website keeps its tray in the browser too.
  */
 export interface SavedCombo {
   colours: Record<string, WallColour>;
@@ -21,6 +20,21 @@ const listeners = new Set<() => void>();
 
 function emit() {
   for (const l of listeners) l();
+}
+
+function persist() {
+  void AsyncStorage.setItem(KEY, JSON.stringify(trays)).catch(() => {});
+}
+
+function setTray(roomId: string, list: SavedCombo[]) {
+  if (list.length) {
+    trays = { ...trays, [roomId]: list };
+  } else {
+    const { [roomId]: _gone, ...rest } = trays;
+    trays = rest;
+  }
+  emit();
+  persist();
 }
 
 async function load() {
@@ -53,10 +67,21 @@ export function saveCombo(roomId: string, colours: Colours, wallIds: readonly st
   if (Object.keys(picked).length === 0) return false;
   const list = trays[roomId] ?? [];
   if (list.some((c) => sameCombo(c.colours, picked))) return false;
-  trays = { ...trays, [roomId]: [...list, { colours: picked, savedAt: Date.now() }] };
-  emit();
-  void AsyncStorage.setItem(KEY, JSON.stringify(trays)).catch(() => {});
+  // Also the combination's name in the tray: never the same twice, even in one millisecond.
+  const savedAt = Math.max(Date.now(), (list[list.length - 1]?.savedAt ?? 0) + 1);
+  setTray(roomId, [...list, { colours: picked, savedAt }]);
   return true;
+}
+
+/** C15: take one combination off the board. */
+export function removeCombo(roomId: string, savedAt: number) {
+  const list = trays[roomId] ?? [];
+  setTray(roomId, list.filter((c) => c.savedAt !== savedAt));
+}
+
+/** C15: put the combinations in the order the board will print them. */
+export function reorderTray(roomId: string, next: readonly SavedCombo[]) {
+  setTray(roomId, [...next]);
 }
 
 export function useTray(roomId: string): SavedCombo[] {
@@ -70,13 +95,10 @@ export function useTray(roomId: string): SavedCombo[] {
     () => trays[roomId] ?? EMPTY,
   );
 }
-/** Forget one room's tray (the room was deleted). */
+/** Forget one room's tray (the room was deleted, or its board was made). */
 export function forgetTray(roomId: string) {
   if (!(roomId in trays)) return;
-  const { [roomId]: _gone, ...rest } = trays;
-  trays = rest;
-  emit();
-  void AsyncStorage.setItem(KEY, JSON.stringify(trays)).catch(() => {});
+  setTray(roomId, []);
 }
 
 /** Forget every tray (sign-out). */

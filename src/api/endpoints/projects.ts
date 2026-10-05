@@ -1,19 +1,26 @@
 /**
- * One room and its walls: create, segment, poll, paint, plan, masks, suggestions, reports.
+ * One room and its walls: create, segment, poll, paint, plan, masks, suggestions, reports,
+ * its colour board and its share link.
  * Backend: project/controller/ProjectController, ai/controller/ColorRecommendationController,
- * maskreport/controller/MaskReportController. Screens: C2, C7–C14, C18.
+ * maskreport/controller/MaskReportController, reward/controller/ProjectRewardController.
+ * Screens: C2, C7–C18, C25.
  */
 import { api } from "../instance";
 import type {
+  ColourBoardPage,
+  ColourBoardResult,
   MaskReport,
   MaskReportIssue,
+  ProjectCombo,
   Recommendations,
   RegionCategory,
   RegionColourUpdate,
   RegionPlanUpdate,
+  RewardCode,
   RoomDetail,
   RoomRegion,
   SegmentChoices,
+  ShareLink,
 } from "../types";
 
 export const projectsApi = {
@@ -80,4 +87,39 @@ export const projectsApi = {
   /** C18. Reporting again updates the open report. */
   report: (id: string, body: { issues: MaskReportIssue[]; note?: string }) =>
     api.request<MaskReport>(`api/projects/${encodeURIComponent(id)}/mask-reports`, { body }),
+
+  /**
+   * C15. The QR for the board's last page, minted once per room for life — so it is asked
+   * for only when a board is actually being made. Null (204) when the board carries none:
+   * a ready-made room's.
+   */
+  rewardCode: async (id: string) =>
+    (await api.request<RewardCode | undefined>(`api/projects/${encodeURIComponent(id)}/reward-code`)) ?? null,
+
+  /**
+   * C15. Charges for the board and records what was on it. 402: nothing left to pay with;
+   * 409: the room is closed, its boards are spent, or the sheet is bigger than allowed.
+   */
+  recordBoard: (id: string, pages: ColourBoardPage[]) =>
+    api.request<ColourBoardResult>(`api/projects/${encodeURIComponent(id)}/colour-boards`, {
+      body: { pages },
+      timeoutMs: 30_000,
+    }),
+
+  /** C25. Every option the room's boards handed over, in the order they were on the sheet. */
+  combos: (id: string) => api.request<ProjectCombo[]>(`api/projects/${encodeURIComponent(id)}/combos`),
+
+  /**
+   * C17. Creates the room's link, or refreshes the same one. `days` is 3, 7 or 10 (the
+   * backend makes anything else 10); `brands` are company NAMES, comma-separated, left out
+   * for every company. Both are query parameters, not a body.
+   */
+  share: (id: string, days: 3 | 7 | 10, brands?: readonly string[]) =>
+    api.request<ShareLink>(`api/projects/${encodeURIComponent(id)}/share`, {
+      method: "POST",
+      query: { days, brands: brands?.length ? brands.join(",") : undefined },
+    }),
+
+  /** C17. Withdraws the link; anyone who opens it is told it has stopped working. */
+  unshare: (id: string) => api.request<void>(`api/projects/${encodeURIComponent(id)}/share`, { method: "DELETE" }),
 };

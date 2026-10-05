@@ -23,14 +23,14 @@ export function canvasUrl(room: Pick<RoomDetail, "cleanedImageUrl" | "imageUrl">
 export type RoomStep = "tidy" | "walls" | "adjust" | "paint";
 
 /**
- * Where a room opens (docs/04 "The studio" table): not yet cleaned or still working or
- * failed → Tidy up; ready with no walls → Adjust (mark them); ready with walls → Walls
- * the first time, Paint once it has been painted on this phone. A finished or view-only
- * room opens on Paint, which shows it without letting it change (C25 takes finished
- * rooms over in Phase 4).
+ * Where a room opens (docs/04 "The studio" table): finished → its board (C25); not yet
+ * cleaned or still working or failed → Tidy up; ready with no walls → Adjust (mark them);
+ * ready with walls → Walls the first time, Paint once it has been painted on this phone.
+ * A view-only room opens on Paint, which shows it without letting it change.
  */
-export function stepFor(room: RoomDetail, paintedBefore: boolean): RoomStep {
-  if (room.closedAt || room.readOnly) return "paint";
+export function stepFor(room: RoomDetail, paintedBefore: boolean): RoomStep | "board" {
+  if (room.closedAt) return "board";
+  if (room.readOnly) return "paint";
   if (room.status !== "SEGMENTED") return "tidy";
   if (wallsWithMasks(room).length === 0) return "adjust";
   return paintedBefore ? "paint" : "walls";
