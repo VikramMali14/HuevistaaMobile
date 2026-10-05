@@ -22,7 +22,13 @@ Built with **Expo SDK 57**, React Native 0.86, TypeScript and expo-router.
 token refresh, sign-in session, role-based routing, and a placeholder for every one of
 the 69 planned screens.
 
-**Next: Phase 1 — signing in.** The order is in [docs/08-roadmap.md](docs/08-roadmap.md).
+**Phase 1 — signing in and the first run — is done.** Welcome, mobile number and code,
+email sign-in, create an account, forgot password, a shop's emailed code, Google
+sign-in, About you, the tour, and the web-only screen — and a link opened while signed
+out comes back after sign-in.
+
+**Next: Phase 2 — Home, catalogue, account.** The order is in
+[docs/08-roadmap.md](docs/08-roadmap.md).
 
 ## The plan
 

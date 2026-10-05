@@ -15,6 +15,7 @@ import { isApiError } from "@/api/errors";
 import { queryClient } from "@/api/query-client";
 import type { AuthResponse, UserProfile, UserRole } from "@/api/types";
 
+import { forgetRememberedRoute } from "./pending-route";
 import { secureTokenStore } from "./token-store";
 
 /** The profile is not secret; it is cached so the app can open offline (A1). */
@@ -24,7 +25,11 @@ export type SessionState =
   | { status: "loading" }
   /** Tokens exist but the server can't be reached and nothing is cached (A1). */
   | { status: "unreachable" }
-  | { status: "signedOut" }
+  /**
+   * `byChoice`: the person signed out themselves. Then no page is remembered for after the
+   * next sign-in (A1) — the next person to sign in on this phone may be someone else.
+   */
+  | { status: "signedOut"; byChoice?: boolean }
   | { status: "signedIn"; profile: UserProfile; preview: boolean };
 
 export interface SessionValue {
@@ -35,6 +40,8 @@ export interface SessionValue {
   completeSignIn(response: AuthResponse): Promise<UserProfile>;
   /** Reload the profile after something changed it (name, role, verification…). */
   refreshProfile(): Promise<UserProfile | null>;
+  /** Use a profile the server just returned (PATCH /profile, /welcome/seen) without another fetch. */
+  updateProfile(profile: UserProfile): Promise<void>;
   signOut(): Promise<void>;
   /** Try the start-up restore again (from the "can't reach" state). */
   retry(): void;
@@ -72,11 +79,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setState({ status: "signedIn", profile, preview: false });
   }, []);
 
-  const forget = useCallback(async () => {
+  const forget = useCallback(async (byChoice = false) => {
+    forgetRememberedRoute();
     await tokens.clear();
     queryClient.clear();
     await AsyncStorage.removeItem(PROFILE_CACHE_KEY).catch(() => {});
-    setState({ status: "signedOut" });
+    setState({ status: "signedOut", byChoice });
   }, []);
 
   // A1: restore the saved session.
@@ -141,12 +149,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         return profile;
       },
 
+      async updateProfile(profile) {
+        if (state.status !== "signedIn" || state.preview) return;
+        await cacheProfile(profile);
+        signedIn(profile);
+      },
+
       async signOut() {
         if (tokens.hasSession()) {
           // Best effort: revoke on the server, but sign out locally whatever happens.
           await authApi.logout().catch(() => {});
         }
-        await forget();
+        await forget(true);
       },
 
       retry() {
@@ -159,7 +173,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setState(
           role
             ? { status: "signedIn", profile: previewProfile(role), preview: true }
-            : { status: "signedOut" },
+            : { status: "signedOut", byChoice: true },
         );
       },
     }),

@@ -21,7 +21,12 @@ does this job — read it before building; its edge cases are already solved the
    (`POST /api/auth/refresh`); if that fails, clear the session → A2.
 4. Profile loaded → route by role (see the diagram in [01-product.md](01-product.md)):
    first run → A10; `CUSTOMER` → `/home`; `PAINTER` → `/painter`; anyone else → S10.
-5. A deep link that opened the app (D1, D2) is remembered and opened after this.
+5. A page a signed-out person tried to open — a deep link (D1, D2), or the page they
+   were on when the session ran out — is remembered and opened after sign-in instead of
+   home (after the first run, for a new account). It is kept in memory only, and is
+   **not** kept after the person signs out themselves: whoever signs in next on this
+   phone may be someone else. The sign-in and first-run screens and the bare root are
+   never remembered (`src/auth/pending-route.ts`).
 
 **States:**
 - **Offline with a saved session:** open the role's home from the cached profile with
@@ -38,8 +43,10 @@ does this job — read it before building; its edge cases are already solved the
 **Why it exists:** say what HueVistaa does in one look, and get the person signed in.
 
 **Layout:**
-- Full-bleed room photo slowly cross-fading between two shades on the same wall (the
-  product, shown, not described). Use the website's sample room images.
+- Full-bleed room photo slowly cross-fading through shades on the same wall — the wall
+  today, Sage, Terracotta, Slate — with a tag naming the shade (the product, shown, not
+  described). The frames were rendered with the website's own colour engine
+  (`assets/images/welcome/`). Under "Reduce motion" one painted frame stays still.
 - Headline: "See your walls in your chosen *colour* — before you paint a single stroke."
 - **Continue with mobile number** (primary) → A3
 - **Continue with Google** (secondary) → A9 flow
@@ -49,7 +56,8 @@ does this job — read it before building; its edge cases are already solved the
 - Footer link: "Run a paint shop? HueVistaa for shops" → website partner page.
 
 **UX notes:** mobile number is first because it needs no password — the fastest path
-at a counter. No role question here; that comes after sign-in (A10).
+at a counter. No role question here; that comes after sign-in (A10). Development builds
+also show an "Every screen" button that opens the screen index (`app/dev.tsx`).
 
 ---
 
@@ -61,13 +69,14 @@ at a counter. No role question here; that comes after sign-in (A10).
 text you a 6-digit code." · **Send code** pinned at the bottom.
 
 **Behaviour:** numeric keypad, digits grouped `98765 43210`. The button enables at 10
-digits starting 6–9.
+digits starting 6–9; once ten digits are in and they are not a mobile number, the rule
+shows under the field. Sent as `+91…`.
 
 **API:** `POST /api/auth/phone/start { phone }` → `{ phone (masked), expiresInSeconds, resendAfterSeconds }`.
 
 **States:**
 - Field error from `fieldErrors.phone` shown under the field.
-- 429 → "Too many codes asked for. Try again in a few minutes."
+- 429 → "Too many tries. Wait a few minutes and try again."
 - The answer is the same whether or not the number has an account. **Never** say
   "welcome back" or "new number" here — that would let anyone test which numbers are
   registered.
@@ -84,12 +93,14 @@ counting down from the server's `resendAfterSeconds` · "Change number".
 **Behaviour:** SMS autofill (`autoComplete="sms-otp"`, `textContentType="oneTimeCode"`),
 paste fills all boxes, submits by itself on the sixth digit.
 
-**API:** `POST /api/auth/phone/verify { phone, code }` → `AuthResponse`. A number the
-backend has never seen gets a new `CUSTOMER` account in the same step. Save the tokens,
-load the profile, route as in A1.
+**API:** `POST /api/auth/phone/verify { phone, code, deviceToken? }` → `AuthResponse`.
+A number the backend has never seen gets a new `CUSTOMER` account in the same step. Save
+the tokens, load the profile, route as in A1.
 
-**States:** wrong code → shake + "That code isn't right." · expired → "That code has
-expired. Send a new one." · resend uses `POST /api/auth/phone/start` again.
+**States:** wrong or expired code → shake, the boxes clear, and the backend's own words
+under them ("Incorrect code. 2 attempts left.") · an admin's number → "Admin accounts
+sign in on the website" · resend uses `POST /api/auth/phone/start` again and restarts
+the countdown on its new `resendAfterSeconds`.
 
 ---
 
@@ -111,6 +122,9 @@ expired. Send a new one." · resend uses `POST /api/auth/phone/start` again.
 - 401 → "That email and password don't match." (Same words for an unknown email — the
   backend does not reveal which accounts exist, and neither do we.)
 
+Opens with the email filled in when a screen hands one over (A6 "Sign in instead", A7
+after a reset).
+
 ---
 
 ## A6 · Create an account with email
@@ -124,8 +138,9 @@ Mobile (optional) · **Create account** · "Already have an account? Sign in".
 **API:** `POST /api/auth/register { name, email, password, phone? }` → `AuthResponse`.
 Then A10 (the role choice).
 
-**States:** 400 "Email already in use" → "That email already has an account." with a
-**Sign in instead** button that carries the email across. Field errors under fields.
+**States:** 409 "Email already in use: …" → "That email already has an account." with
+a **Sign in instead** button that carries the email across. Each field's rule shows
+under it after the first try; the backend's `fieldErrors` go under their fields.
 
 ---
 
@@ -140,8 +155,14 @@ Then A10 (the role choice).
 2. Code + new password → `POST /api/auth/reset-password { email, code, newPassword }`
    or `POST /api/auth/reset-password/phone`.
 
-**After:** back to A5 with the email filled in and a toast "Password changed. Sign in
-with the new one." (Resetting signs out every other device.)
+**After:** by email → back to A5 with the email filled in and a toast "Password
+changed. Sign in with the new one." By mobile → A3 with the number filled in ("Sign in
+with a code texted to this number, or your email and the new password" — password
+sign-in needs the email, and the texted code is the quicker way back in). Resetting
+signs out every other device.
+
+A new code can be asked for after 30 s; "Use a different email or number" returns to
+step 1 with what was typed kept. A wrong code shows the backend's words at the boxes.
 
 ---
 
@@ -158,7 +179,12 @@ here to reach their customer profile.
 **API:** `POST /api/auth/login/email-code { challengeToken, code }`; resend
 `POST /api/auth/login/email-code/resend { challengeToken }`. Save the returned
 `deviceToken` in secure storage and send it with later sign-ins so the code is skipped
-for 30 days. Then S10 (with "Continue as customer" when the profile allows).
+for 30 days. Then S10 (with "Continue as customer" when the profile allows). Each resend
+answers with a new `challengeToken` (and hint), which replaces the old one.
+
+**States:** opened without a pending sign-in (a stale link, or the app restarted
+part-way) → "This sign-in has expired. Start again from the sign-in screen." with
+**Back to sign in**.
 
 ---
 
@@ -176,10 +202,16 @@ for 30 days. Then S10 (with "Continue as customer" when the profile allows).
 
 The route file exists for the cold-start case, where Android opens the app straight
 at the deep link instead of returning it to the waiting browser session. It shows a
-"Signing you in…" state while it exchanges the code.
+"Signing you in…" state while it exchanges the code. Routing never sees a fragment, so
+the screen reads the code from the URL that opened the app (and from the query, as a
+fallback). The redirect can reach the app twice on Android — once to the waiting browser
+session and once as this deep link — so both share one exchange per code
+(`exchangeGoogleCodeOnce`).
 
 **States:** the person closes the browser → back to A2, no error. An `error` in the
-fragment or a 401 from the exchange → "Google sign-in didn't finish. Try again."
+fragment, no code, or a 400/401 from the exchange → "Google sign-in didn't finish. Try
+again." No connection → the usual "No connection" sentence. An admin → "Admin accounts
+sign in on the website".
 
 ---
 
@@ -188,6 +220,12 @@ fragment or a 401 from the exchange → "Google sign-in didn't finish. Try again
 **Route** `app/(onboarding)/about-you.tsx` · **Phase** 1 · **Web reference** `HueVistaFrontEnd/src/components/app/welcome-tour.tsx`
 
 **When:** the profile says `namePending` or `welcomePending` — a brand-new account.
+
+**Asks only what is still open:** the name on a first run (filled in when the account
+already has a real one, e.g. from Google) or while the account wears its placeholder;
+the role question only for a brand-new `CUSTOMER` account that is not a shop's customer
+profile. An older account whose only gap is the name sees just the name, then goes
+home.
 
 **Layout:**
 - "What should we call you?" — name field (empty when the account still wears the
@@ -202,8 +240,9 @@ fragment or a 401 from the exchange → "Google sign-in didn't finish. Try again
 - **Continue**.
 
 **API:** `PATCH /api/auth/profile { name }` when the name changed. Painter →
-`POST /api/painters/me`, then reload the profile and go to `/painter`, then
-`POST /api/auth/welcome/seen`. Customer → A11.
+`POST /api/painters/me`, then `POST /api/auth/welcome/seen` (its answer is the reloaded
+profile, now `PAINTER`) → `/painter`, or the page remembered in A1. The tour is a
+customer's, so a painter's first run ends here. Customer → A11.
 
 **States:** `POST /api/painters/me` refused (the account already has rooms or a shop
 code) → show the backend's reason and keep them as a customer.
@@ -214,14 +253,18 @@ code) → show the backend's reason and keep them as a customer.
 
 **Route** `app/(onboarding)/tour.tsx` · **Phase** 1
 
-**Layout:** three swipeable cards with a real room picture each, dots, **Skip** top
-right:
+**Layout:** three swipeable cards with a real room picture each (the Welcome rooms;
+the board card also shows the three shades it would carry), "Step 1 of 3", dots,
+**Next**, **Skip** top right (not on the last card):
 1. "Photograph a *room*." — the camera does the rest.
 2. "Try any *shade*." — on your own walls, as many as you like, free.
 3. "Leave with one *board*." — every shade code, ready for the counter.
 
-Last card has two buttons: **I have a code from my shop** → C30, and **Start** →
-`/home`.
+Last card has two buttons: **Start** → `/home` (or the page remembered in A1), and
+**I have a code from my shop** → C30.
 
-**API:** `POST /api/auth/welcome/seen` on finish or skip. "Show me around" in S1
-replays it.
+**API:** `POST /api/auth/welcome/seen` on Start, Skip or the shop-code button — all
+three count as shown. Leaving is instant and the write happens behind the next screen:
+a failed write only means the tour opens once more next time, which beats a tour that
+will not close offline. "Show me around" in S1 replays it (an account whose first run
+is over: nothing is written, and Start goes back).

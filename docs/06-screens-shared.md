@@ -91,8 +91,15 @@ For `RETAILER`, `DISTRIBUTOR` and `ADMIN`:
 - "Shop tools live on the website" + **Open HueVistaa for shops** (browser).
 - `switchTo = "CUSTOMER"` (a shop with its customer profile on) → **Continue as
   customer** → `POST /api/auth/profiles/switch { deviceToken, refreshToken }` → new
-  session → `/home`. If the answer is `emailCodeRequired` → A8.
-- **Sign out**.
+  session → `/home` (or A10 on the profile's first run). This direction never asks for
+  the emailed code: the shop session already passed every check
+  (`CustomerProfileService.switchProfile`).
+- **Sign out** → A2. Nothing is remembered for the next sign-in (A1).
+
+**Phase 2 note — switching back:** the customer profile → shop switch (from the Account
+tab) *can* answer `emailCodeRequired`. A8 lives in `app/(auth)/`, whose layout sends a
+signed-in session away, so that switch must take the code on its own screen inside
+`(account)/` (sharing A8's code form), not by opening A8.
 
 ---
 

@@ -16,6 +16,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { connectQueryClientToApp, queryClient } from "@/api/query-client";
 import { SessionProvider, useSession } from "@/auth/session";
+import { ToastProvider } from "@/components/ui";
 import { useTheme } from "@/theme";
 
 // A1: keep the native splash up until fonts are in and the session is known.
@@ -39,7 +40,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <SessionProvider>
-          <Root ready={fontsLoaded || Boolean(fontError)} />
+          <ToastProvider>
+            <Root ready={fontsLoaded || Boolean(fontError)} />
+          </ToastProvider>
         </SessionProvider>
       </QueryClientProvider>
     </SafeAreaProvider>

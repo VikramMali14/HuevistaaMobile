@@ -110,3 +110,10 @@ describe("createApiClient", () => {
     await expect(client.request("x")).rejects.toMatchObject({ kind: "network" });
   });
 });
+
+describe("error messages", () => {
+  it("keeps only the message written for people — never the status phrase", async () => {
+    const { client } = setup(() => json(400, { status: 400, error: "Bad Request" }));
+    await expect(client.request("api/x", { auth: false })).rejects.toMatchObject({ status: 400, message: "" });
+  });
+});

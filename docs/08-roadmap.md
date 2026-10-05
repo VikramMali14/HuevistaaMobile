@@ -32,20 +32,26 @@ session, role-based routing, and a placeholder for every screen below.
 
 | | Screen | Spec |
 |---|---|---|
-| ☐ | A1 Splash and session restore | [03](03-screens-auth.md#a1--splash-and-session-restore) |
-| ☐ | A2 Welcome | [03](03-screens-auth.md#a2--welcome) |
-| ☐ | A3 Your mobile number | [03](03-screens-auth.md#a3--your-mobile-number) |
-| ☐ | A4 Enter the code | [03](03-screens-auth.md#a4--enter-the-code) |
-| ☐ | A5 Sign in with email | [03](03-screens-auth.md#a5--sign-in-with-email) |
-| ☐ | A6 Create an account | [03](03-screens-auth.md#a6--create-an-account-with-email) |
-| ☐ | A7 Forgot password | [03](03-screens-auth.md#a7--forgot-password) |
-| ☐ | A8 Check your email (shops) | [03](03-screens-auth.md#a8--check-your-email-shops-only) |
-| ☐ | A9 Google sign-in | [03](03-screens-auth.md#a9--google-sign-in) |
-| ☐ | A10 About you | [03](03-screens-auth.md#a10--about-you-first-run) |
-| ☐ | A11 Quick tour | [03](03-screens-auth.md#a11--quick-tour-customers) |
-| ☐ | S10 Web-only accounts | [06](06-screens-shared.md#s10--web-only-accounts) |
+| ☑ | A1 Splash and session restore | [03](03-screens-auth.md#a1--splash-and-session-restore) |
+| ☑ | A2 Welcome | [03](03-screens-auth.md#a2--welcome) |
+| ☑ | A3 Your mobile number | [03](03-screens-auth.md#a3--your-mobile-number) |
+| ☑ | A4 Enter the code | [03](03-screens-auth.md#a4--enter-the-code) |
+| ☑ | A5 Sign in with email | [03](03-screens-auth.md#a5--sign-in-with-email) |
+| ☑ | A6 Create an account | [03](03-screens-auth.md#a6--create-an-account-with-email) |
+| ☑ | A7 Forgot password | [03](03-screens-auth.md#a7--forgot-password) |
+| ☑ | A8 Check your email (shops) | [03](03-screens-auth.md#a8--check-your-email-shops-only) |
+| ☑ | A9 Google sign-in | [03](03-screens-auth.md#a9--google-sign-in) |
+| ☑ | A10 About you | [03](03-screens-auth.md#a10--about-you-first-run) |
+| ☑ | A11 Quick tour | [03](03-screens-auth.md#a11--quick-tour-customers) |
+| ☑ | S10 Web-only accounts | [06](06-screens-shared.md#s10--web-only-accounts) |
 
-UI kit to add: `PhoneField`, `CodeInput`, `Sheet`, `Toast`.
+UI kit added: `PhoneField`, `CodeInput`, `Toast`, `ChoiceCard`, `Segmented`, `Banner`,
+`BackButton`, `BrandMark`; `TextField` gained `revealable`. (`Sheet` moved to Phase 2,
+where the first sheet appears.)
+
+**Done:** 2026-10. Every screen's states are covered by route tests
+(`src/__tests__/sign-in-flows.test.tsx`, `shop-code-resend.test.tsx`) and were walked
+through in a phone-sized browser against a stand-in backend, light and dark.
 
 ## Phase 2 — Home, catalogue, account
 
@@ -67,8 +73,8 @@ UI kit to add: `PhoneField`, `CodeInput`, `Sheet`, `Toast`.
 | ☐ | S9 Delete account | [06](06-screens-shared.md#s9--delete-account) |
 
 Packages: `npx expo install @shopify/flash-list`.
-UI kit to add: `SwatchTile`, `ShadeCode`, `Chip`, `Segmented`, `ListRow`, `BalanceChip`,
-`Skeleton`, `ConfirmSheet`. Port: `money.ts`, `shade-codes.ts`, `shade-codec.ts`,
+UI kit to add: `SwatchTile`, `ShadeCode`, `Chip`, `ListRow`, `BalanceChip`, `Skeleton`,
+`Sheet`, `ConfirmSheet`. (`Segmented` arrived in Phase 1.) Port: `money.ts`, `shade-codes.ts`, `shade-codec.ts`,
 `colour-families.ts`, `colour-search.ts`.
 
 ## Phase 3 — The studio

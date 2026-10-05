@@ -33,27 +33,27 @@ export const screens = {
   // ── Signing in and the first run ──────────────────────────────────────────
   // Restore + role routing + "still connecting" are in place (app/index.tsx); the
   // remembered deep link (spec step 5) is not yet — so this stays "planned".
-  A1: { title: "Splash and session restore", area: "auth", href: "/", phase: 1, spec: AUTH, status: "planned",
+  A1: { title: "Splash and session restore", area: "auth", href: "/", phase: 1, spec: AUTH, status: "built",
     summary: "Open on the right screen without a flash of the wrong one." },
-  A2: { title: "Welcome", area: "auth", href: "/welcome", phase: 1, spec: AUTH, status: "planned",
+  A2: { title: "Welcome", area: "auth", href: "/welcome", phase: 1, spec: AUTH, status: "built",
     summary: "Say what HueVistaa does in one look, and get the person signed in.", next: ["A3", "A5"] },
-  A3: { title: "Your mobile number", area: "auth", href: "/phone", phase: 1, spec: AUTH, status: "planned",
+  A3: { title: "Your mobile number", area: "auth", href: "/phone", phase: 1, spec: AUTH, status: "built",
     summary: "Ask for a mobile number and text a 6-digit code.", next: ["A4"] },
-  A4: { title: "Enter the code", area: "auth", href: "/phone-code", phase: 1, spec: AUTH, status: "planned",
+  A4: { title: "Enter the code", area: "auth", href: "/phone-code", phase: 1, spec: AUTH, status: "built",
     summary: "Six boxes, SMS autofill, resend on the server's countdown.", next: ["A10"] },
-  A5: { title: "Sign in with email", area: "auth", href: "/email-sign-in", phase: 1, spec: AUTH, status: "planned",
+  A5: { title: "Sign in with email", area: "auth", href: "/email-sign-in", phase: 1, spec: AUTH, status: "built",
     summary: "Email and password, with the shop and admin second steps.", next: ["A6", "A7", "A8"] },
-  A6: { title: "Create an account", area: "auth", href: "/register", phase: 1, spec: AUTH, status: "planned",
+  A6: { title: "Create an account", area: "auth", href: "/register", phase: 1, spec: AUTH, status: "built",
     summary: "Name, email, password, optional mobile.", next: ["A10"] },
-  A7: { title: "Forgot password", area: "auth", href: "/forgot-password", phase: 1, spec: AUTH, status: "planned",
+  A7: { title: "Forgot password", area: "auth", href: "/forgot-password", phase: 1, spec: AUTH, status: "built",
     summary: "A code by email or text, then a new password.", next: ["A5"] },
-  A8: { title: "Check your email (shops)", area: "auth", href: "/email-code", phase: 1, spec: AUTH, status: "planned",
+  A8: { title: "Check your email (shops)", area: "auth", href: "/email-code", phase: 1, spec: AUTH, status: "built",
     summary: "A shop on a new device confirms an emailed code.", next: ["S10"] },
-  A9: { title: "Google sign-in", area: "auth", href: "/sign-in/callback", phase: 1, spec: AUTH, status: "planned",
+  A9: { title: "Google sign-in", area: "auth", href: "/sign-in/callback", phase: 1, spec: AUTH, status: "built",
     summary: "Trade the code Google sign-in returns for a session." },
-  A10: { title: "About you", area: "onboarding", href: "/about-you", phase: 1, spec: AUTH, status: "planned",
+  A10: { title: "About you", area: "onboarding", href: "/about-you", phase: 1, spec: AUTH, status: "built",
     summary: "Ask a new account's name, and whether they paint their home or paint for a living.", next: ["A11"] },
-  A11: { title: "Quick tour", area: "onboarding", href: "/tour", phase: 1, spec: AUTH, status: "planned",
+  A11: { title: "Quick tour", area: "onboarding", href: "/tour", phase: 1, spec: AUTH, status: "built",
     summary: "Three cards: photograph, try shades, leave with one board.", next: ["C30", "C1"] },
 
   // ── Customer ──────────────────────────────────────────────────────────────
@@ -176,7 +176,7 @@ export const screens = {
   S9: { title: "Delete account", area: "account", href: "/delete-account", phase: 2, spec: SHARED,
     status: "planned", summary: "Exactly what goes, then delete for good." },
   S10: { title: "Web-only accounts", area: "account", href: "/web-only", phase: 1, spec: SHARED,
-    status: "planned", summary: "Shops, distributors and admins work on the website." },
+    status: "built", summary: "Shops, distributors and admins work on the website." },
 
   // ── Links from outside the app ────────────────────────────────────────────
   D1: { title: "A board's QR", area: "links", href: "/r/demo", phase: 7, spec: SHARED, status: "planned",

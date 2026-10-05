@@ -8,6 +8,7 @@ import { renderRouter, screen, waitFor } from "expo-router/testing-library";
 
 import type { UserProfile } from "@/api/types";
 import { ApiError } from "@/api/errors";
+import { forgetRememberedRoute } from "@/auth/pending-route";
 import { screens } from "@/navigation/screens";
 import { light } from "@/theme";
 import { StyleSheet } from "react-native";
@@ -40,6 +41,7 @@ function signedInAs(profile: Partial<UserProfile> & Pick<UserProfile, "role">) {
 beforeEach(async () => {
   for (const key of Object.keys(mockSecure)) delete mockSecure[key];
   mockProfile.mockReset();
+  forgetRememberedRoute();
   await AsyncStorage.clear();
 });
 
@@ -47,7 +49,7 @@ describe("start-up (A1)", () => {
   it("sends a signed-out person to Welcome", async () => {
     renderRouter("./app", { initialUrl: "/" });
     await waitFor(() => expect(screen).toHavePathname("/welcome"));
-    expect(screen.getByText("Welcome")).toBeTruthy();
+    expect(screen.getByText("Continue with mobile number")).toBeTruthy();
   });
 
   it("sends a customer to Home, with the five customer tabs", async () => {

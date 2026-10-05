@@ -47,7 +47,10 @@ async function readError(res: Response): Promise<ApiError> {
   } catch {
     // Not JSON — a proxy page or an empty body.
   }
-  const message = body.message ?? body.error ?? `Request failed (${res.status})`;
+  // Only `message` is written for people. `error` is the status phrase ("Bad Request"),
+  // and a made-up "Request failed (400)" would reach the screen — so with no message the
+  // error carries none, and messageFor() says something in the app's own words.
+  const message = typeof body.message === "string" ? body.message.trim() : "";
   return new ApiError("http", res.status, message, body.fieldErrors, body.code);
 }
 

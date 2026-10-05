@@ -17,6 +17,8 @@ export interface TokenManager {
   /** Read the saved tokens into memory. Call once at start-up. */
   load(): Promise<void>;
   readonly accessToken: string | null;
+  /** The current refresh token — sent when switching a shop to its customer profile (S10). */
+  readonly refreshToken: string | null;
   hasSession(): boolean;
   setTokens(pair: TokenPair): Promise<void>;
   clear(): Promise<void>;
@@ -80,6 +82,9 @@ export function createTokenManager(deps: TokenManagerDeps): TokenManager {
     },
     get accessToken() {
       return access;
+    },
+    get refreshToken() {
+      return refresh;
     },
     hasSession() {
       return refresh !== null;

@@ -94,6 +94,9 @@ export function Button({
           opacity: drained ? 0.55 : pressed && look.pressed === "fade" ? 0.85 : 1,
           alignSelf: block ? "stretch" : "flex-start",
         },
+        // An inline ghost button reads as a link: its words line up with the text above
+        // it, and the pressed pill reaches a little into the margin instead.
+        variant === "ghost" && !block ? styles.inlineGhost : null,
       ]}
     >
       <View style={styles.row}>
@@ -113,6 +116,7 @@ export function Button({
 }
 
 const styles = StyleSheet.create({
+  inlineGhost: { paddingHorizontal: 12, marginLeft: -12 },
   base: {
     minHeight: Math.max(minTouch, 52),
     paddingHorizontal: 26,

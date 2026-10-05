@@ -161,7 +161,7 @@ that need it. ✅ = included in the starting scaffold.
 | `StepDots` | The studio's five steps; only the active one labelled; spinner on a working step | — |
 | `Sheet` | Bottom sheet with grabber; 50% / 85% / full | — |
 | `ConfirmSheet` | Title, plain consequences list, confirm + cancel | default · destructive |
-| `Toast` | Short message at the bottom | info · success · error |
+| `Toast` | Short message at the top, clear of the action pinned at the bottom | info · success · error |
 | `Banner` | Inline message across a screen (offline, notice, warning) | info · warning · danger |
 | `EmptyState` ✅ | Picture/illustration, one line, one action | — |
 | `ErrorState` ✅ | Plain reason, Retry, "Get help" | — |
