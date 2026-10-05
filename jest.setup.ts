@@ -25,7 +25,8 @@ jest.mock("@shopify/flash-list", () => ({ FlashList: require("react-native").Fla
 // around it, and the engine's own maths is unit-tested without a context.
 jest.mock("expo-gl", () => ({ GLView: require("react-native").View }));
 
-// Pinch-to-zoom (ZoomView): the libraries' own test doubles — gestures never fire in
-// Jest, and the zoomed view renders as a plain one.
+// The gesture root (app/_layout.tsx) through the library's own test double. Pinch-to-zoom
+// never fires in Jest, so the zoom container renders its content as it is — like the
+// GPU canvas above, what is tested is everything around it.
 require("react-native-gesture-handler/jestSetup");
-jest.mock("react-native-reanimated", () => require("react-native-reanimated/mock"));
+jest.mock("@/components/ui/ZoomView", () => ({ ZoomView: ({ children }: { children: unknown }) => children }));
