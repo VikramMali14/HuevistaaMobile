@@ -15,3 +15,8 @@ jest.mock("@react-native-community/netinfo", () =>
 );
 
 jest.mock("react-native-safe-area-context", () => require("react-native-safe-area-context/jest/mock").default);
+
+// FlashList measures its window before drawing any row, which never happens in Jest (and
+// its own jestSetup points at an export this version does not have). FlatList takes the
+// same props, so tests render every row through it.
+jest.mock("@shopify/flash-list", () => ({ FlashList: require("react-native").FlatList }));
