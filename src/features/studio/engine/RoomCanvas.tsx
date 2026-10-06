@@ -31,8 +31,12 @@ export interface CanvasWall {
 
 export type CanvasState =
   | { kind: "loading" }
-  /** `missing`: walls whose mask could not be fetched (they can't be painted until a retry). */
-  | { kind: "ready"; width: number; height: number; missing: number }
+  /**
+   * `missing`: walls whose mask could not be fetched (they can't be painted until a retry).
+   * `loading`: walls whose mask is still on its way — the photo shows, but they are not
+   * painted yet (C15 waits for 0 before photographing a board).
+   */
+  | { kind: "ready"; width: number; height: number; missing: number; loading: number }
   /** The photo could not be fetched or decoded. */
   | { kind: "failed"; error: unknown }
   /** No WebGL2 on this phone. */
@@ -144,6 +148,7 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
   const loadedKeys = useRef(new Map<string, string>());
   const editedIds = useRef(new Set<string>());
   const missing = useRef(new Set<string>());
+  const fetching = useRef(new Set<string>());
   const [masksVersion, setMasksVersion] = useState(0);
   const [photoAttempt, setPhotoAttempt] = useState(0);
   const [maskAttempt, setMaskAttempt] = useState(0);
@@ -156,7 +161,7 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
     const e = engine.current;
     if (!e) return;
     const { width, height } = e.imageSize;
-    stateRef.current?.({ kind: "ready", width, height, missing: missing.current.size });
+    stateRef.current?.({ kind: "ready", width, height, missing: missing.current.size, loading: fetching.current.size });
   }, []);
 
   // 1. The photo, before the GL view: its size decides the view's.
@@ -223,9 +228,11 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
         loadedKeys.current.clear();
         editedIds.current.clear();
         missing.current.clear();
+        // Every wall with a mask is on its way until the mask effect has fetched it.
+        fetching.current = new Set(latest.current.walls.filter((w) => w.load).map((w) => w.id));
         e.renderBase();
         setGlReady((n) => n + 1);
-        stateRef.current?.({ kind: "ready", width: source.width, height: source.height, missing: 0 });
+        stateRef.current?.({ kind: "ready", width: source.width, height: source.height, missing: 0, loading: fetching.current.size });
       } catch (error) {
         engine.current = null;
         stateRef.current?.({ kind: "noGl", error });
@@ -260,10 +267,13 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
     const gone = [...missing.current].filter((id) => !wanted.has(id));
     for (const id of gone) missing.current.delete(id);
     const toLoad = walls.filter((w) => w.load && loadedKeys.current.get(w.id) !== w.maskKey);
+    const wasFetching = fetching.current.size;
+    fetching.current = new Set(toLoad.map((w) => w.id));
     if (toLoad.length === 0) {
-      if (gone.length) report();
+      if (gone.length || wasFetching) report();
       return;
     }
+    if (fetching.current.size !== wasFetching) report();
     void Promise.all(
       toLoad.map(async (w) => {
         try {
@@ -291,6 +301,7 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
         loadedKeys.current.set(w.id, w.maskKey);
         editedIds.current.delete(w.id);
       }
+      for (const { w } of loaded) fetching.current.delete(w.id);
       setMasksVersion((v) => v + 1);
       report();
     });

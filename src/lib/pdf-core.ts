@@ -52,6 +52,11 @@ export function pdfText(s: string): string {
   return out;
 }
 
+/** Whether every character of `s` prints as itself in the base-14 fonts (none turns into "?"). */
+export function pdfPrintable(s: string): boolean {
+  return !pdfText(s.replace(/\?/g, "")).includes("?");
+}
+
 /** Compact number formatting for the content stream. */
 export function num(n: number): string {
   return (Math.round(n * 100) / 100).toString();

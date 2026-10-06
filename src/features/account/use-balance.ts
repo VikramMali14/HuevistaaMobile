@@ -12,7 +12,7 @@ function answer<T>(q: { isSuccess: boolean; isError: boolean; data: T | undefine
 }
 
 /** The rooms and AI credits this account holds, and its one next step (C1, C5, C27). */
-export function useBalance(): Balance & { loading: boolean; refetch: () => Promise<unknown> } {
+export function useBalance(): Balance & { loading: boolean; roomsLoading: boolean; refetch: () => Promise<unknown> } {
   const [ent, opts, wallet] = useQueries({
     queries: [
       { queryKey: keys.entitlement, queryFn: meApi.entitlement },
@@ -23,6 +23,7 @@ export function useBalance(): Balance & { loading: boolean; refetch: () => Promi
   return {
     ...balanceFrom(answer(ent), answer(opts), answer(wallet)),
     loading: ent.isPending,
+    roomsLoading: ent.isPending || opts.isPending,
     refetch: () => Promise.all([ent.refetch(), opts.refetch(), wallet.refetch()]),
   };
 }

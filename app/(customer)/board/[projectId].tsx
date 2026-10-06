@@ -32,7 +32,11 @@ import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { useSubmit } from "@/lib/use-submit";
 import { hairline, useTheme } from "@/theme";
 
-/** The room's boards, each with its options in the order they were printed. */
+/**
+ * The room's boards, each with its options in the order they were printed. An option is
+ * numbered by its place on its page (as the website does), not its place in this list: a
+ * room reopened in the past recorded its second board under the first one's number.
+ */
 function byBoard(combos: readonly ProjectCombo[]): [number, ProjectCombo[]][] {
   const boards = new Map<number, ProjectCombo[]>();
   for (const c of [...combos].sort((a, b) => a.boardIndex - b.boardIndex || a.pageIndex - b.pageIndex)) {
@@ -85,7 +89,7 @@ export default function BoardDetail() {
       <EmptyState
         icon="file-text"
         title={t("boardDetail.emptyTitle")}
-        body={t("boardDetail.emptyBody")}
+        body={data?.closedAt ? t("boardDetail.emptyBody") : t("boardDetail.emptyOpenBody")}
         actionLabel={t("boardDetail.seeRoom")}
         onAction={() => router.push({ pathname: "/room/[projectId]/paint", params: { projectId: id } } as Href)}
       />
@@ -103,12 +107,12 @@ export default function BoardDetail() {
                 {t("boardDetail.boardN", { n: boardIndex })}
               </Text>
             ) : null}
-            {options.map((combo, i) => (
+            {options.map((combo) => (
               <Card key={combo.id}>
                 <View style={{ gap: space.sm }} testID={`board-combo-${combo.id}`}>
                   <View style={styles.row}>
                     <Text variant="label" tone="accent" style={styles.fill}>
-                      {combo.title?.trim() || t("boardDetail.option", { n: i + 1 })}
+                      {combo.title?.trim() || t("boardDetail.option", { n: combo.pageIndex + 1 })}
                     </Text>
                     {combo.rendered ? (
                       <Text variant="caption" tone="mute">

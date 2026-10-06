@@ -20,6 +20,9 @@ export interface BoardOption {
 /** The most options a board carries when the allowance can't be read (the backend's own). */
 export const DEFAULT_OPTIONS_PER_BOARD = 5;
 
+/** The most walls one page can name — the server refuses a page with more. */
+export const MAX_WALLS_PER_PAGE = 16;
+
 /**
  * A saved combination as a page of the board: its walls in the plan's order (main wall
  * first), each with its name and code — the website's `addToPdf`. A wall drawn since
@@ -61,12 +64,21 @@ export function recordedPages(options: readonly BoardOption[]): ColourBoardPage[
   return options.map((o) => ({
     shades: o.shades.map((s) => ({
       regionId: Number.isFinite(s.regionId) ? (s.regionId ?? null) : null,
-      regionLabel: s.label,
-      shadeCode: s.rawCode ?? null,
-      shadeName: s.name || null,
-      hex: s.hex,
+      // Within what the server keeps (a longer one is refused, and the board with it).
+      regionLabel: s.label.slice(0, 255),
+      shadeCode: s.rawCode?.slice(0, 64) ?? null,
+      shadeName: s.name ? s.name.slice(0, 160) : null,
+      hex: sixDigitHex(s.hex),
     })),
   }));
+}
+
+/** "#abc" or "aabbcc" as "#aabbcc" — the only form the server takes. Anything else as it is. */
+export function sixDigitHex(hex: string): string {
+  const bare = hex.trim().replace(/^#/, "");
+  if (/^[0-9a-f]{3}$/i.test(bare)) return `#${[...bare].map((c) => c + c).join("")}`;
+  if (/^[0-9a-f]{6}$/i.test(bare)) return `#${bare}`;
+  return hex;
 }
 
 /**

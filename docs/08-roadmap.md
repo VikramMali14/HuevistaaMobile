@@ -244,10 +244,40 @@ As built, against the spec:
 - C4's colour boards come from `GET /api/me/renderable-projects` (rooms carrying board
   combinations): the room list sends no board count.
 
+**Audit (2026-10):** every Phase 4 screen and the logic under it was reviewed for UI, UX,
+logic bugs and edge cases, and each finding checked against the code, the backend and the
+website before it was fixed. Fixed, each with a test:
+- Payments: on Android the browser session can end as "dismissed" just before the
+  redirect carrying a success, which was settled as "cancelled" (reported ABANDONED, the
+  order forgotten) — the checkout now waits for a late answer, a success always wins, and
+  a browser closed with no answer is "unfinished", never "cancelled". A cancel no longer
+  overwrites a payment that went through. A refusal for good unlocks Pay with the server's
+  reason (a forged or foreign link used to lock it for ever), while Razorpay being
+  unreachable stays "checking". A payment that came back while signed out keeps its proof
+  (sign-out used to delete it). The order's price is checked against the button's. Try
+  again puts back the basket as it was asked for. Back is held while paying. No iOS
+  sign-in alert before Checkout. A re-check no longer blanks C29. A shop's customer is
+  offered nothing until it is known whether they have a shop.
+- Boards: making a board on a fresh run replaced every other room's saved-board record;
+  board files were kept by full path, which an iOS update breaks; Make ran before the
+  walls' masks had loaded (pages printed unpainted walls); back during making left it
+  running headless; a board handed over unrecorded emptied the tray and said nothing; the
+  hand-over waited for room refetches (up to a minute on a bad signal); a page with more
+  than 16 walls, or over-long names, would be refused by the server after the board was
+  built.
+- Wording and access: option numbers match the print; "1 option on 1 pages"; "One colour
+  board on this room" when it was the last of several; the checkout's packing line; a
+  screen reader now hears each option's codes, each board's date and count, and the
+  steppers' values; C17's Change says it resets both settings and can be cancelled; the
+  Boards tab refreshes after a rename or delete; Share is hidden for rooms the server
+  won't share; C27 names the shop the server actually asked; the printed text moved to
+  `src/i18n`. Undo after taking an option off.
+
 **Still to do on a real phone:** make a board (snapshots on `expo-gl`, the file in the
 app's documents, the share sheet and the Android folder picker), and a real Razorpay test
 payment through `/pay/mobile`, including the cold start (stop the app while the payment
-page is open, then pay).
+page is open, then pay) and an Android payment closed by the system Back. A sharper page
+picture (render at the photo's size, as the website does) waits for that phone too.
 
 ## Phase 5 — AI images
 

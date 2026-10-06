@@ -43,7 +43,8 @@ const CATALOGUE_CACHE_KEY = "hv.catalogue";
 /**
  * Everything kept for one account: the screens' data, the catalogue copy (a shop
  * customer's is limited to their shop), the studio's colours and trays, the boards made
- * here, a payment waiting to be confirmed, and the pictures. Dropped on sign-out AND when a
+ * here, an unpaid order, and the pictures. (A payment that went through and is not yet
+ * confirmed stays: the money has left — it is shown to its own account only.) Dropped on sign-out AND when a
  * sign-in brings a different profile (S10, C5's switch back), so one profile's rooms
  * never show under the other's name.
  */
@@ -52,12 +53,11 @@ async function forgetAccountData(): Promise<void> {
   resetPaintStore();
   resetTrays();
   resetPayments();
-  resetPending();
   clearUpload();
   clearStudioCache();
-  await Promise.all([resetRecentShades(), resetMadeBoards()]);
+  await Promise.all([resetRecentShades(), resetMadeBoards(), resetPending()]);
   // The catalogue copy, which rooms open on Paint, and the board trays (Phase 3 studio).
-  await AsyncStorage.multiRemove([CATALOGUE_CACHE_KEY, "hv.paintedRooms", "hv.boardTrays"]).catch(() => {});
+  await AsyncStorage.multiRemove([CATALOGUE_CACHE_KEY, "hv.paintedRooms", "hv.boardTrays", "hv.askedShop"]).catch(() => {});
   try {
     await Promise.all([Image.clearMemoryCache(), Image.clearDiskCache()]);
   } catch {

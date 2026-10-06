@@ -9,6 +9,7 @@ import {
   moved,
   pageCount,
   recordedPages,
+  sixDigitHex,
 } from "../board-pages";
 
 const walls = [
@@ -63,6 +64,20 @@ describe("a saved combination as a board page", () => {
         ],
       },
     ]);
+  });
+
+  it("keeps each shade within what the server takes, so the board isn't refused for it", () => {
+    const long = "W".repeat(300);
+    const option = boardOption(combo({ "11": { hex: "abc", code: "C".repeat(80) } }), [{ id: "11", label: long }], () => "N".repeat(200), true);
+    const [page] = recordedPages([option]);
+    expect(page!.shades[0]).toEqual({ regionId: 11, regionLabel: "W".repeat(255), shadeCode: "C".repeat(64), shadeName: "N".repeat(160), hex: "#aabbcc" });
+  });
+
+  it("writes a colour as #rrggbb", () => {
+    expect(sixDigitHex("#ABC")).toBe("#AABBCC");
+    expect(sixDigitHex("e8d5b0")).toBe("#e8d5b0");
+    expect(sixDigitHex(" #123456 ")).toBe("#123456");
+    expect(sixDigitHex("red")).toBe("red");
   });
 });
 

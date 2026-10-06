@@ -10,7 +10,9 @@ export interface StepperProps {
   min?: number;
   max: number;
   onChange: (value: number) => void;
-  /** What one of them is called, for the screen reader: "3 rooms". */
+  /** What is being counted, for the screen reader: "Rooms". */
+  label?: string;
+  /** The count in words, for the screen reader: "3 rooms". */
   describe: (value: number) => string;
   /** "One fewer" / "One more", said before the thing's name. */
   fewerLabel: string;
@@ -20,7 +22,7 @@ export interface StepperProps {
 }
 
 /** − n + — a count to buy (C28). Adjustable for screen readers, like a slider. */
-export function Stepper({ value, min = 0, max, onChange, describe, fewerLabel, moreLabel, disabled, testID }: StepperProps) {
+export function Stepper({ value, min = 0, max, onChange, label, describe, fewerLabel, moreLabel, disabled, testID }: StepperProps) {
   const { colors, radius } = useTheme();
   const set = (next: number) => onChange(Math.min(max, Math.max(min, next)));
   return (
@@ -28,8 +30,10 @@ export function Stepper({ value, min = 0, max, onChange, describe, fewerLabel, m
       style={[styles.box, { borderColor: colors.ruleStrong, borderRadius: radius.pill }]}
       accessible
       accessibilityRole="adjustable"
-      accessibilityLabel={describe(value)}
-      accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
+      accessibilityLabel={label ?? describe(value)}
+      accessibilityValue={{ min, max, now: value, text: describe(value) }}
+      accessibilityState={{ disabled: Boolean(disabled) }}
+      accessibilityActions={disabled ? [] : [{ name: "increment" }, { name: "decrement" }]}
       onAccessibilityAction={(e) => !disabled && set(value + (e.nativeEvent.actionName === "increment" ? 1 : -1))}
       testID={testID}
     >

@@ -11,8 +11,9 @@ import { boardExists, clearBoardFiles, discardRoomBoards } from "./board-files";
 export interface MadeBoard {
   roomId: string;
   roomName: string;
+  /** The PDF, as its place on the phone — {@link boardUri} says where that is now. */
   file: string;
-  /** A picture of each option's page, in order; null where it printed swatches. */
+  /** A picture of each option's page, in order (as `file`); null where it printed swatches. */
   pages: (string | null)[];
   /** Each option's colours, in order — what a page with no picture shows. */
   swatches: string[][];
@@ -24,11 +25,15 @@ export interface MadeBoard {
   unrecorded?: boolean;
   /** This board was the room's last: the room has closed. */
   closedRoom?: boolean;
+  /** The room's board should have closed with the reward page, and it couldn't be fetched. */
+  rewardMissing?: boolean;
 }
 
 const KEY = "hv.madeBoards";
 let boards: Record<string, MadeBoard> = {};
 let loaded: Promise<void> | null = null;
+/** Bumped by a reset, so a read still under way can't bring old boards back. */
+let generation = 0;
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -40,10 +45,11 @@ function persist() {
 }
 
 function load(): Promise<void> {
+  const at = generation;
   loaded ??= AsyncStorage.getItem(KEY)
     .then((raw) => {
       const stored = JSON.parse(raw ?? "{}") as Record<string, MadeBoard>;
-      if (stored && typeof stored === "object") {
+      if (at === generation && stored && typeof stored === "object") {
         boards = { ...stored, ...boards };
         emit();
       }
@@ -52,10 +58,14 @@ function load(): Promise<void> {
   return loaded;
 }
 
+/**
+ * Kept straight away for C16, and written only once the boards of earlier runs are read
+ * in — written before, it would replace every other room's board with this one.
+ */
 export function rememberBoard(board: MadeBoard) {
   boards = { ...boards, [board.roomId]: board };
   emit();
-  persist();
+  void load().then(persist);
 }
 
 /** This room's board made on this phone, while its file is still here. */
@@ -80,15 +90,19 @@ export function madeBoardsLoaded(): Promise<void> {
 /** Forget one room's board, and its files (the room was deleted). */
 export function forgetBoard(roomId: string) {
   discardRoomBoards(roomId);
-  if (!(roomId in boards)) return;
-  const { [roomId]: _gone, ...rest } = boards;
-  boards = rest;
-  emit();
-  persist();
+  // After the read, so the stored entry is forgotten too rather than read back in.
+  void load().then(() => {
+    if (!(roomId in boards)) return;
+    const { [roomId]: _gone, ...rest } = boards;
+    boards = rest;
+    emit();
+    persist();
+  });
 }
 
 /** Forget every board and its files (sign-out, or a switch of profile). */
 export async function resetMadeBoards(): Promise<void> {
+  generation += 1;
   boards = {};
   loaded = Promise.resolve();
   emit();

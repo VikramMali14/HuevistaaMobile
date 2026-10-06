@@ -8,9 +8,36 @@ import { fileSlug } from "./board-pages";
  * Colour boards on the phone (C15, C16, C25): the PDF and a picture of each page, kept in
  * a folder per room so a board can be sent again later. Kept in the app's documents (not
  * the cache, which Android may empty), and deleted on sign-out.
+ *
+ * What is kept is each file's place inside the documents ("boards/<room>/<time>/…"), never
+ * its full path: on iOS the documents' own path changes when the app is updated.
  */
+const ROOT = "boards";
+
 function root(): Directory {
-  return new Directory(Paths.document, "boards");
+  return new Directory(Paths.document, ROOT);
+}
+
+/** A file's place inside the documents, as kept. */
+function refOf(uri: string): string {
+  const at = uri.indexOf(`/${ROOT}/`);
+  if (at < 0) return uri;
+  const ref = uri.slice(at + 1).replace(/\/$/, "");
+  try {
+    return decodeURI(ref);
+  } catch {
+    return ref;
+  }
+}
+
+/**
+ * Where a kept board file is now. A full path kept by an earlier version is read from its
+ * "boards/" on, so it still points at the documents of this install.
+ */
+export function boardUri(ref: string): string {
+  const inside = /^[a-z][a-z0-9+.-]*:/i.test(ref) ? refOf(ref) : ref;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(inside)) return inside;
+  return new File(Paths.document, ...inside.split("/")).uri;
 }
 
 /** The bytes of a GL snapshot (a JPEG in the cache). */
@@ -18,6 +45,7 @@ export async function readSnapshot(uri: string): Promise<Uint8Array> {
   return new File(uri).bytes();
 }
 
+/** A board's files, each as its place inside the documents (see {@link boardUri}). */
 export interface WrittenBoard {
   /** The folder this board's files are in. */
   folder: string;
@@ -53,16 +81,16 @@ export async function writeBoard(
     const page = new File(folder, `page-${i + 1}.jpg`);
     page.create({ overwrite: true });
     page.write(bytes);
-    return page.uri;
+    return refOf(page.uri);
   });
-  return { folder: folder.uri, file: pdfFile.uri, pages };
+  return { folder: refOf(folder.uri), file: refOf(pdfFile.uri), pages };
 }
 
 /** The board was handed over: the room's earlier boards on this phone go. */
 export function keepOnly(roomId: string, board: WrittenBoard): void {
   try {
     for (const entry of roomFolder(roomId).list()) {
-      if (entry instanceof Directory && entry.uri.replace(/\/$/, "") !== board.folder.replace(/\/$/, "")) entry.delete();
+      if (entry instanceof Directory && refOf(entry.uri) !== refOf(board.folder)) entry.delete();
     }
   } catch {
     // Old boards left behind cost space, not correctness.
@@ -72,7 +100,7 @@ export function keepOnly(roomId: string, board: WrittenBoard): void {
 /** The server refused the board: nothing of it stays. */
 export function discardBoard(board: WrittenBoard): void {
   try {
-    new Directory(board.folder).delete();
+    new Directory(Paths.document, ...refOf(board.folder).split("/")).delete();
   } catch {
     // Already gone.
   }
@@ -91,7 +119,7 @@ export function discardRoomBoards(roomId: string): void {
 /** Whether a board written earlier is still on the phone. */
 export function boardExists(file: string): boolean {
   try {
-    return new File(file).exists;
+    return new File(boardUri(file)).exists;
   } catch {
     return false;
   }
@@ -100,18 +128,19 @@ export function boardExists(file: string): boolean {
 /** Open the phone's share sheet with the board (WhatsApp, email, Drive…). */
 export async function shareBoard(file: string, title: string): Promise<void> {
   if (!(await Sharing.isAvailableAsync())) throw new Error("No share sheet");
-  await Sharing.shareAsync(file, { mimeType: "application/pdf", UTI: "com.adobe.pdf", dialogTitle: title });
+  await Sharing.shareAsync(boardUri(file), { mimeType: "application/pdf", UTI: "com.adobe.pdf", dialogTitle: title });
 }
 
 /**
  * Keep a copy where the person chooses. On Android that is a folder they pick (Downloads,
  * usually) — PDFs are not photos, so the gallery is no place for one; elsewhere the share
- * sheet's "Save to Files" does it. False when they backed out of choosing.
+ * sheet's "Save to Files" does it. True only when a copy was certainly written: the share
+ * sheet never says which way it was closed, so it gets no "saved" of ours.
  */
 export async function saveBoardToPhone(file: string, title: string): Promise<boolean> {
   if (Platform.OS !== "android") {
     await shareBoard(file, title);
-    return true;
+    return false;
   }
   let folder: Directory;
   try {
@@ -119,7 +148,7 @@ export async function saveBoardToPhone(file: string, title: string): Promise<boo
   } catch {
     return false;
   }
-  const source = new File(file);
+  const source = new File(boardUri(file));
   const copy = folder.createFile(source.name, "application/pdf");
   copy.write(await source.bytes());
   return true;

@@ -63,11 +63,13 @@ export default function BoardsScreen() {
         <View style={{ gap: space.sm }}>
           {list.map((room) => {
             const name = room.name?.trim() || t("rooms.untitled");
+            const when = room.closedAt ? t("boards.taken", { date: formatDate(room.closedAt) }) : t("boards.open");
+            const count = room.comboCount === 1 ? t("boards.oneOption") : t("boards.options", { n: room.comboCount });
             return (
               <Card
                 key={room.id}
                 onPress={() => router.push({ pathname: "/board/[projectId]", params: { projectId: room.id } })}
-                accessibilityLabel={name}
+                accessibilityLabel={`${name}, ${when}, ${count}`}
               >
                 <View style={styles.row} testID={`board-room-${room.id}`}>
                   <RemoteImage url={room.cleanedImageUrl || room.imageUrl} style={[styles.thumb, { borderRadius: radius.sm }]} />
@@ -76,10 +78,10 @@ export default function BoardsScreen() {
                       {name}
                     </Text>
                     <Text variant="small" tone="mute">
-                      {room.closedAt ? t("boards.taken", { date: formatDate(room.closedAt) }) : t("boards.open")}
+                      {when}
                     </Text>
                     <Text variant="small" tone="soft">
-                      {room.comboCount === 1 ? t("boards.oneOption") : t("boards.options", { n: room.comboCount })}
+                      {count}
                     </Text>
                   </View>
                 </View>

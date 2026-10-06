@@ -64,7 +64,9 @@ export default function StudioScreen() {
   const done = all.filter((p) => !isInProgress(p));
   const shown = tab === "open" ? open : done;
 
-  const refreshRooms = () => queryClient.invalidateQueries({ queryKey: keys.projects });
+  // The rooms, and the Boards tab, which names them too.
+  const refreshRooms = () =>
+    Promise.all([queryClient.invalidateQueries({ queryKey: keys.projects }), queryClient.invalidateQueries({ queryKey: keys.boards })]);
 
   const rename = () => {
     const room = renaming;
@@ -190,15 +192,18 @@ export default function StudioScreen() {
               setMenu(null);
             }}
           />
-          <ListRow
-            icon="share-2"
-            title={t("studio.share")}
-            onPress={() => {
-              const room = menu;
-              setMenu(null);
-              if (room) router.push({ pathname: "/room/[projectId]/share", params: { projectId: room.id } } as Href);
-            }}
-          />
+          {/* A view-only room that isn't finished can't be shared (the server refuses it). */}
+          {menu && (!menu.readOnly || menu.closedAt) ? (
+            <ListRow
+              icon="share-2"
+              title={t("studio.share")}
+              onPress={() => {
+                const room = menu;
+                setMenu(null);
+                if (room) router.push({ pathname: "/room/[projectId]/share", params: { projectId: room.id } } as Href);
+              }}
+            />
+          ) : null}
           <ListRow
             icon="trash-2"
             tone="danger"

@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { usePreventRemove } from "expo-router/react-navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -17,7 +18,6 @@ import {
   IconButton,
   Screen,
   Text,
-  useToast,
   WorkingState,
 } from "@/components/ui";
 import {
@@ -26,16 +26,17 @@ import {
   boardOption,
   boardsLeft,
   DEFAULT_OPTIONS_PER_BOARD,
+  MAX_WALLS_PER_PAGE,
   moved,
   pageCount,
   type BoardOption,
 } from "@/features/boards/board-pages";
-import { makeBoard } from "@/features/boards/make-board";
+import { makeBoard, type BoardStep } from "@/features/boards/make-board";
 import { namesShown, shownName, useCatalogue, useShadeScheme } from "@/features/catalogue/use-catalogue";
 import { CanvasTrouble } from "@/features/studio/CanvasTrouble";
 import { canvasWalls, roomPhoto } from "@/features/studio/canvas-walls";
 import { RoomCanvas, type CanvasState, type RoomCanvasHandle } from "@/features/studio/engine/RoomCanvas";
-import { removeCombo, reorderTray, useTray } from "@/features/studio/tray-store";
+import { removeCombo, reorderTray, useTray, type SavedCombo } from "@/features/studio/tray-store";
 import { useRoom, wallsWithMasks } from "@/features/studio/use-room";
 import { planWalls, wallLabel } from "@/features/studio/wall-plan";
 import { t } from "@/i18n";
@@ -43,19 +44,18 @@ import { codesAreUniversal } from "@/lib/shade-codes";
 import { useSubmit } from "@/lib/use-submit";
 import { hairline, useTheme } from "@/theme";
 
-type Step = { kind: "photo"; n: number; total: number } | { kind: "file" } | { kind: "charge" };
-
 /**
  * C15 · Colour board — choose and confirm. Spec: docs/04-screens-customer.md — C15.
  *
  * The combinations saved on Paint, one page each, in the order they will print — shown on
  * the room as each is tapped, moved up or down, or taken off. Before the press, plainly:
  * how many options and pages, whether this is the room's only board, and that taking it
- * closes the room. Then the board is made in the money rule's order (make-board.ts).
+ * closes the room. Then the board is made in the money rule's order (make-board.ts) —
+ * only once every wall's shape has loaded, so no picture leaves a painted wall out, and
+ * with the way back held while it is made (leaving would photograph nothing).
  */
 export default function ColourBoard() {
   const router = useRouter();
-  const toast = useToast();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { colors, radius, space } = useTheme();
@@ -69,10 +69,20 @@ export default function ColourBoard() {
   const [canvas, setCanvas] = useState<CanvasState>({ kind: "loading" });
   const [shown, setShown] = useState(0);
   const [confirming, setConfirming] = useState(false);
-  const [step, setStep] = useState<Step | null>(null);
+  const [step, setStep] = useState<BoardStep | null>(null);
   const [startedAt, setStartedAt] = useState(0);
   const [problem, setProblem] = useState<string | null>(null);
+  const [handedOver, setHandedOver] = useState(false);
+  // The option just taken off, to put back: the tray is the only place it is kept.
+  const [removed, setRemoved] = useState<{ combo: SavedCombo; at: number } | null>(null);
   const making = useSubmit();
+
+  // Held while the board is made; let go once it is handed over, and then on to C16 —
+  // with the working state kept up until this screen has gone.
+  usePreventRemove(making.busy && !handedOver, () => {});
+  useEffect(() => {
+    if (handedOver) router.replace({ pathname: "/room/[projectId]/board-done", params: { projectId: id } } as Href);
+  }, [handedOver, id, router]);
 
   const data = room.data;
   const walls = useMemo(
@@ -93,10 +103,15 @@ export default function ColourBoard() {
     [tray, walls, nameOf, scheme],
   );
   const usable = options.filter((o) => o.shades.length > 0);
+  // Each option's number on the board: only the ones that print are counted.
+  const numbers = useMemo(() => {
+    let n = 0;
+    return options.map((o) => (o.shades.length ? ++n : null));
+  }, [options]);
   const max = Math.max(1, allowance.data?.imagesPerPdf ?? DEFAULT_OPTIONS_PER_BOARD);
   const index = Math.min(shown, Math.max(0, options.length - 1));
 
-  if (room.isError) {
+  if (room.isError && !data) {
     return (
       <Screen>
         <BackButton fallback="/studio" />
@@ -106,8 +121,13 @@ export default function ColourBoard() {
   }
   if (!data) {
     return (
-      <View style={[styles.fill, styles.center, { backgroundColor: colors.bgDeep }]} testID="board-loading">
-        <ActivityIndicator color={colors.accentText} />
+      <View style={[styles.fill, { backgroundColor: colors.bgDeep, paddingTop: insets.top }]} testID="board-loading">
+        <View style={[styles.top, { paddingHorizontal: space.xs }]}>
+          <BackButton fallback="/studio" />
+        </View>
+        <View style={[styles.fill, styles.center]}>
+          <ActivityIndicator color={colors.accentText} />
+        </View>
       </View>
     );
   }
@@ -116,7 +136,9 @@ export default function ColourBoard() {
   const over = usable.length - max;
   const left = boardsLeft(data);
   const closes = boardClosesRoom(data);
-  const pages = pageCount(usable.length, data);
+  // The reward page closes every board of a customer's own room.
+  const reward = pageCount(0, data) > 0;
+  const crowded = options.findIndex((o) => o.shades.length > MAX_WALLS_PER_PAGE);
   const current = options[index] ?? null;
   const photo = roomPhoto(data);
   const shownWalls = canvasWalls(data, (r) => {
@@ -128,8 +150,12 @@ export default function ColourBoard() {
     else router.replace({ pathname: "/room/[projectId]/paint", params: { projectId: id } } as Href);
   };
 
+  // Every wall's shape in, so each picture paints all of them (a phone with no live colour,
+  // or a photo that didn't load, prints swatches — the confirm says so).
+  const wallsLoading = canvas.kind === "loading" || (canvas.kind === "ready" && canvas.loading > 0);
   const make = () => {
     setConfirming(false);
+    setRemoved(null);
     void making.run(async () => {
       setStartedAt(Date.now());
       setProblem(null);
@@ -142,14 +168,15 @@ export default function ColourBoard() {
           universalCodes: codesAreUniversal(scheme),
           onStep: setStep,
         });
-      } finally {
-        setStep(null);
-        setStartedAt(0);
+      } catch {
+        outcome = { status: "build-failed" } as const;
       }
       if (outcome.status === "handed-over") {
-        router.replace({ pathname: "/room/[projectId]/board-done", params: { projectId: id } } as Href);
+        setHandedOver(true);
         return;
       }
+      setStep(null);
+      setStartedAt(0);
       if (outcome.status === "build-failed") {
         setProblem(t("board.buildFailed"));
         return;
@@ -161,8 +188,13 @@ export default function ColourBoard() {
     });
   };
 
+  const unpainted = canvas.kind === "ready" ? canvas.missing : 0;
   const confirmLines = [
-    usable.length === 1 ? t("board.confirmPagesOne", { pages }) : t("board.confirmPages", { options: usable.length, pages }),
+    usable.length === 1 ? t("board.confirmOption") : t("board.confirmOptions", { n: usable.length }),
+    ...(reward ? [t("board.confirmReward")] : []),
+    ...(canvas.kind === "noGl" ? [t("board.confirmNoLive")] : []),
+    ...(canvas.kind === "failed" ? [t("board.confirmSwatches")] : []),
+    ...(unpainted === 1 ? [t("board.confirmUnpaintedOne")] : unpainted > 1 ? [t("board.confirmUnpainted", { n: unpainted })] : []),
     ...(left === 1
       ? [(data.boardsAllowed ?? 0) <= 1 ? t("board.confirmOnly") : t("board.confirmLast", { used: data.boardsUsed ?? 0, allowed: data.boardsAllowed ?? 0 })]
       : left !== null
@@ -177,7 +209,10 @@ export default function ColourBoard() {
       ? t("board.photo", { n: step.n, total: step.total })
       : step?.kind === "charge"
         ? t("board.charge")
-        : t("board.file");
+        : step?.kind === "file"
+          ? t("board.file")
+          : t("board.starting");
+  const shownNumber = numbers[index] ?? null;
 
   return (
     <View style={[styles.fill, { backgroundColor: colors.bgDeep, paddingTop: insets.top }]}>
@@ -197,7 +232,7 @@ export default function ColourBoard() {
             walls={shownWalls}
             cleaned={Boolean(data.cleanedImageUrl)}
             onState={setCanvas}
-            accessibilityLabel={t("board.previewLabel", { n: index + 1 })}
+            accessibilityLabel={shownNumber ? t("board.previewLabel", { n: shownNumber }) : t("board.previewUnprinted")}
             testID="board-canvas"
           />
           <View pointerEvents="box-none" style={[styles.overlay, { padding: space.gutter }]}>
@@ -228,27 +263,55 @@ export default function ColourBoard() {
           <Button variant="secondary" label={t("board.seeBoard")} onPress={() => router.replace({ pathname: "/board/[projectId]", params: { projectId: id } } as Href)} />
         ) : null}
         {problem ? <Banner tone="danger" message={problem} testID="board-problem" /> : null}
+        {removed ? (
+          <Banner tone="info" message={t("board.removed")} testID="board-removed">
+            <Button
+              variant="ghost"
+              block={false}
+              label={t("board.undo")}
+              disabled={making.busy}
+              onPress={() => {
+                const { combo, at } = removed;
+                setRemoved(null);
+                if (tray.some((c) => c.savedAt === combo.savedAt)) return;
+                reorderTray(id, [...tray.slice(0, at), combo, ...tray.slice(at)]);
+                setShown(Math.min(at, tray.length));
+              }}
+              testID="board-undo"
+            />
+          </Banner>
+        ) : null}
         {!blocked && over > 0 ? (
           <Banner tone="warning" message={over === 1 ? t("board.tooManyOne", { max }) : t("board.tooMany", { max, n: over })} />
+        ) : null}
+        {!blocked && crowded >= 0 ? (
+          <Banner tone="warning" message={t("board.crowded", { max: MAX_WALLS_PER_PAGE, n: numbers[crowded] ?? crowded + 1 })} testID="board-crowded" />
         ) : null}
         {canvas.kind === "noGl" && options.length ? <Banner tone="info" message={t("board.noLive")} /> : null}
 
         {options.map((option, i) => {
           const combo = tray[i]!;
           const on = i === index;
+          const n = numbers[i] ?? null;
+          const said = option.shades.map((s) => [s.label, s.name, s.code].filter(Boolean).join(" ")).join(", ");
           return (
             <Card key={combo.savedAt} style={on ? { borderColor: colors.fg, borderTopColor: colors.fg } : undefined}>
               <Pressable
                 onPress={() => setShown(i)}
                 accessibilityRole="button"
                 accessibilityState={{ selected: on }}
-                accessibilityLabel={t("board.show", { n: i + 1 })}
+                accessibilityLabel={n ? t("board.show", { n, shades: said }) : t("board.showUnprinted")}
                 style={{ gap: space.xs }}
                 testID={`board-option-${i + 1}`}
               >
                 <Text variant="label" tone={on ? "accent" : "mute"}>
-                  {t("board.option", { n: i + 1 })}
+                  {n ? t("board.option", { n }) : t("board.unprinted")}
                 </Text>
+                {option.shades.length > MAX_WALLS_PER_PAGE ? (
+                  <Text variant="small" tone="danger">
+                    {t("board.crowdedOption", { max: MAX_WALLS_PER_PAGE })}
+                  </Text>
+                ) : null}
                 {option.shades.length === 0 ? (
                   <Text variant="small" tone="mute">
                     {t("board.noWalls")}
@@ -271,19 +334,24 @@ export default function ColourBoard() {
                 )}
               </Pressable>
               <View style={[styles.controls, { borderTopColor: colors.rule }]}>
-                <IconButton icon="arrow-up" label={t("board.moveUp", { n: i + 1 })} disabled={i === 0 || making.busy} onPress={() => {
-                  reorderTray(id, moved(tray, i, i - 1));
-                  setShown(i - 1);
-                }} />
-                <IconButton icon="arrow-down" label={t("board.moveDown", { n: i + 1 })} disabled={i === tray.length - 1 || making.busy} onPress={() => {
-                  reorderTray(id, moved(tray, i, i + 1));
-                  setShown(i + 1);
-                }} />
+                {n ? (
+                  <>
+                    <IconButton icon="arrow-up" label={t("board.moveUp", { n })} disabled={i === 0 || making.busy} onPress={() => {
+                      reorderTray(id, moved(tray, i, i - 1));
+                      setShown(i - 1);
+                    }} />
+                    <IconButton icon="arrow-down" label={t("board.moveDown", { n })} disabled={i === tray.length - 1 || making.busy} onPress={() => {
+                      reorderTray(id, moved(tray, i, i + 1));
+                      setShown(i + 1);
+                    }} />
+                  </>
+                ) : null}
                 <View style={styles.fill} />
-                <IconButton icon="trash-2" label={t("board.remove", { n: i + 1 })} disabled={making.busy} onPress={() => {
+                <IconButton icon="trash-2" label={n ? t("board.remove", { n }) : t("board.removeUnprinted")} disabled={making.busy} onPress={() => {
                   removeCombo(id, combo.savedAt);
-                  setShown(Math.max(0, Math.min(index, tray.length - 2)));
-                  toast.show(t("board.removed"), "info");
+                  setRemoved({ combo, at: i });
+                  // The same option stays in view: those after it move up one.
+                  setShown(i < index ? index - 1 : Math.max(0, Math.min(index, tray.length - 2)));
                 }} testID={`board-remove-${i + 1}`} />
               </View>
             </Card>
@@ -293,7 +361,11 @@ export default function ColourBoard() {
         {options.length && !blocked ? <Button variant="ghost" icon="plus" label={t("board.addMore")} onPress={toPaint} /> : null}
         {options.length && !blocked && left !== null ? (
           <Text variant="small" tone="mute" align="center">
-            {left === 1 ? t("board.oneLeft", { max }) : t("board.boardsLeft", { n: left })}
+            {left === 1
+              ? (data.boardsAllowed ?? 0) <= 1
+                ? t("board.onlyOne", { max })
+                : t("board.lastOne", { max })
+              : t("board.boardsLeft", { n: left })}
           </Text>
         ) : null}
       </ScrollView>
@@ -304,7 +376,7 @@ export default function ColourBoard() {
             label={t("board.make")}
             icon="file-text"
             onPress={() => setConfirming(true)}
-            disabled={usable.length === 0 || over > 0 || canvas.kind === "loading"}
+            disabled={usable.length === 0 || over > 0 || crowded >= 0 || wallsLoading}
             loading={making.busy}
             testID="board-make"
           />
@@ -320,7 +392,7 @@ export default function ColourBoard() {
         onCancel={() => setConfirming(false)}
       />
 
-      {making.busy && startedAt > 0 ? (
+      {startedAt > 0 ? (
         <View style={[StyleSheet.absoluteFill, styles.center, { backgroundColor: `${colors.bg}f2`, padding: space.gutter }]} testID="board-working">
           <WorkingState stage={t("board.working")} sentence={stepLine} startedAt={startedAt} />
         </View>

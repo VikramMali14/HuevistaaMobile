@@ -1,20 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { usePreventRemove } from "expo-router/react-navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { billingApi } from "@/api/endpoints/billing";
 import { meApi } from "@/api/endpoints/me";
 import { messageFor } from "@/api/errors";
 import { keys } from "@/api/query-keys";
-import type { CartCatalogue } from "@/api/types";
 import { useSession } from "@/auth/session";
 import { BackButton, Banner, Button, EmptyState, ErrorState, Screen, Skeleton, Stepper, Text, useToast } from "@/components/ui";
 import { useBalance } from "@/features/account/use-balance";
-import { payForBasket, verifyPayment } from "@/features/payments/payments";
+import { packingLine, roomsAndImages } from "@/features/payments/basket-words";
+import { payForBasket, PriceChangedError, verifyPayment } from "@/features/payments/payments";
 import { usePaidButUnconfirmed } from "@/features/payments/pending-payment";
 import { t } from "@/i18n";
-import { packCart, packSingly, type PackedCart } from "@/lib/cart-pack";
+import { packCart, packSingly } from "@/lib/cart-pack";
 import { validitySpan } from "@/lib/dates";
 import { formatRupees } from "@/lib/money";
 import { useSubmit } from "@/lib/use-submit";
@@ -27,22 +28,6 @@ function count(raw: string | undefined, fallback: number): number {
 
 const rooms = (n: number) => (n === 1 ? t("checkout.oneRoom") : t("checkout.rooms", { n }));
 const images = (n: number) => (n === 1 ? t("checkout.oneImage") : t("checkout.images", { n }));
-function both(r: number, p: number): string {
-  if (r > 0 && p > 0) return t("checkout.and", { a: rooms(r), b: images(p) });
-  return r > 0 ? rooms(r) : images(p);
-}
-
-/** Which package took the money off — named, so a bundle price never looks like a mistake. */
-function packingLine(packed: PackedCart, cart: CartCatalogue): string {
-  if (packed.bundles > 0) {
-    return `${t("checkout.bundled")} (${t("checkout.offer", {
-      rooms: cart.bundleProjects ?? 0,
-      images: cart.bundleCredits ?? 0,
-      price: formatRupees(cart.bundlePricePaise ?? 0),
-    })})`;
-  }
-  return t("checkout.bundled");
-}
 
 /**
  * C28 · Checkout. Spec: docs/04-screens-customer.md — C28.
@@ -63,7 +48,10 @@ export default function Checkout() {
   const params = useLocalSearchParams<{ rooms?: string; credits?: string }>();
   const balance = useBalance();
   const cart = useQuery({ queryKey: keys.cart, queryFn: billingApi.cart });
+  // Whether a shop adds this account's rooms (they are never sold one): unknown until the
+  // entitlement answers, and nothing is sold on a guess.
   const shopCustomer = Boolean(balance.entitlement);
+  const entitlementKnown = balance.nextStep !== null;
   const [want, setWant] = useState(() => {
     const credits = count(params.credits, 0);
     return { rooms: count(params.rooms, credits > 0 ? 0 : 1), pictures: credits };
@@ -91,13 +79,23 @@ export default function Checkout() {
   const packed = useMemo(() => (data ? packCart(wantRooms, want.pictures, data) : null), [data, wantRooms, want.pictures]);
   const listPaise = useMemo(() => (data ? packSingly(wantRooms, want.pictures, data).subtotalPaise : 0), [data, wantRooms, want.pictures]);
 
+  // Held while a payment is under way, so its result has somewhere to be shown; then on to
+  // C29 once it has settled.
+  const [resultFor, setResultFor] = useState<string | null>(null);
+  usePreventRemove(paying.busy, () => {});
+  useEffect(() => {
+    if (resultFor && !paying.busy) router.replace({ pathname: "/payment-result", params: { order: resultFor } });
+  }, [resultFor, paying.busy, router]);
+
   const pay = () => {
-    if (!packed || packed.totalPaise <= 0 || !profile || stuck) return;
+    if (!packed || packed.totalPaise <= 0 || !profile || stuck || !entitlementKnown) return;
     void paying.run(async () => {
       setError(null);
       try {
         const state = await payForBasket({
           split: { projects: packed.projects, credits: packed.credits, combos: packed.combos, bundles: packed.bundles },
+          basket: { rooms: wantRooms, credits: want.pictures },
+          expectedPaise: packed.totalPaise,
           accountId: profile.id,
           prefill: { name: profile.namePending ? null : profile.name, email: profile.email, contact: profile.phoneNumber },
         });
@@ -105,9 +103,13 @@ export default function Checkout() {
           toast.show(t("checkout.cancelled"), "info");
           return;
         }
-        if (focused.current) router.replace({ pathname: "/payment-result", params: { order: state.orderId } });
+        if (state.kind === "unfinished") {
+          toast.show(t("checkout.unfinished"), "info");
+          return;
+        }
+        if (focused.current) setResultFor(state.orderId);
       } catch (err) {
-        setError(messageFor(err));
+        setError(err instanceof PriceChangedError ? t("checkout.priceChanged", { amount: formatRupees(err.amountPaise) }) : messageFor(err));
       }
     });
   };
@@ -117,20 +119,24 @@ export default function Checkout() {
     if (!stuck || !proof) return;
     void checking.run(async () => {
       const state = await verifyPayment(stuck.orderId, proof.paymentId, proof.signature);
-      if (state.kind === "verified") router.replace({ pathname: "/payment-result", params: { order: state.orderId } });
+      if (state.kind === "checking") toast.show(t("checkout.stillChecking"), "info");
+      else router.replace({ pathname: "/payment-result", params: { order: state.orderId } });
     });
   };
 
   let body;
-  if (cart.isPending) {
+  if (cart.isPending || balance.loading) {
     body = (
       <View style={{ gap: space.md }} testID="checkout-loading">
         <Skeleton height={96} radius={16} />
         <Skeleton height={96} radius={16} />
       </View>
     );
-  } else if (cart.isError) {
+  } else if (!data && cart.isError) {
+    // Only when there is no counter at all: a background refresh that fails keeps the one shown.
     body = <ErrorState error={cart.error} onRetry={() => void cart.refetch()} />;
+  } else if (!entitlementKnown) {
+    body = <ErrorState message={t("checkout.entitlementFailed")} onRetry={() => void balance.refetch()} />;
   } else if (!data?.eligible || !packed) {
     body = <EmptyState icon="slash" title={t("checkout.notForYou")} />;
   } else {
@@ -163,9 +169,10 @@ export default function Checkout() {
           value={value}
           max={max}
           onChange={onChange}
+          label={title}
           describe={noun}
-          fewerLabel={`${t("checkout.fewer")}: ${title}`}
-          moreLabel={`${t("checkout.more")}: ${title}`}
+          fewerLabel={t("checkout.fewer", { what: title })}
+          moreLabel={t("checkout.more", { what: title })}
           disabled={paying.busy || Boolean(stuck)}
           testID={testID}
         />
@@ -245,10 +252,10 @@ export default function Checkout() {
             <Text variant="small" tone="mute">
               {extra > 0
                 ? t("checkout.surplus", {
-                    basket: both(packed.roomsGranted, packed.picturesGranted),
-                    extra: both(packed.roomsGranted - wantRooms, packed.picturesGranted - want.pictures),
+                    basket: roomsAndImages(packed.roomsGranted, packed.picturesGranted),
+                    extra: roomsAndImages(packed.roomsGranted - wantRooms, packed.picturesGranted - want.pictures),
                   })
-                : both(packed.roomsGranted, packed.picturesGranted)}
+                : roomsAndImages(packed.roomsGranted, packed.picturesGranted)}
             </Text>
           </View>
         ) : null}
@@ -256,7 +263,9 @@ export default function Checkout() {
     );
   }
 
-  const ready = Boolean(data?.eligible && packed && packed.totalPaise > 0);
+  const ready = Boolean(data?.eligible && packed && packed.totalPaise > 0 && entitlementKnown);
+  // While this basket's own payment is being confirmed, the "confirming" note is not news.
+  const stuckShown = Boolean(stuck) && !paying.busy;
   return (
     <Screen
       scroll
@@ -268,7 +277,7 @@ export default function Checkout() {
               label={ready ? t("checkout.pay", { amount: formatRupees(packed.totalPaise) }) : t("checkout.empty")}
               onPress={pay}
               loading={paying.busy}
-              disabled={!ready || Boolean(stuck)}
+              disabled={!ready || stuckShown}
               testID="checkout-pay"
             />
             <Text variant="caption" tone="mute" align="center">
@@ -282,7 +291,7 @@ export default function Checkout() {
       <Text variant="title1" accessibilityRole="header">
         {t("checkout.title")}
       </Text>
-      {stuck ? (
+      {stuckShown ? (
         <Banner tone="warning" message={t("checkout.stuck")} testID="checkout-stuck">
           <Button variant="ghost" block={false} label={t("checkout.checkNow")} onPress={checkNow} loading={checking.busy} />
         </Banner>

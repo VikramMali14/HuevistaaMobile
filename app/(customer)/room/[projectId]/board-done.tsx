@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 
 import { Banner, BackButton, Button, Disclaimer, EmptyState, ListGroup, ListRow, Screen, Text, useToast } from "@/components/ui";
-import { saveBoardToPhone, shareBoard } from "@/features/boards/board-files";
+import { boardUri, saveBoardToPhone, shareBoard } from "@/features/boards/board-files";
 import { madeBoardsLoaded, useMadeBoard } from "@/features/boards/made-boards";
 import { t } from "@/i18n";
 import { useSubmit } from "@/lib/use-submit";
@@ -18,7 +18,8 @@ import { hairline, useTheme } from "@/theme";
  * what comes next. As built: Send the board opens the phone's share sheet (WhatsApp is
  * there); there is no way to hand a file to one app alone without native code, so there
  * is no separate WhatsApp button. Save to phone writes a copy into a folder the person
- * picks on Android (a PDF is not a photo, so not the gallery).
+ * picks on Android (a PDF is not a photo, so not the gallery). A board handed over on a
+ * charge that went unanswered says so: its options were kept, to be made again.
  */
 export default function BoardReady() {
   const router = useRouter();
@@ -87,10 +88,14 @@ export default function BoardReady() {
         </Text>
         <Text variant="lead">
           {board.options === 1
-            ? t("boardDone.leadOne", { pages: board.pageCount })
+            ? board.pageCount === 1
+              ? t("boardDone.leadOnePage")
+              : t("boardDone.leadOne", { pages: board.pageCount })
             : t("boardDone.lead", { options: board.options, pages: board.pageCount })}
         </Text>
       </View>
+
+      {board.unrecorded ? <Banner tone="warning" message={t("boardDone.unrecorded")} testID="board-unrecorded" /> : null}
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }}>
         {board.pages.map((uri, i) => (
@@ -102,7 +107,7 @@ export default function BoardReady() {
             style={[styles.page, { borderColor: colors.ruleStrong, borderRadius: radius.sm, backgroundColor: colors.surfaceSoft }]}
           >
             {uri ? (
-              <Image source={{ uri }} style={styles.fill} contentFit="cover" />
+              <Image source={{ uri: boardUri(uri) }} style={styles.fill} contentFit="cover" />
             ) : (
               <View style={[styles.fill, styles.row]}>
                 {(board.swatches?.[i] ?? []).map((hex, j) => (
@@ -121,7 +126,11 @@ export default function BoardReady() {
             accessible
             accessibilityRole="image"
             accessibilityLabel={`${t("boardDone.page", { n: board.pageCount })}, ${t("boardDone.rewardPage")}`}
-            style={[styles.page, styles.center, { borderColor: colors.ruleStrong, borderRadius: radius.sm, backgroundColor: colors.surface, gap: space.xs, padding: space.sm }]}
+            style={[
+              styles.page,
+              styles.center,
+              { borderColor: colors.ruleStrong, borderRadius: radius.sm, backgroundColor: colors.surface, gap: space.xs, padding: space.sm, paddingBottom: 32 },
+            ]}
           >
             <Feather name="maximize" size={36} color={colors.fgSoft} />
             <Text variant="caption" tone="mute" align="center">
@@ -133,6 +142,11 @@ export default function BoardReady() {
           </View>
         ) : null}
       </ScrollView>
+      {board.rewardMissing ? (
+        <Text variant="small" tone="mute">
+          {t("boardDone.noReward")}
+        </Text>
+      ) : null}
 
       {board.closedRoom ? <Banner tone="info" message={t("boardDone.closedNote")} /> : null}
 
@@ -151,7 +165,12 @@ export default function BoardReady() {
         <ListGroup>
           <ListRow icon="image" title={t("boardDone.aiImage")} onPress={() => router.push({ pathname: "/ai-image/new", params: { projectId: id } })} />
           <ListRow icon="map-pin" title={t("boardDone.painter")} onPress={() => router.push("/nearby")} />
-          <ListRow icon="grid" title={t("boardDone.rooms")} onPress={() => router.replace("/studio")} />
+          <ListRow
+            icon="grid"
+            title={t("boardDone.rooms")}
+            // Back to the tabs already there, rather than a second copy of them.
+            onPress={() => (router.canDismiss() ? router.dismissTo("/studio") : router.replace("/studio"))}
+          />
         </ListGroup>
       </View>
 

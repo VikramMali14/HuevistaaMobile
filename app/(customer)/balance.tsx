@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { meApi } from "@/api/endpoints/me";
@@ -8,7 +8,8 @@ import { messageFor } from "@/api/errors";
 import { keys } from "@/api/query-keys";
 import type { AiCreditActivity } from "@/api/types";
 import { useSession } from "@/auth/session";
-import { BackButton, Banner, Button, Card, ErrorState, ListGroup, ListRow, Screen, Skeleton, Text } from "@/components/ui";
+import { BackButton, Banner, Button, Card, ErrorState, ListGroup, ListRow, Screen, Skeleton, Text, useToast } from "@/components/ui";
+import { askedRecently, rememberAsked } from "@/features/account/asked-shop";
 import { useBalance } from "@/features/account/use-balance";
 import { verifyPayment } from "@/features/payments/payments";
 import { usePaidButUnconfirmed } from "@/features/payments/pending-payment";
@@ -45,6 +46,7 @@ function activityLine(row: AiCreditActivity): string {
  */
 export default function BalanceScreen() {
   const router = useRouter();
+  const toast = useToast();
   const queryClient = useQueryClient();
   const { colors, radius, space } = useTheme();
   const { profile } = useSession();
@@ -58,16 +60,31 @@ export default function BalanceScreen() {
   const asking = useSubmit();
   const checking = useSubmit();
 
+  // Asked within the day: say so, rather than email the shop again.
+  const accountId = profile?.id;
+  useEffect(() => {
+    if (!accountId) return;
+    let live = true;
+    void askedRecently(accountId).then((yes) => live && yes && setAsked((was) => was ?? t("balanceScreen.askedToday")));
+    return () => {
+      live = false;
+    };
+  }, [accountId]);
+
   const ask = () =>
     void asking.run(async () => {
       setAskError(null);
       try {
         await meApi.requestMoreRooms();
+        if (accountId) void rememberAsked(accountId);
         // The shop's name, to say who was asked (C31's list, read now if it isn't yet).
         const products = await queryClient
           .ensureQueryData({ queryKey: keys.assignedProducts, queryFn: meApi.assignedProducts })
           .catch(() => null);
-        const shop = products?.shops[0]?.shopName?.trim();
+        // The shop the server emails: the one whose rooms these are, else the newest code's.
+        const own = balance.entitlement?.retailerOrgId;
+        const shops = products?.shops ?? [];
+        const shop = (shops.find((s) => own && s.shopId === own) ?? (own ? undefined : shops[0]))?.shopName?.trim();
         setAsked(shop ? t("balanceScreen.asked", { shop }) : t("balanceScreen.askedPlain"));
       } catch (err) {
         setAskError(messageFor(err));
@@ -78,7 +95,10 @@ export default function BalanceScreen() {
     const proof = stuck?.paid;
     if (!stuck || !proof) return;
     void checking.run(async () => {
-      await verifyPayment(stuck.orderId, proof.paymentId, proof.signature);
+      const state = await verifyPayment(stuck.orderId, proof.paymentId, proof.signature);
+      if (state.kind === "verified") toast.show(t("checkout.confirmed"), "success");
+      else if (state.kind === "checking") toast.show(t("checkout.stillChecking"), "info");
+      else router.push({ pathname: "/payment-result", params: { order: state.orderId } });
     });
   };
 
@@ -101,25 +121,34 @@ export default function BalanceScreen() {
       <>
         <Card lit>
           <View style={{ gap: space.sm }}>
-            <View style={styles.figure}>
-              <Text variant="display" testID="balance-rooms-n">
-                {balance.rooms}
-              </Text>
-              <Text variant="body" tone="soft">
-                {balance.rooms === 1 ? t("balanceScreen.roomLeft") : t("balanceScreen.roomsLeft")}
-              </Text>
-            </View>
+            {balance.roomsLoading ? (
+              <Skeleton height={44} width={160} radius={10} />
+            ) : balance.roomsKnown ? (
+              <View style={styles.figure}>
+                <Text variant="display" testID="balance-rooms-n">
+                  {balance.rooms}
+                </Text>
+                <Text variant="body" tone="soft">
+                  {balance.rooms === 1 ? t("balanceScreen.roomLeft") : t("balanceScreen.roomsLeft")}
+                </Text>
+              </View>
+            ) : (
+              // Never a count from half the answer: a failed source is not "0 rooms".
+              <Banner tone="warning" message={t("balanceScreen.roomsFailed")} testID="balance-rooms-failed">
+                <Button variant="ghost" block={false} label={t("common.retry")} onPress={() => void balance.refetch()} />
+              </Banner>
+            )}
             {opts?.validDays ? (
               <Text variant="small" tone="mute">
                 {t("balanceScreen.roomsOpen", { span: validitySpan(opts.validDays) })}
               </Text>
             ) : null}
-            {asked ? <Banner tone="success" message={asked} testID="balance-asked" /> : null}
+            {asked && balance.nextStep === "exhausted" ? <Banner tone="success" message={asked} testID="balance-asked" /> : null}
             {askError ? <Banner tone="danger" message={askError} /> : null}
             {balance.nextStep === "exhausted" && !asked ? (
               <Button label={t("balanceScreen.ask")} onPress={ask} loading={asking.busy} testID="balance-ask" />
             ) : null}
-            {balance.nextStep !== null && !shopCustomer ? (
+            {balance.nextStep !== null && balance.roomsKnown && !shopCustomer ? (
               <Button
                 label={t("balanceScreen.buyRooms")}
                 variant={balance.nextStep === "missing" ? "primary" : "secondary"}
@@ -165,9 +194,12 @@ export default function BalanceScreen() {
           </Card>
         ) : null}
 
-        <ListGroup>
-          <ListRow icon="key" title={t("balanceScreen.addCode")} onPress={() => router.push("/add-shop-code")} />
-        </ListGroup>
+        {/* Not on a linked profile, as on Account. */}
+        {profile?.linkedProfile ? null : (
+          <ListGroup>
+            <ListRow icon="key" title={t("balanceScreen.addCode")} onPress={() => router.push("/add-shop-code")} />
+          </ListGroup>
+        )}
 
         {activity.length ? (
           <View style={{ gap: space.xs }}>

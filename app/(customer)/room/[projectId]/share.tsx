@@ -26,7 +26,10 @@ type Days = 3 | 7 | 10;
  * this one. How long it works and which companies they may use, then WhatsApp, Copy or
  * the phone's own share sheet; a live link shows when it stops and can be stopped. As
  * built: the backend takes 3, 7 or 10 days (it makes anything else 10), and companies by
- * NAME — the docs said 1–10 days and slugs.
+ * NAME — the docs said 1–10 days and slugs. A room with no live link shows the choices and
+ * Make the link first; the ways to send it come once there is a link. The room doesn't say
+ * which companies its link allows, so Change starts from the defaults and says that
+ * updating sets both again.
  */
 export default function ShareRoom() {
   const queryClient = useQueryClient();
@@ -45,7 +48,7 @@ export default function ShareRoom() {
   const stop = useSubmit();
 
   const data = room.data;
-  if (room.isError) {
+  if (room.isError && !data) {
     return (
       <FormScreen title={t("share.title")} backFallback="/studio">
         <ErrorState error={room.error} onRetry={() => void room.refetch()} />
@@ -54,9 +57,11 @@ export default function ShareRoom() {
   }
   if (!data) {
     return (
-      <View style={[styles.fill, styles.center, { backgroundColor: colors.bg }]} testID="share-loading">
-        <ActivityIndicator color={colors.accentText} />
-      </View>
+      <FormScreen title={t("share.title")} backFallback="/studio">
+        <View style={[styles.fill, styles.center, { paddingVertical: space.xl }]} testID="share-loading">
+          <ActivityIndicator color={colors.accentText} />
+        </View>
+      </FormScreen>
     );
   }
 
@@ -118,7 +123,24 @@ export default function ShareRoom() {
       title={t("share.title")}
       lead={t("share.lead")}
       backFallback="/studio"
-      footer={editing ? <Button label={link ? t("share.update") : t("share.make")} icon="link" onPress={save} loading={saving.busy} testID="share-make" /> : undefined}
+      footer={
+        editing ? (
+          <View style={{ gap: space.xs }}>
+            <Button label={link ? t("share.update") : t("share.make")} icon="link" onPress={save} loading={saving.busy} testID="share-make" />
+            {changing ? (
+              <Button
+                variant="ghost"
+                label={t("common.cancel")}
+                disabled={saving.busy}
+                onPress={() => {
+                  setChanging(false);
+                  setError(null);
+                }}
+              />
+            ) : null}
+          </View>
+        ) : undefined
+      }
     >
       {link && !changing ? (
         <View style={{ gap: space.md }}>
@@ -159,6 +181,11 @@ export default function ShareRoom() {
         </View>
       ) : (
         <>
+          {changing ? (
+            <Text variant="small" tone="soft" testID="share-change-note">
+              {t("share.changeNote")}
+            </Text>
+          ) : null}
           <View style={{ gap: space.xs }}>
             <Text variant="label" tone="mute">
               {t("share.howLong")}

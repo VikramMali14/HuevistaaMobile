@@ -14,7 +14,7 @@ import type { CartCatalogue, ProjectCombo, RoomDetail, RoomRegion, UserProfile }
 import { forgetRememberedRoute } from "@/auth/pending-route";
 import { resetMadeBoards } from "@/features/boards/made-boards";
 import { resetPayments } from "@/features/payments/payments";
-import { resetPending, savePending } from "@/features/payments/pending-payment";
+import { clearPending, savePending } from "@/features/payments/pending-payment";
 import { resetPaintStore, resetRecentShades } from "@/features/studio/paint-store";
 import { resetTrays, saveCombo } from "@/features/studio/tray-store";
 import type { BackendShade } from "@/lib/shade-mapping";
@@ -44,7 +44,8 @@ jest.mock("@/features/studio/engine/texture-loader", () => ({
   clearStudioCache: jest.fn(),
 }));
 
-// The canvas: ready at once; a snapshot names the colours it was asked to paint.
+// The canvas: ready at once (or as a test says); a snapshot names the colours it was asked to paint.
+let mockCanvasState: object = { kind: "ready", width: 800, height: 600, missing: 0, loading: 0 };
 const mockSnapshot = jest.fn(async (only?: ReadonlyMap<string, { hex: string }>) =>
   only ? `file://snap-${[...only.values()].map((p) => p.hex.slice(1)).join("-")}.jpg` : "file://snap.jpg",
 );
@@ -58,7 +59,7 @@ jest.mock("@/features/studio/engine/RoomCanvas", () => {
     RoomCanvas: forwardRef(function RoomCanvas(props: { onState?: (s: unknown) => void; testID?: string }, ref: unknown) {
       useImperativeHandle(ref, () => ({ snapshot: mockSnapshot, retry: () => {} }));
       const { onState } = props;
-      useEffect(() => onState?.({ kind: "ready", width: 800, height: 600, missing: 0 }), [onState]);
+      useEffect(() => onState?.(mockCanvasState), [onState]);
       return <View testID={props.testID} />;
     }),
   };
@@ -66,6 +67,7 @@ jest.mock("@/features/studio/engine/RoomCanvas", () => {
 
 // The phone's files and share sheet.
 const mockFiles = {
+  boardUri: jest.fn((ref: string) => ref),
   readSnapshot: jest.fn(async (uri: string) => new Uint8Array([uri.length])),
   writeBoard: jest.fn(async (roomId: string, _name: string, _pdf: Uint8Array, pictures: readonly (Uint8Array | null)[]) => ({
     folder: `file://boards/${roomId}/1`,
@@ -81,6 +83,9 @@ const mockFiles = {
   clearBoardFiles: jest.fn(),
 };
 jest.mock("@/features/boards/board-files", () => ({
+  get boardUri() {
+    return mockFiles.boardUri;
+  },
   get readSnapshot() {
     return mockFiles.readSnapshot;
   },
@@ -283,10 +288,12 @@ beforeEach(async () => {
   mockBilling.cart.mockResolvedValue(CART);
   mockBilling.pdfAllowance.mockResolvedValue({ imagesPerPdf: 5, monthlyLimit: 0, used: 0, remaining: 0, unlimited: true });
   mockFiles.boardExists.mockReturnValue(true);
+  mockCanvasState = { kind: "ready", width: 800, height: 600, missing: 0, loading: 0 };
   resetPaintStore();
   resetTrays();
   resetPayments();
-  resetPending();
+  // Not resetPending: that keeps a paid proof, as sign-out does.
+  clearPending();
   await resetMadeBoards();
   await resetRecentShades();
   queryClient.clear();
@@ -367,6 +374,12 @@ describe("C25 · Board detail", () => {
     await waitFor(() => expect(screen).toHavePathname("/ai-image/options"));
   });
 
+  it("a room still open says it hasn't taken a board yet", async () => {
+    signedIn();
+    renderRouter("./app", { initialUrl: "/board/p1" });
+    await waitFor(() => expect(screen.getByText(/This room hasn't taken a colour board yet\./)).toBeTruthy());
+  });
+
   it("a room finished without a board says so, and offers to look at it", async () => {
     signedIn();
     mockProjects.get.mockResolvedValue(room({ closedAt: "2026-10-01T10:00:00" }));
@@ -406,7 +419,8 @@ describe("C15 · Colour board", () => {
     await waitFor(() => expect(screen.getByTestId("board-make")).toBeEnabled());
     fireEvent.press(screen.getByTestId("board-make"));
     await waitFor(() => expect(screen.getByText("Make your colour board?")).toBeTruthy());
-    expect(screen.getByText(/Your board will have 2 options on 3 pages\./)).toBeTruthy();
+    expect(screen.getByText(/Your board will have 2 options, one page each\./)).toBeTruthy();
+    expect(screen.getByText(/It closes with a page of its own: the QR for your shop/)).toBeTruthy();
     expect(screen.getByText(/This is this room's only board\./)).toBeTruthy();
     expect(screen.getByText(/Taking it closes the room\./)).toBeTruthy();
     press("Make the board");
@@ -439,6 +453,7 @@ describe("C15 · Colour board", () => {
     await waitFor(() => expect(mockFiles.shareBoard).toHaveBeenCalledWith("file://boards/p1/1/board.pdf", "Your colour board · Living room"));
     fireEvent.press(screen.getByTestId("board-save"));
     await waitFor(() => expect(screen.getByText("Board saved.")).toBeTruthy());
+    expect(screen.queryByTestId("board-unrecorded")).toBeNull();
     // The tray is spent.
     expect(JSON.parse((await AsyncStorage.getItem("hv.boardTrays")) ?? "{}")).toEqual({});
   });
@@ -454,6 +469,79 @@ describe("C15 · Colour board", () => {
     fireEvent.press(screen.getByTestId("board-remove-2"));
     await waitFor(() => expect(screen.queryByText("Option 2")).toBeNull());
     expect(screen.getByText("Option taken off the board.")).toBeTruthy();
+    // Kept only on this phone, so it can be put back where it was.
+    fireEvent.press(screen.getByTestId("board-undo"));
+    await waitFor(() => expect(screen.getByTestId("board-option-2")).toHaveTextContent(/HV0118/));
+    expect(screen.getByTestId("board-option-1")).toHaveTextContent(/HV0124/);
+  });
+
+  it("keeps the same option in view when one above it comes off", async () => {
+    signedIn();
+    twoSaved();
+    saveCombo("p1", { "12": { hex: "#ffffff", code: "HV0001" } }, ["11", "12", "13"]);
+    renderRouter("./app", { initialUrl: "/room/p1/board" });
+    await waitFor(() => expect(screen.getByText("Option 3")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("board-option-3"));
+    fireEvent.press(screen.getByTestId("board-remove-1"));
+    await waitFor(() => expect(screen.queryByText("Option 3")).toBeNull());
+    expect(screen.getByTestId("board-option-2")).toHaveProp("accessibilityState", { selected: true });
+  });
+
+  it("numbers the options as they will print, and says which won't", async () => {
+    signedIn();
+    // A combination whose only wall has since left the plan.
+    mockProjects.get.mockResolvedValue(room({ regions: [region(11, "MAIN_WALL"), { ...region(12, "ACCENT_WALL"), inPlan: false }, region(13, "TRIM")] }));
+    saveCombo("p1", { "12": { hex: "#3e4a52", code: "HV0124" } }, ["11", "12", "13"]);
+    saveCombo("p1", { "11": { hex: "#7b8a72", code: "HV0118" } }, ["11", "12", "13"]);
+    renderRouter("./app", { initialUrl: "/room/p1/board" });
+    await waitFor(() => expect(screen.getByText("Won't be printed")).toBeTruthy());
+    expect(screen.getByText("Option 1")).toBeTruthy();
+    expect(screen.queryByText("Option 2")).toBeNull();
+    // Each option's walls and codes are read out with it.
+    expect(screen.getByLabelText("Show option 1: Main wall HV0118")).toBeTruthy();
+  });
+
+  it("waits for every wall's shape before a board can be made", async () => {
+    signedIn();
+    twoSaved();
+    mockCanvasState = { kind: "ready", width: 800, height: 600, missing: 0, loading: 2 };
+    renderRouter("./app", { initialUrl: "/room/p1/board" });
+    await waitFor(() => expect(screen.getByText("Option 2")).toBeTruthy());
+    expect(screen.getByTestId("board-make")).toBeDisabled();
+  });
+
+  it("says before the press when a wall didn't load and will print unpainted", async () => {
+    signedIn();
+    twoSaved();
+    mockCanvasState = { kind: "ready", width: 800, height: 600, missing: 1, loading: 0 };
+    renderRouter("./app", { initialUrl: "/room/p1/board" });
+    await waitFor(() => expect(screen.getByTestId("board-make")).toBeEnabled());
+    fireEvent.press(screen.getByTestId("board-make"));
+    await waitFor(() => expect(screen.getByText(/One wall didn't load, so it will show unpainted/)).toBeTruthy());
+  });
+
+  it("a ready-made room's board has no reward page, and says one page plainly", async () => {
+    signedIn();
+    mockProjects.get.mockResolvedValue(room({ fromLibrary: true, boardsAllowed: 2, boardsUsed: 1 }));
+    saveCombo("p1", { "11": { hex: "#7b8a72", code: "HV0118" } }, ["11", "12", "13"]);
+    renderRouter("./app", { initialUrl: "/room/p1/board" });
+    await waitFor(() => expect(screen.getByText("One colour board left on this room, up to 5 options.")).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId("board-make")).toBeEnabled());
+    fireEvent.press(screen.getByTestId("board-make"));
+    await waitFor(() => expect(screen.getByText(/Your board will have 1 option, on one page\./)).toBeTruthy());
+    expect(screen.queryByText(/It closes with a page of its own/)).toBeNull();
+    expect(screen.getByText(/This is this room's last board \(1 of 2 taken\)\./)).toBeTruthy();
+  });
+
+  it("won't make a page that names more walls than the server takes", async () => {
+    signedIn();
+    const many = Array.from({ length: 17 }, (_, i) => region(100 + i, "OTHER_WALL", `Wall ${i + 1}`));
+    mockProjects.get.mockResolvedValue(room({ regions: many }));
+    const ids = many.map((r) => String(r.id));
+    saveCombo("p1", Object.fromEntries(ids.map((id) => [id, { hex: "#7b8a72", code: "HV0118" }])), ids);
+    renderRouter("./app", { initialUrl: "/room/p1/board" });
+    await waitFor(() => expect(screen.getByTestId("board-crowded")).toBeTruthy());
+    expect(screen.getByTestId("board-make")).toBeDisabled();
   });
 
   it("obeys a refusal: nothing handed over, the server's sentence shown", async () => {
@@ -481,6 +569,9 @@ describe("C15 · Colour board", () => {
     await waitFor(() => expect(screen.getByText("Make the board")).toBeTruthy());
     press("Make the board");
     await waitFor(() => expect(screen).toHavePathname("/room/p1/board-done"));
+    // Not recorded on the room: it says so, and the options are kept to make it again.
+    await waitFor(() => expect(screen.getByTestId("board-unrecorded")).toBeTruthy());
+    expect(Object.keys(JSON.parse((await AsyncStorage.getItem("hv.boardTrays")) ?? "{}"))).toEqual(["p1"]);
   });
 
   it("charges nothing when the board can't be made on the phone", async () => {
@@ -563,6 +654,18 @@ describe("C17 · Share this room", () => {
     await waitFor(() => expect(screen.getByTestId("share-make")).toBeTruthy());
   });
 
+  it("Change says that updating sets both again, and can be left as it was", async () => {
+    signedIn();
+    mockProjects.get.mockResolvedValue(room({ hasShareLink: true, shareToken: "live456", shareExpiresAt: "2026-10-09T10:00:00" }));
+    renderRouter("./app", { initialUrl: "/room/p1/share" });
+    await waitFor(() => expect(screen.getByTestId("share-url")).toBeTruthy());
+    press("Change how long or which companies");
+    await waitFor(() => expect(screen.getByTestId("share-change-note")).toBeTruthy());
+    press("Cancel");
+    await waitFor(() => expect(screen.getByTestId("share-url")).toHaveTextContent("https://huevistaa.com/share/live456"));
+    expect(mockProjects.share).not.toHaveBeenCalled();
+  });
+
   it("says the server's reason when the room can't be shared", async () => {
     signedIn();
     mockProjects.share.mockRejectedValue(new ApiError("http", 403, "This room is view only, so it can't be shared."));
@@ -578,9 +681,15 @@ describe("C17 · Share this room", () => {
 describe("C27 · Rooms and credits", () => {
   it("a shop's customer with no rooms left asks the shop — and is never sold one", async () => {
     signedIn();
-    mockMe.entitlement.mockResolvedValue({ customerId: "u1", customerName: "Priya", projectAllowance: 2, projectsCreated: 2, projectsRemaining: 0 });
+    mockMe.entitlement.mockResolvedValue({ customerId: "u1", customerName: "Priya", retailerOrgId: "s1", projectAllowance: 2, projectsCreated: 2, projectsRemaining: 0 });
     mockMe.projectOptions.mockResolvedValue({ subscribed: false, projectPricePoints: 0, projectPricePaise: 14900, pointsBalance: 0, validDays: 30, availableCredits: 0 });
-    mockMe.assignedProducts.mockResolvedValue({ shops: [{ shopId: "s1", shopName: "Sharma Paints", products: [] }] });
+    // The newest code is another shop's: the one asked is the shop whose rooms these are.
+    mockMe.assignedProducts.mockResolvedValue({
+      shops: [
+        { shopId: "s2", shopName: "Gupta Hardware", products: [] },
+        { shopId: "s1", shopName: "Sharma Paints", products: [] },
+      ],
+    });
     mockMe.requestMoreRooms.mockResolvedValue(undefined);
     renderRouter("./app", { initialUrl: "/balance" });
     await waitFor(() => expect(screen.getByTestId("balance-ask")).toBeTruthy());
@@ -625,10 +734,47 @@ describe("C28 · Checkout", () => {
     fireEvent.press(screen.getByTestId("stepper-images-more"));
     // One room and one image is the combo: ₹199, not ₹219.
     await waitFor(() => expect(screen.getByTestId("checkout-total")).toHaveTextContent("₹199"));
-    expect(screen.getByText("Bundled as the offer")).toBeTruthy();
+    expect(screen.getByText("Bundled as the room + AI image")).toBeTruthy();
     fireEvent.press(screen.getByTestId("checkout-offer"));
     await waitFor(() => expect(screen.getByTestId("checkout-total")).toHaveTextContent("₹438"));
     expect(screen.getByText("Pay ₹438")).toBeTruthy();
+    expect(screen.getByText("Bundled as the 3 rooms + 3 AI images offer")).toBeTruthy();
+  });
+
+  it("opens nothing when the order's price has changed, and says the new one", async () => {
+    signedIn();
+    mockBilling.cartOrder.mockResolvedValue({ ...ORDER, amountPaise: 15900 });
+    renderRouter("./app", { initialUrl: "/checkout?rooms=1" });
+    await waitFor(() => expect(screen.getByText("Pay ₹149")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("checkout-pay"));
+    await waitFor(() => expect(screen.getByText("The price has changed to ₹159. Check the new total, then pay.")).toBeTruthy());
+    expect(mockOpenAuth).not.toHaveBeenCalled();
+  });
+
+  it("a browser closed with no answer isn't called cancelled: it may have been paid", async () => {
+    signedIn();
+    mockBilling.cartOrder.mockResolvedValue(ORDER);
+    mockOpenAuth.mockResolvedValue({ type: "dismiss" });
+    renderRouter("./app", { initialUrl: "/checkout" });
+    await waitFor(() => expect(screen.getByText("Pay ₹149")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("checkout-pay"));
+    await waitFor(() => expect(screen.getByText(/The payment wasn't finished\. If you did pay/)).toBeTruthy(), { timeout: 5000 });
+    expect(screen.queryByText("Payment cancelled.")).toBeNull();
+    expect(screen).toHavePathname("/checkout");
+  });
+
+  it("a payment the server refuses for good says so, with its reference — and Pay works again", async () => {
+    signedIn();
+    mockBilling.cartOrder.mockResolvedValue(ORDER);
+    mockBilling.verifyCart.mockRejectedValue(new ApiError("http", 403, "Payment verification failed."));
+    mockOpenAuth.mockResolvedValue({ type: "success", url: paidUrl });
+    renderRouter("./app", { initialUrl: "/checkout" });
+    await waitFor(() => expect(screen.getByText("Pay ₹149")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("checkout-pay"));
+    await waitFor(() => expect(screen.getByTestId("payment-refused")).toBeTruthy());
+    expect(screen.getByText("Payment verification failed.")).toBeTruthy();
+    expect(screen.getByText("Payment reference pay_DEF456uvw")).toBeTruthy();
+    expect(JSON.parse((await AsyncStorage.getItem("hv.pendingPayment")) ?? "null")).toBeNull();
   });
 
   it("pays, verifies and shows what was added", async () => {
@@ -739,5 +885,21 @@ describe("D3 · Payment return", () => {
     await act(async () => {});
     const kept = JSON.parse((await AsyncStorage.getItem("hv.pendingPayment")) ?? "null");
     expect(kept?.paid).toEqual({ paymentId: "pay_DEF456uvw", signature: SIG });
+  });
+
+  it("signed out with no order kept, still keeps the proof — for whoever signs in next", async () => {
+    mockOpeningUrl = paidUrl;
+    renderRouter("./app", { initialUrl: "/pay/callback" });
+    await waitFor(() => expect(screen.getByText("Sign in to finish your payment")).toBeTruthy());
+    await act(async () => {});
+    const kept = JSON.parse((await AsyncStorage.getItem("hv.pendingPayment")) ?? "null");
+    expect(kept).toEqual(expect.objectContaining({ accountId: "", orderId: ORDER.orderId, paid: { paymentId: "pay_DEF456uvw", signature: SIG } }));
+  });
+
+  it("a cancel that comes back signed out doesn't claim a payment is waiting", async () => {
+    mockOpeningUrl = "huevista://pay/callback#status=cancelled";
+    renderRouter("./app", { initialUrl: "/pay/callback" });
+    await waitFor(() => expect(screen.getByText("Sign in to finish your payment")).toBeTruthy());
+    expect(screen.queryByText(/we'll confirm it/)).toBeNull();
   });
 });

@@ -1,13 +1,15 @@
 import Feather from "@expo/vector-icons/Feather";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import * as Haptics from "expo-haptics";
+import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 
 import { useSession } from "@/auth/session";
 import { BalanceChip, Banner, Button, EmptyState, Screen, Text } from "@/components/ui";
 import { useBalance } from "@/features/account/use-balance";
-import { usePayment, verifyPayment, type PaymentState } from "@/features/payments/payments";
-import { loadPending } from "@/features/payments/pending-payment";
+import { roomsAndCredits } from "@/features/payments/basket-words";
+import { usePayment, verifyPayment, type Basket } from "@/features/payments/payments";
+import { loadPending, pendingIsFor } from "@/features/payments/pending-payment";
 import { t } from "@/i18n";
 import { useSubmit } from "@/lib/use-submit";
 import { useTheme } from "@/theme";
@@ -15,21 +17,15 @@ import { useTheme } from "@/theme";
 /** Tries again by itself while the screen is open: soon, then less often. */
 const RETRY_AFTER_MS = [4_000, 10_000, 30_000];
 
-function addedLine(state: Extract<PaymentState, { kind: "verified" }>): string | null {
-  const parts: string[] = [];
-  if (state.rooms > 0) parts.push(state.rooms === 1 ? t("checkout.oneRoom") : t("checkout.rooms", { n: state.rooms }));
-  if (state.credits > 0) parts.push(state.credits === 1 ? t("checkout.oneCredit") : t("checkout.credits", { n: state.credits }));
-  return parts.length ? t("payment.added", { what: parts.join(" + ") }) : null;
-}
-
 /**
  * C29 · Payment result. Spec: docs/04-screens-customer.md — C29.
  *
  * What the server said about the payment — never what the payment page said. Confirmed:
- * what was added, the new balance and the next step. Refused: the bank's reason and Try
- * again. Paid but not yet confirmed (no signal, a slow server): "We're checking your
+ * what was added, the new balance and the next step. Refused by the bank: its reason and
+ * Try again. Paid but not yet confirmed (no signal, a slow server): "We're checking your
  * payment", tried again by itself and on demand — never "failed" after a success, and never
- * a Pay button, because the money has already left.
+ * a Pay button, because the money has already left. Refused by our server (it checked and
+ * said no): its reason, the payment reference and Get help.
  */
 export default function PaymentResult() {
   const router = useRouter();
@@ -47,7 +43,7 @@ export default function PaymentResult() {
     if (state || !order) return;
     let live = true;
     void loadPending().then((pending) => {
-      if (pending?.orderId === order && pending.paid && pending.accountId === profile?.id) {
+      if (pending?.orderId === order && pending.paid && pendingIsFor(pending, profile?.id)) {
         void verifyPayment(order, pending.paid.paymentId, pending.paid.signature);
       } else if (live) {
         setLooked(true);
@@ -68,7 +64,19 @@ export default function PaymentResult() {
     return () => clearTimeout(timer);
   }, [checkingState]);
 
-  const home = () => router.replace("/home");
+  const verified = state?.kind === "verified";
+  useEffect(() => {
+    if (verified) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+  }, [verified]);
+
+  // Back to the tabs that are already there, rather than a second copy of them.
+  const goTo = (href: Href) => (router.canDismiss() ? router.dismissTo(href) : router.replace(href));
+  const home = () => goTo("/home");
+  const retry = (basket?: Basket) =>
+    router.replace({
+      pathname: "/checkout",
+      params: basket ? { rooms: String(basket.rooms), credits: String(basket.credits) } : {},
+    });
 
   if (!state || state.kind === "verifying") {
     const nothing = !state && (looked || !order);
@@ -86,7 +94,7 @@ export default function PaymentResult() {
   }
 
   if (state.kind === "verified") {
-    const added = addedLine(state);
+    const what = roomsAndCredits(state.rooms, state.credits);
     return (
       <Screen
         footer={
@@ -100,13 +108,13 @@ export default function PaymentResult() {
           </View>
         }
       >
-        <View style={[styles.fill, { justifyContent: "center", gap: space.lg }]} testID="payment-paid">
+        <View style={[styles.fill, { justifyContent: "center", gap: space.lg }]} testID="payment-paid" accessibilityLiveRegion="polite">
           <Feather name="check-circle" size={40} color={colors.accentText} />
           <View style={{ gap: space.xs }}>
             <Text variant="display" accessibilityRole="header">
               {t("payment.paid")}
             </Text>
-            <Text variant="lead">{added ?? t("payment.paidPlain")}</Text>
+            <Text variant="lead">{what ? t("payment.added", { what }) : t("payment.paidPlain")}</Text>
           </View>
           {balance.loaded ? (
             <View style={[styles.row, { gap: space.xs }]}>
@@ -143,7 +151,7 @@ export default function PaymentResult() {
           </View>
         }
       >
-        <View style={[styles.fill, { justifyContent: "center", gap: space.md }]} testID="payment-checking">
+        <View style={[styles.fill, { justifyContent: "center", gap: space.md }]} testID="payment-checking" accessibilityLiveRegion="polite">
           <Feather name="clock" size={40} color={colors.accentText} />
           <Text variant="title1" accessibilityRole="header">
             {t("payment.checkingTitle")}
@@ -159,16 +167,42 @@ export default function PaymentResult() {
     );
   }
 
-  const retry = () =>
-    router.replace({
-      pathname: "/checkout",
-      params: state.basket ? { rooms: String(state.basket.rooms), credits: String(state.basket.credits) } : {},
-    });
+  if (state.kind === "refused") {
+    return (
+      <Screen
+        footer={
+          <View style={{ gap: space.xs }}>
+            <Button label={t("common.getHelp")} icon="help-circle" onPress={() => router.push("/help")} />
+            <Button variant="ghost" label={t("common.goHome")} onPress={home} />
+          </View>
+        }
+      >
+        <View style={[styles.fill, { justifyContent: "center", gap: space.md }]} testID="payment-refused">
+          <Text variant="title1" accessibilityRole="header">
+            {t("payment.refusedTitle")}
+          </Text>
+          <Banner tone="danger" message={state.message} />
+          <Text variant="body" tone="soft">
+            {t("payment.refusedBody")}
+          </Text>
+          <Text variant="small" tone="mute" selectable>
+            {t("payment.reference", { id: state.paymentId })}
+          </Text>
+        </View>
+      </Screen>
+    );
+  }
 
-  if (state.kind === "cancelled") {
+  if (state.kind === "cancelled" || state.kind === "unfinished") {
     return (
       <Screen>
-        <EmptyState icon="x-circle" title={t("payment.cancelledTitle")} actionLabel={t("payment.backToBasket")} onAction={retry} />
+        <EmptyState
+          icon="x-circle"
+          title={state.kind === "cancelled" ? t("payment.cancelledTitle") : t("payment.unfinishedTitle")}
+          body={state.kind === "unfinished" ? t("checkout.unfinished") : undefined}
+          actionLabel={t("payment.backToBasket")}
+          onAction={() => retry(state.basket)}
+        />
       </Screen>
     );
   }
@@ -177,7 +211,7 @@ export default function PaymentResult() {
     <Screen
       footer={
         <View style={{ gap: space.xs }}>
-          <Button label={t("payment.tryAgain")} onPress={retry} testID="payment-retry" />
+          <Button label={t("payment.tryAgain")} onPress={() => retry(state.basket)} testID="payment-retry" />
           <Button variant="ghost" label={t("common.goHome")} onPress={home} />
         </View>
       }

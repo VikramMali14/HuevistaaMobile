@@ -34,6 +34,8 @@
 // The byte-level plumbing (Latin-1 encoding, WinAnsi escaping, the base-14
 // Helvetica metrics, the object/xref writer) is shared with the reports
 // console's table PDF — see pdf-core for why it no longer lives here.
+import { t } from "@/i18n";
+
 import { fitText, hexToRgb, hline, latin1, num, PdfDoc, pdfText, qrOps, textOp, textWidth } from "./pdf-core";
 import type { QrModules } from "./pdf-core";
 import { env } from "@/config/env";
@@ -179,10 +181,8 @@ function jpegSize(bytes: Uint8Array): { w: number; h: number } {
   return { w: 0, h: 0 };
 }
 
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
+/** January … December, as printed. */
+const months = () => t("pdf.months").split(",");
 
 /**
  * "Generated 31 Jul 2026, 4:15 pm" — the moment this file was built.
@@ -196,8 +196,10 @@ function formatDateLine(d: Date): string {
   const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
   const minutes = String(d.getMinutes()).padStart(2, "0");
   const meridiem = h24 < 12 ? "am" : "pm";
-  return `Generated ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`
-    + `, ${h12}:${minutes} ${meridiem}`;
+  return t("pdf.generated", {
+    date: `${d.getDate()} ${months()[d.getMonth()] ?? ""} ${d.getFullYear()}`,
+    time: `${h12}:${minutes} ${meridiem}`,
+  });
 }
 
 /** Branded header (palette strip, eyebrow, date, title) + footer, shared by every page. */
@@ -211,7 +213,7 @@ function pageChrome(
   counter?: string,
   /** The small tracked-out line above the title. "COLOUR BOARD" on a board; a
    *  one-page sheet of a single AI image says what it actually is instead. */
-  eyebrow: string = "HUEVISTA · COLOUR BOARD",
+  eyebrow: string = t("pdf.eyebrowBoard"),
 ): string[] {
   const ops: string[] = [];
   const right = PAGE_W - MARGIN;
@@ -242,8 +244,7 @@ function pageChrome(
   // Indicative-colour disclaimer, centred just above the footer rule. Screens,
   // print and real paint never match exactly, so the board is a guide, not a
   // colour proof — say so on every page.
-  const disclaimer =
-    "Shades shown are indicative — the actual painted colour may vary from what appears here.";
+  const disclaimer = t("pdf.disclaimer");
   ops.push(
     textOp("F1", 7.5, (PAGE_W - textWidth(disclaimer, 7.5)) / 2, FOOT_RULE_Y + 7, disclaimer, MUTE),
   );
@@ -258,10 +259,8 @@ function pageChrome(
   // separated from each other.
   ops.push(hline(FOOT_RULE_Y, MARGIN, right, RULE_SOFT));
   ops.push(textOp("F1", 8, MARGIN, FOOT_BASE,
-    universalCodes
-      ? "Made with HueVistaa — any HueVistaa shop can look these codes up"
-      : "Made with HueVistaa — your paint shop can look these codes up", MUTE));
-  const pg = `Page ${pageNo} of ${pageCount}`;
+    universalCodes ? t("pdf.footerUniversal") : t("pdf.footerShop"), MUTE));
+  const pg = t("pdf.page", { n: pageNo, total: pageCount });
   ops.push(textOp("F1", 8, right - textWidth(pg, 8), FOOT_BASE, pg, MUTE));
 
   return ops;
@@ -318,7 +317,7 @@ function pageContent(
     ops.push(textOp("F2", 9.5, MARGIN + 46, base, fitText(shade.label, 9.5, 128, true), INK));
     ops.push(textOp("F1", 10, MARGIN + 182, base, fitText(shade.name, 10, 148), INK));
     if (shade.code) {
-      ops.push(textOp("F1", 9.5, MARGIN + 338, base, fitText(`Shade No. ${shade.code}`, 9.5, 170), MUTE));
+      ops.push(textOp("F1", 9.5, MARGIN + 338, base, fitText(t("pdf.shadeNo", { code: shade.code }), 9.5, 170), MUTE));
     }
     ops.push(hline(rowTop - ROW_H, MARGIN, right, RULE_SOFT));
   });
@@ -381,16 +380,14 @@ function rewardPageContent(
   universalCodes: boolean,
 ): string[] {
   const ops = pageChrome([ACCENT_HEX], title, dateLine, pageNo, pageNo, universalCodes,
-    undefined, "HUEVISTA · REWARD");
+    undefined, t("pdf.eyebrowReward"));
   const centred = (text: string, size: number, y: number, color: string, bold = false) =>
     ops.push(textOp(bold ? "F2" : "F1", size, (PAGE_W - textWidth(text, size, bold)) / 2, y,
       text, color));
 
-  centred("Scan this code when the job is done", 17, 690, INK, true);
+  centred(t("pdf.rewardTitle"), 17, 690, INK, true);
   const paysPoints = reward.paysPoints !== false;
-  centred(paysPoints
-    ? "One code for the shop, the painter and the customer."
-    : "Tell us how your room turned out.", 9.5, 670, MUTE);
+  centred(paysPoints ? t("pdf.rewardLead") : t("pdf.rewardLeadPlain"), 9.5, 670, MUTE);
 
   // 200pt — a shade under three inches. Sized for a phone held at arm's length over a
   // counter, not for a page that looks tidy: a symbol that has to be leaned into is one
@@ -401,30 +398,29 @@ function rewardPageContent(
   // A room the customer did not buy pays nobody, so its page names only the customer —
   // telling a shop or painter to scan it would send them to a refusal.
   if (paysPoints) {
-    centred("PAINT SHOP", 8, 390, ACCENT, true);
-    centred("Scan to add points to your shop's account.", 10, 375, INK);
-    centred("PAINTER", 8, 352, ACCENT, true);
+    centred(t("pdf.shopHead"), 8, 390, ACCENT, true);
+    centred(t("pdf.shopLine"), 10, 375, INK);
+    centred(t("pdf.painterHead"), 8, 352, ACCENT, true);
     // Named, because a painter's points live in their own app: a phone camera opens this
     // code on the main site, which hands a painter across, but saying where up front
     // saves the detour — and tells a painter new to HueVistaa where to sign up.
-    centred(`Scan in the painter app: ${env.painterOrigin.replace(/^https?:\/\//, "")}`, 10, 337, INK);
+    centred(t("pdf.painterLine", { site: env.painterOrigin.replace(/^https?:\/\//, "") }), 10, 337, INK);
   }
   // The customer's line. A review can only be left from here, by the account the room
   // was made for — which is what makes every review on the Community page a real job.
-  centred("CUSTOMER", 8, 314, ACCENT, true);
-  centred("Scan it (or tap it, on your phone) to tell us how your room turned out.", 10, 299, INK);
+  centred(t("pdf.customerHead"), 8, 314, ACCENT, true);
+  centred(t("pdf.customerLine"), 10, 299, INK);
 
   ops.push(hline(278, MARGIN + 90, PAGE_W - MARGIN - 90, RULE_SOFT));
 
   if (paysPoints) {
-    centred("The shop and the painter can each scan this once for points. Scanning it again",
-      8.5, 260, MUTE);
-    centred("won't pay twice — and opening it costs the customer nothing.", 8.5, 248, MUTE);
+    centred(t("pdf.onceLine1"), 8.5, 260, MUTE);
+    centred(t("pdf.onceLine2"), 8.5, 248, MUTE);
   }
 
   centred(readableUrl(reward.url), 8.5, 222, INK);
   if (reward.expiresOn && paysPoints) {
-    centred(`Points can be claimed until ${reward.expiresOn}`, 8, 206, MUTE);
+    centred(t("pdf.claimUntil", { date: reward.expiresOn }), 8, 206, MUTE);
   }
 
   return ops;
@@ -586,7 +582,7 @@ export function buildColourBoardPdf(
     // Degenerate case: a branded page telling the user there was nothing to add.
     const ops = pageChrome(["#c08b4e"], title, dateLine, 1, pageCount, universalCodes,
       undefined, eyebrow);
-    ops.push(textOp("F1", 12, MARGIN, PAGE_H - 160, "No coloured images were added.", MUTE));
+    ops.push(textOp("F1", 12, MARGIN, PAGE_H - 160, t("pdf.noImages"), MUTE));
     const content = ops.join("\n");
     const contentId = addObject([`<< /Length ${latin1(content).length} >>\nstream\n`, content, "\nendstream"]);
     const pageId = addObject([
@@ -599,14 +595,14 @@ export function buildColourBoardPdf(
     // board whose sixth page is the AI image, because the customer was never asked to
     // choose between six things.
     usable.forEach(({ entry, bytes }, i) => {
-      addPicturePage(entry, bytes, i + 1, `Option ${i + 1} of ${usable.length}`,
-        "COLOURS IN THIS OPTION");
+      addPicturePage(entry, bytes, i + 1, t("pdf.optionOf", { n: i + 1, total: usable.length }),
+        t("pdf.coloursOption"));
     });
   }
 
   if (closing) {
-    addPicturePage(closing.entry, closing.bytes, pageCount - (reward ? 1 : 0), "Your AI image",
-      "COLOURS IN THIS IMAGE", closing.entry.caption);
+    addPicturePage(closing.entry, closing.bytes, pageCount - (reward ? 1 : 0), t("pdf.aiImage"),
+      t("pdf.coloursImage"), closing.entry.caption);
   }
 
   if (reward) {
@@ -658,7 +654,7 @@ export function buildAiImagePdf(
   title = "HueVistaa",
   universalCodes = true,
 ): Uint8Array {
-  return buildColourBoardPdf([], title, universalCodes, image, "HUEVISTA · AI IMAGE");
+  return buildColourBoardPdf([], title, universalCodes, image, t("pdf.eyebrowAiImage"));
 }
 
 /** The bytes when they are a JPEG whose size can be read, else null (swatches instead). */

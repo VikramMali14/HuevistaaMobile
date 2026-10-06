@@ -448,6 +448,18 @@ some to come off. The board is written into a folder of its own BEFORE the charg
 refused — a refused board never costs the last good one. Closed, view-only and spent rooms
 say why instead of offering the button; a closed one points to C25.
 
+After the Phase 4 audit: **Make** waits until every wall's shape has loaded (`RoomCanvas`
+reports `loading`), so no picture leaves a painted wall out; a wall that couldn't load, a
+photo that didn't, or a phone with no live colour is said in the confirm (unpainted walls,
+or swatch pages) rather than discovered on paper. The confirm never promises a page total
+before the reward code is fetched: "{n} options, one page each", plus a line for the
+reward page on a customer's own room. Options are numbered as they will print — one whose
+walls have all left the plan is "Won't be printed" — and a screen reader hears each
+option's walls and codes. Taking one off offers **Undo** (the tray is the only copy). An
+option naming more than 16 walls (the server's page limit) is flagged and blocks Make.
+Back is held while the board is made, and the working state stays up until C16 is shown.
+A room name the board's fonts can't print (not Latin letters) is printed as "Your room".
+
 ### C16 · Board ready
 
 **Route** `room/[projectId]/board-done.tsx` · **Phase** 4
@@ -464,6 +476,14 @@ Save to Files. The pages are the snapshots (a swatch page shows its colours, the
 page an icon). The AI-image step opens C22 with the room, which picks the option. Opened
 with no board on this phone (made elsewhere) → "This board isn't on this phone" + the
 room's options (C25).
+
+After the audit: files are kept as their place inside the app's documents (iOS moves the
+documents' own path on an update; older full paths are read from `boards/` on). A board
+handed over on a charge that went unanswered says it wasn't saved to the room, and its
+options stay on C15 to make it again (the tray is only emptied once the server has
+recorded the board). If the reward page couldn't be fetched, a line says so. On iOS,
+Save to phone is the share sheet, which never says how it was closed, so no "saved" toast
+follows it. "1 option on 1 page" reads as such.
 
 ### C17 · Share this room
 
@@ -483,7 +503,11 @@ As built: 3, 7 or 10 days — the backend makes any other number 10 — and the 
 from `GET /api/shades/mine/brands`, by name (the picker hides with one company). The
 room's own `shareToken` / `shareExpiresAt` show a live link when the sheet opens; the
 link is `{SITE}/share/{token}`. WhatsApp opens `wa.me` with the message, Copy link uses the
-clipboard, More… the phone's share sheet.
+clipboard, More… the phone's share sheet. A room with no live link shows the choices and
+**Make the link** first; the ways to send it appear once there is a link. The owner's
+room doesn't say which companies its link allows, so **Change** starts from the defaults,
+says that updating sets both again, and has **Cancel**. Studio's long-press menu offers
+Share only for rooms the server will share (not a lapsed view-only room).
 
 ### C18 · The walls are wrong
 
@@ -607,7 +631,8 @@ As built: a finished room opens here (CR). Options are grouped by board, in the 
 were printed; each has **Make an AI image of this option** (→ C23 with `comboId`) and says
 when one was made. **Send the board again** when the file is on this phone; **See the
 room** (C11, view only); **Review the job** for a finished room (the app can't know when
-the painting is done). A room closed without a board says so.
+the painting is done). A room closed without a board says so; an open one says it hasn't
+taken a board yet. An option is numbered by its place on its printed page.
 
 ### C26 · Review the job
 
@@ -634,8 +659,11 @@ room) → `GET/POST /api/community/reviews/board/{token}`.
 
 As built: a balance that won't load is "didn't load" + Try again, never "0 rooms". A
 self-serve account (no shop) always has **Buy rooms** (primary once it has none); a shop's
-customer never does. The shop asked is named from C31's list, read when Ask is pressed
-(without one: "your shop"). The price per credit shows the list price beside it while a
+customer never does. The shop asked is named from C31's list, read when Ask is pressed —
+the shop whose rooms these are (`retailerOrgId`), which is the one the server emails
+(without one: "your shop"); asked once, it says so for the rest of the day. The rooms
+figure shows only once both of its sources have answered. A linked profile has no Add a
+shop code (as on Account). The price per credit shows the list price beside it while a
 launch discount runs; credits lapsing within a month are coloured as a warning. A payment
 still being confirmed shows a banner with **Check now** (D3).
 
@@ -661,7 +689,14 @@ what took money off, and anything the packing adds is said. Everything goes thro
 `/api/billing/cart/order` (credits alone too — the same counter). **No discount-code
 field**: the best offer a basket reaches applies itself, and a code can only name one it
 already reaches. Opened with `?rooms=` / `?credits=`; Buy a room opens on one room. A
-shop's customer sees AI images only. A payment still being confirmed disables Pay.
+shop's customer sees AI images only — and nothing is offered until it is known whether the
+account has a shop. A payment still being confirmed disables Pay.
+
+After the audit: the bill names the packing as the website does ("Bundled as the room + AI
+image", "2 × …"). The button's total is the phone's packing of a cart that may be a
+moment old, so the order's own amount is checked against it: a different price opens
+nothing and says the new total. An order the server refuses re-reads the counter. Back is
+held while a payment is under way, so its result is always shown.
 
 ### C29 · Payment result
 
@@ -671,13 +706,18 @@ shop's customer sees AI images only. A payment still being confirmed disables Pa
 |---|---|
 | Verified | "Paid. 2 rooms added." + new balance + **Start a room** |
 | Cancelled | Back to the basket, nothing said beyond "Payment cancelled." |
+| Browser closed with no answer | Not "cancelled" — it may have been paid: "The payment wasn't finished. If you did pay, it'll be added…" |
+| Refused by our server for good | Its reason, the payment reference and **Get help**; the proof is dropped so Pay works again |
 | Failed | Razorpay's reason in plain words + **Try again** |
 | Paid but verify failed / no network | "We're checking your payment" — retry the verify; never say "failed" after a success |
 
 As built: the screen reads the outcome kept for the order (`features/payments`); checking
 tries again by itself (after 4, 10 and 30 s) and on **Check again**, shows the payment
 reference, and never a Pay button. Cancelled is said on the basket (a toast); C29 shows it
-only after a cold start. Try again reopens the same basket.
+only after a cold start. Try again reopens the same basket — the quantities asked for,
+not what the packing added. A re-check keeps the checking screen (only its button is
+busy). The server's 403 "Payment verification error." means Razorpay couldn't be asked,
+so it stays "checking"; any other 4xx is a refusal for good. Paid gives a success haptic.
 
 ### C30 · Add a shop code
 

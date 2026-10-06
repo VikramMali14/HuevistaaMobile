@@ -219,20 +219,35 @@ As built (`src/features/payments`):
   `lib/cart-pack` (ported from the website), credits alone included. `pay-link.ts` builds
   the page's address and parses its answer — ids checked against Razorpay's shapes, a
   success believed only once verified.
-- `pending-payment.ts` keeps `{ accountId, orderId, amount, rooms, credits }` in
-  AsyncStorage while the browser is open, and the proof (`paymentId`, `signature`) once
-  Razorpay says paid, until the server confirms it. Only that account sees it; an unpaid
-  order older than two hours is forgotten; sign-out clears it.
+- `pending-payment.ts` keeps `{ accountId, orderId, amount, rooms, credits, basket }` in
+  AsyncStorage while the browser is open (`basket` is what was asked for, for Try again),
+  and the proof (`paymentId`, `signature`) once Razorpay says paid, until the server
+  confirms it. Only that account sees it — or, for a proof that came back while signed out
+  with no order kept, the next account to sign in (`accountId: ""`; the server checks the
+  order is theirs). An unpaid order older than two hours is forgotten, a paid proof after
+  a week; sign-out drops an unpaid order and keeps a paid proof.
 - `payments.ts` settles an answer: one verification per payment, shared between the
   waiting browser session and D3's deep link (Android can deliver both). A verification
   that fails after a success is `checking` — reported as VERIFY_FAILED, tried again by
   C29, and C27/C28 say a payment is being confirmed and C28 disables Pay. Verifying again
   is safe: the backend answers a payment it already redeemed for this account as a
-  success. OPENED, ABANDONED (the browser closed with no answer, or "cancelled") and
-  FAILED (with Razorpay's code and reason) are reported too, and never throw.
+  success. A refusal for good (a 4xx other than 401/408/429, and other than the 403
+  "Payment verification error." that means Razorpay couldn't be asked) is `refused`: the
+  proof goes, so Pay works again, and C29 gives the reason and the reference. OPENED,
+  ABANDONED (only for the page's own "cancelled") and FAILED (with Razorpay's code and
+  reason) are reported too, and never throw.
+- Before anything opens, the order's `amountPaise` is checked against the total the basket
+  showed; a different one throws `PriceChangedError` and re-reads the counter.
+- The browser session is opened with `preferEphemeralSession` (no iOS "wants to use … to
+  sign in" alert). On Android it can end as "dismissed" a moment before the redirect
+  carrying the answer arrives, so the app also listens for the link itself and waits
+  2.5 s for a late answer; a success always wins over a cancel, a failure or silence. A
+  browser closed with no answer is `unfinished`, not "cancelled": the order is kept (a
+  late answer can still settle it) and the balances are read again.
 - D3 reads the opening link through `use-opening-url.ts` (routing never sees a fragment).
-  While the app's own checkout is waiting it steps aside; on a cold start it settles the
-  kept order itself.
+  While the app's own checkout is waiting it hands the answer over and steps aside; a
+  cancel or failure just after a checkout settled is its echo; on a cold start it settles
+  the kept order itself.
 
 ## The colour engine (the biggest risk)
 
@@ -329,6 +344,24 @@ over (the room's earlier board then goes), throws a refused one away, and delete
 on sign-out; `made-boards.ts` remembers each room's last board for C16 and C25. Save to
 phone on Android writes a copy into a folder picked with `Directory.pickDirectoryAsync()`.
 The browser preview keeps boards as in-memory links (`board-files.web.ts`).
+
+After the Phase 4 audit:
+- Files are kept as their place inside the documents (`boards/…`), resolved by
+  `boardUri()` on use: iOS changes the documents' own path when the app updates.
+- `made-boards.ts` writes only after the boards of earlier runs are read in (writing
+  before replaced every other room's record), and a sign-out can't be undone by a read
+  still under way.
+- C15 makes the board only once every wall's mask has loaded (`RoomCanvas` reports
+  `loading`), holds back while it runs, and doesn't wait for the room refetches after the
+  hand-over. A charge that went unanswered keeps the tray. What's recorded with the charge
+  is kept within the server's limits (16 walls a page, label 255, name 160, code 64,
+  `#rrggbb`).
+- The printed text is in `src/i18n` (`pdf.*`). The board's base-14 fonts print Latin
+  letters only, so a room name in another script prints as "Your room" (`pdfPrintable`).
+- Known limit: a page's picture is the size of C15's preview canvas (`takeSnapshotAsync`
+  of the view), not the photo's; the website renders up to 1500 px. A larger render needs
+  an offscreen framebuffer read back as JPEG, to be checked on a real phone before it
+  ships. Wall names typed in another script print as "?" for the same font reason.
 
 ## Reusing the website's code
 

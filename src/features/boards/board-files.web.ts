@@ -9,6 +9,11 @@ import type { WrittenBoard } from "./board-files";
 const kept = new Map<string, string[]>();
 const owners = new Map<string, string>();
 
+/** Links are used as they are. */
+export function boardUri(ref: string): string {
+  return ref;
+}
+
 export async function readSnapshot(uri: string): Promise<Uint8Array> {
   return new Uint8Array(await (await fetch(uri)).arrayBuffer());
 }
