@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
@@ -25,12 +25,20 @@ function newestFirst(a: RenderableProject, b: RenderableProject): number {
  *
  * What the rooms produced: every room that took a colour board (→ C25), and every finished
  * AI image (→ C24). As built: the boards come from GET /api/me/renderable-projects — the
- * rooms carrying board combinations — because the room list sends no board count.
+ * rooms carrying board combinations — because the room list sends no board count. Opened
+ * with `?tab=ai` (C24's "All my AI images", "Leave this running") on the AI images.
  */
 export default function BoardsScreen() {
   const router = useRouter();
   const { radius, space } = useTheme();
-  const [tab, setTab] = useState<Tab>("colour");
+  const { tab: asked } = useLocalSearchParams<{ tab?: string }>();
+  const [tab, setTab] = useState<Tab>(asked === "ai" ? "ai" : "colour");
+  // Sent here again with a tab (the tab screen stays mounted): show the one asked for.
+  const [seen, setSeen] = useState(asked);
+  if (asked !== seen) {
+    setSeen(asked);
+    if (asked === "ai" || asked === "colour") setTab(asked);
+  }
   const boards = useQuery({ queryKey: keys.boards, queryFn: meApi.renderableProjects });
   const renders = useQuery({ queryKey: keys.renders, queryFn: meApi.renders });
   const pull = usePullToRefresh(() => Promise.all([boards.refetch(), renders.refetch()]));

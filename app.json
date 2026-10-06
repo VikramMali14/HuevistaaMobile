@@ -59,7 +59,16 @@
           "microphonePermission": false
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "HueVistaa opens your photos so you can pick a room to paint.",
+          "savePhotosPermission": "HueVistaa saves your AI images to your photos.",
+          "isAccessMediaLocationEnabled": false,
+          "granularPermissions": ["photo"]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false

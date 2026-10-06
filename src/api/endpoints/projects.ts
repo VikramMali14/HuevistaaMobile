@@ -3,7 +3,7 @@
  * its colour board and its share link.
  * Backend: project/controller/ProjectController, ai/controller/ColorRecommendationController,
  * maskreport/controller/MaskReportController, reward/controller/ProjectRewardController.
- * Screens: C2, C7–C18, C25.
+ * Screens: C2, C7–C18, C22–C25.
  */
 import { api } from "../instance";
 import type {
@@ -12,10 +12,12 @@ import type {
   MaskReport,
   MaskReportIssue,
   ProjectCombo,
+  ProjectRender,
   Recommendations,
   RegionCategory,
   RegionColourUpdate,
   RegionPlanUpdate,
+  RenderRequest,
   RewardCode,
   RoomDetail,
   RoomRegion,
@@ -108,6 +110,22 @@ export const projectsApi = {
 
   /** C25. Every option the room's boards handed over, in the order they were on the sheet. */
   combos: (id: string) => api.request<ProjectCombo[]>(`api/projects/${encodeURIComponent(id)}/combos`),
+
+  /**
+   * C23. Asks for an AI image of one option: 202 with the image QUEUED, its credits spent
+   * there and then. Never repeated on its own (every ask is a new charge), and given time:
+   * with the server's AI queue full, the answer can be slow in coming.
+   * 402: not enough credits · 404: the room or the option has gone · 429: too many asks.
+   */
+  requestRender: (id: string, body: RenderRequest) =>
+    api.request<ProjectRender>(`api/projects/${encodeURIComponent(id)}/renders`, { body, timeoutMs: 45_000 }),
+
+  /** C23, C25. Every AI image of the room, in any state, newest first. */
+  renders: (id: string) => api.request<ProjectRender[]>(`api/projects/${encodeURIComponent(id)}/renders`),
+
+  /** C24's poll. 404 when it isn't this account's room's (or the room has gone). */
+  render: (id: string, renderId: string) =>
+    api.request<ProjectRender>(`api/projects/${encodeURIComponent(id)}/renders/${encodeURIComponent(renderId)}`),
 
   /**
    * C17. Creates the room's link, or refreshes the same one. `days` is 3, 7 or 10 (the

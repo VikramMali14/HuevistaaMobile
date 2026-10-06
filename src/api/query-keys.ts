@@ -28,6 +28,9 @@ export const keys = {
   roomReport: (id: string) => ["me", "projects", id, "report"] as const,
   suggestions: (id: string, round: number) => ["me", "projects", id, "suggestions", round] as const,
   combos: (id: string) => ["me", "projects", id, "combos"] as const,
+  /** Every AI image of one room (C23, C25); one of them below it (C24). */
+  roomRenders: (id: string) => ["me", "projects", id, "renders"] as const,
+  render: (id: string, renderId: string) => ["me", "projects", id, "renders", renderId] as const,
 };
 
 /**
@@ -56,3 +59,10 @@ export const paymentChanges = [keys.entitlement, keys.projectOptions, keys.aiCre
  * room list and its combinations go with it) and the Boards tab.
  */
 export const boardChanges = (id: string) => [keys.room(id), keys.projects, keys.boards] as const;
+
+/**
+ * What asking for an AI image changes, and what its end changes again: the credits (spent
+ * on asking, handed back if it fails), the finished images, and the room's own images and
+ * options (an option's `rendered`).
+ */
+export const renderChanges = (id: string) => [keys.aiCredits, keys.renders, keys.roomRenders(id), keys.combos(id)] as const;

@@ -31,7 +31,9 @@ export default function PaymentResult() {
   const router = useRouter();
   const { colors, space } = useTheme();
   const { profile } = useSession();
-  const { order = "" } = useLocalSearchParams<{ order: string }>();
+  const { order = "", from } = useLocalSearchParams<{ order: string; from?: string }>();
+  // Credits bought from C23's Buy: back to the image being chosen, under this screen.
+  const forImage = from === "ai-image";
   const state = usePayment(order);
   const balance = useBalance();
   const checking = useSubmit();
@@ -75,7 +77,10 @@ export default function PaymentResult() {
   const retry = (basket?: Basket) =>
     router.replace({
       pathname: "/checkout",
-      params: basket ? { rooms: String(basket.rooms), credits: String(basket.credits) } : {},
+      params: {
+        ...(basket ? { rooms: String(basket.rooms), credits: String(basket.credits) } : {}),
+        ...(forImage ? { from } : {}),
+      },
     });
 
   if (!state || state.kind === "verifying") {
@@ -99,7 +104,14 @@ export default function PaymentResult() {
       <Screen
         footer={
           <View style={{ gap: space.xs }}>
-            {state.rooms > 0 ? (
+            {forImage && state.credits > 0 ? (
+              <Button
+                label={t("payment.backToImage")}
+                icon="image"
+                onPress={() => (router.canGoBack() ? router.back() : router.replace("/ai-image/new"))}
+                testID="payment-back-to-image"
+              />
+            ) : state.rooms > 0 ? (
               <Button label={t("payment.startRoom")} icon="camera" onPress={() => router.replace("/room/new")} testID="payment-start" />
             ) : (
               <Button label={t("payment.toBalance")} onPress={() => router.replace("/balance")} />

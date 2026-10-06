@@ -4,7 +4,6 @@ import { StyleSheet, View } from "react-native";
 
 import { projectsApi } from "@/api/endpoints/projects";
 import { keys } from "@/api/query-keys";
-import type { ProjectCombo } from "@/api/types";
 import {
   BackButton,
   Button,
@@ -22,6 +21,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { shareBoard } from "@/features/boards/board-files";
+import { byBoard, finishedImages, optionName } from "@/features/boards/combos";
 import { useMadeBoard } from "@/features/boards/made-boards";
 import { useShadeScheme } from "@/features/catalogue/use-catalogue";
 import { useRoom } from "@/features/studio/use-room";
@@ -31,19 +31,6 @@ import { codesAreUniversal } from "@/lib/shade-codes";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { useSubmit } from "@/lib/use-submit";
 import { hairline, useTheme } from "@/theme";
-
-/**
- * The room's boards, each with its options in the order they were printed. An option is
- * numbered by its place on its page (as the website does), not its place in this list: a
- * room reopened in the past recorded its second board under the first one's number.
- */
-function byBoard(combos: readonly ProjectCombo[]): [number, ProjectCombo[]][] {
-  const boards = new Map<number, ProjectCombo[]>();
-  for (const c of [...combos].sort((a, b) => a.boardIndex - b.boardIndex || a.pageIndex - b.pageIndex)) {
-    boards.set(c.boardIndex, [...(boards.get(c.boardIndex) ?? []), c]);
-  }
-  return [...boards];
-}
 
 /**
  * C25 · Board detail. Spec: docs/04-screens-customer.md — C25.
@@ -60,14 +47,17 @@ export default function BoardDetail() {
   const { projectId: id = "" } = useLocalSearchParams<{ projectId: string }>();
   const room = useRoom(id);
   const combos = useQuery({ queryKey: keys.combos(id), queryFn: () => projectsApi.combos(id), enabled: Boolean(id) });
+  // Which options have a finished AI image (an option's own `rendered` counts failed asks).
+  const renders = useQuery({ queryKey: keys.roomRenders(id), queryFn: () => projectsApi.renders(id), enabled: Boolean(id) });
   const scheme = useShadeScheme();
   const made = useMadeBoard(id);
-  const pull = usePullToRefresh(() => Promise.all([room.refetch(), combos.refetch()]));
+  const pull = usePullToRefresh(() => Promise.all([room.refetch(), combos.refetch(), renders.refetch()]));
   const sending = useSubmit();
 
   const data = room.data;
   const name = data?.name?.trim() || t("rooms.untitled");
   const boards = byBoard(combos.data ?? []);
+  const images = finishedImages(renders.data);
 
   let body;
   if (room.isPending || combos.isPending) {
@@ -107,44 +97,57 @@ export default function BoardDetail() {
                 {t("boardDetail.boardN", { n: boardIndex })}
               </Text>
             ) : null}
-            {options.map((combo) => (
-              <Card key={combo.id}>
-                <View style={{ gap: space.sm }} testID={`board-combo-${combo.id}`}>
-                  <View style={styles.row}>
-                    <Text variant="label" tone="accent" style={styles.fill}>
-                      {combo.title?.trim() || t("boardDetail.option", { n: combo.pageIndex + 1 })}
-                    </Text>
-                    {combo.rendered ? (
-                      <Text variant="caption" tone="mute">
-                        {t("boardDetail.imageMade")}
+            {options.map((combo) => {
+              const image = images.get(combo.id);
+              return (
+                <Card key={combo.id}>
+                  <View style={{ gap: space.sm }} testID={`board-combo-${combo.id}`}>
+                    <View style={styles.row}>
+                      <Text variant="label" tone="accent" style={styles.fill}>
+                        {optionName(combo)}
                       </Text>
-                    ) : null}
-                  </View>
-                  {combo.shades.map((shade, j) => {
-                    const code = shade.hvCode || shade.shadeCode;
-                    return (
-                      <View key={`${shade.regionId ?? j}`} style={[styles.shade, { borderTopColor: colors.rule }]}>
-                        <View style={[styles.chip, { backgroundColor: shade.hex, borderColor: colors.ruleStrong, borderRadius: radius.xs }]} />
-                        <View style={[styles.fill, { gap: 2 }]}>
-                          <Text variant="small" tone="soft" numberOfLines={1}>
-                            {shade.regionLabel?.trim() || "—"}
-                          </Text>
-                          {shade.shadeName ? <Text variant="small">{shade.shadeName}</Text> : null}
+                      {image ? (
+                        <Text variant="caption" tone="mute">
+                          {t("boardDetail.imageMade")}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {combo.shades.map((shade, j) => {
+                      const code = shade.hvCode || shade.shadeCode;
+                      return (
+                        <View key={`${shade.regionId ?? j}`} style={[styles.shade, { borderTopColor: colors.rule }]}>
+                          <View style={[styles.chip, { backgroundColor: shade.hex, borderColor: colors.ruleStrong, borderRadius: radius.xs }]} />
+                          <View style={[styles.fill, { gap: 2 }]}>
+                            <Text variant="small" tone="soft" numberOfLines={1}>
+                              {shade.regionLabel?.trim() || "—"}
+                            </Text>
+                            {shade.shadeName ? <Text variant="small">{shade.shadeName}</Text> : null}
+                          </View>
+                          {code ? <ShadeCode code={code} size="medium" /> : null}
                         </View>
-                        {code ? <ShadeCode code={code} size="medium" /> : null}
-                      </View>
-                    );
-                  })}
-                  <Button
-                    variant="ghost"
-                    block={false}
-                    icon="image"
-                    label={t("boardDetail.makeImage")}
-                    onPress={() => router.push({ pathname: "/ai-image/options", params: { projectId: id, comboId: combo.id } })}
-                  />
-                </View>
-              </Card>
-            ))}
+                      );
+                    })}
+                    {image ? (
+                      <Button
+                        variant="ghost"
+                        block={false}
+                        icon="eye"
+                        label={t("aiImage.seeImage")}
+                        onPress={() => router.push({ pathname: "/ai-image/[renderId]", params: { renderId: image.id, projectId: id } })}
+                        testID={`board-see-image-${combo.id}`}
+                      />
+                    ) : null}
+                    <Button
+                      variant="ghost"
+                      block={false}
+                      icon="image"
+                      label={t("boardDetail.makeImage")}
+                      onPress={() => router.push({ pathname: "/ai-image/options", params: { projectId: id, comboId: combo.id } })}
+                    />
+                  </View>
+                </Card>
+              );
+            })}
           </View>
         ))}
       </>

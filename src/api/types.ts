@@ -128,8 +128,11 @@ export interface AiCreditSummary {
   soonestExpiryAt?: string | null;
   expiringCredits?: number;
   currency: string;
-  /** What each quality of AI image costs, in credits (C23). */
-  renderTiers?: { quality: string; credits: number }[];
+  /**
+   * What each quality of AI image costs, in credits (C23), in the backend's order (Premium,
+   * then Luxury). `quality` is sent straight back as the render's quality.
+   */
+  renderTiers?: { quality: RenderQuality | (string & {}); credits: number }[];
   /** The wallet's latest movements, newest first (C27's statement). */
   recentActivity?: AiCreditActivity[];
 }
@@ -318,7 +321,64 @@ export interface MaskReport {
 
 export type RenderStatus = "QUEUED" | "RUNNING" | "READY" | "FAILED";
 
-/** GET /api/me/renders (one row) — an AI image. */
+// ── AI images (C22–C24) ───────────────────────────────────────────────────────
+// The backend's CreateRenderRequest enums (ProjectRender.java), sent exactly as written.
+
+/** Which model makes it: the only choice that changes the price. */
+export type RenderQuality = "PREMIUM" | "LUXURY";
+export type RenderTime = "DAY" | "NIGHT";
+export type RenderBorder = "KEEP_ORIGINAL" | "AI_SUGGESTED";
+export type RenderLighting = "NATURAL" | "WARM" | "COOL" | "DRAMATIC";
+export type RenderFurnishing = "KEEP" | "STAGED" | "EMPTY";
+export type RenderStyle = "MODERN" | "MINIMAL" | "TRADITIONAL" | "HERITAGE" | "LUXE";
+/** Paint from the cleaned photo (the usual) or the photo as taken. */
+export type RenderSource = "CLEANED" | "ORIGINAL";
+
+/** How an AI image is photographed (C23). */
+export interface RenderChoices {
+  quality: RenderQuality;
+  sourceImage: RenderSource;
+  timeOfDay: RenderTime;
+  borderMode: RenderBorder;
+  lighting: RenderLighting;
+  furnishing: RenderFurnishing;
+  style: RenderStyle;
+}
+
+/** POST /api/projects/{id}/renders. Every choice is sent; the note only when there is one. */
+export interface RenderRequest extends RenderChoices {
+  comboId: string;
+  /** At most 500 characters. */
+  note?: string;
+}
+
+/**
+ * GET /api/projects/{id}/renders[/{renderId}] — one AI image of a room, in any state. The
+ * choices are the server's words (an older or newer value may come back). `imageUrl` is
+ * signed afresh on every read, so it changes each time; `failureReason` is set only when
+ * FAILED, and a FAILED image has already handed its credits back.
+ */
+export interface ProjectRender {
+  id: string;
+  /** Null only if its board page was deleted. */
+  comboId: string | null;
+  status: RenderStatus;
+  imageUrl: string | null;
+  failureReason: string | null;
+  timeOfDay: string;
+  borderMode: string;
+  lighting: string;
+  furnishing: string;
+  style: string;
+  quality: string;
+  sourceImage: string;
+  note: string | null;
+  /** India time, no zone. */
+  createdAt: string;
+  completedAt: string | null;
+}
+
+/** GET /api/me/renders (one row) — a finished AI image (the server lists READY ones only). */
 export interface MyRender {
   id: string;
   projectId: string;
@@ -328,6 +388,15 @@ export interface MyRender {
   imageUrl?: string | null;
   createdAt?: string;
   completedAt?: string | null;
+  timeOfDay?: string;
+  lighting?: string;
+  style?: string;
+  quality?: string;
+  comboId?: string | null;
+  comboTitle?: string | null;
+  boardIndex?: number | null;
+  /** The shades its combination was printed in; empty if the board page has gone. */
+  shades?: ProjectCombo["shades"];
 }
 
 /** GET /api/free-projects (one row) — a ready-made room the team published. */
@@ -408,7 +477,10 @@ export interface ProjectCombo {
   boardIndex: number;
   pageIndex: number;
   title?: string | null;
-  /** An AI image of it already exists. */
+  /**
+   * An AI image of it has been ASKED for — in any state, a failed one included. Whether
+   * one was made is the room's renders' to say (GET /api/projects/{id}/renders).
+   */
   rendered: boolean;
   shades: {
     regionId?: number | null;

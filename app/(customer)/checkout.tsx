@@ -45,7 +45,9 @@ export default function Checkout() {
   const toast = useToast();
   const { colors, radius, space } = useTheme();
   const { profile } = useSession();
-  const params = useLocalSearchParams<{ rooms?: string; credits?: string }>();
+  // `from`: where the basket was opened from, so C29 can lead back there (C23's Buy).
+  const params = useLocalSearchParams<{ rooms?: string; credits?: string; from?: string }>();
+  const from = params.from === "ai-image" ? params.from : undefined;
   const balance = useBalance();
   const cart = useQuery({ queryKey: keys.cart, queryFn: billingApi.cart });
   // Whether a shop adds this account's rooms (they are never sold one): unknown until the
@@ -84,8 +86,8 @@ export default function Checkout() {
   const [resultFor, setResultFor] = useState<string | null>(null);
   usePreventRemove(paying.busy, () => {});
   useEffect(() => {
-    if (resultFor && !paying.busy) router.replace({ pathname: "/payment-result", params: { order: resultFor } });
-  }, [resultFor, paying.busy, router]);
+    if (resultFor && !paying.busy) router.replace({ pathname: "/payment-result", params: { order: resultFor, ...(from ? { from } : {}) } });
+  }, [resultFor, paying.busy, router, from]);
 
   const pay = () => {
     if (!packed || packed.totalPaise <= 0 || !profile || stuck || !entitlementKnown) return;
@@ -120,7 +122,7 @@ export default function Checkout() {
     void checking.run(async () => {
       const state = await verifyPayment(stuck.orderId, proof.paymentId, proof.signature);
       if (state.kind === "checking") toast.show(t("checkout.stillChecking"), "info");
-      else router.replace({ pathname: "/payment-result", params: { order: state.orderId } });
+      else router.replace({ pathname: "/payment-result", params: { order: state.orderId, ...(from ? { from } : {}) } });
     });
   };
 

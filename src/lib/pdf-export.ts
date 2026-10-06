@@ -657,6 +657,11 @@ export function buildAiImagePdf(
   return buildColourBoardPdf([], title, universalCodes, image, t("pdf.eyebrowAiImage"));
 }
 
+/** Whether the bytes are a JPEG this writer can place (C24 checks before promising a PDF). */
+export function isReadableJpeg(bytes: Uint8Array | null | undefined): boolean {
+  return readableJpeg(bytes) !== null;
+}
+
 /** The bytes when they are a JPEG whose size can be read, else null (swatches instead). */
 function readableJpeg(bytes: Uint8Array | null | undefined): Uint8Array | null {
   if (!bytes || bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
