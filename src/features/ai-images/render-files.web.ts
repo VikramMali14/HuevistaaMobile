@@ -9,11 +9,24 @@ import { fileSlug } from "@/features/boards/board-pages";
 
 const kept = new Map<string, string>();
 
+/** The picture couldn't be fetched (offline, its address expired). */
+export class PictureNotFetched extends Error {
+  constructor(message = "The picture couldn't be fetched") {
+    super(message);
+    this.name = "PictureNotFetched";
+  }
+}
+
 export async function renderFile(url: string, renderId: string): Promise<string> {
   const known = kept.get(renderId);
   if (known) return known;
-  const res = await fetchMedia(url);
-  const link = URL.createObjectURL(await res.blob());
+  let blob: Blob;
+  try {
+    blob = await (await fetchMedia(url)).blob();
+  } catch (err) {
+    throw new PictureNotFetched(err instanceof Error ? err.message : undefined);
+  }
+  const link = URL.createObjectURL(blob);
   kept.set(renderId, link);
   return link;
 }

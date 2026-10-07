@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { meApi } from "@/api/endpoints/me";
@@ -39,6 +39,10 @@ export default function BoardsScreen() {
     setSeen(asked);
     if (asked === "ai" || asked === "colour") setTab(asked);
   }
+  // Used once, then cleared: sent here again with the same tab, it still shows it.
+  useEffect(() => {
+    if (asked) router.setParams({ tab: undefined });
+  }, [asked, router]);
   const boards = useQuery({ queryKey: keys.boards, queryFn: meApi.renderableProjects });
   const renders = useQuery({ queryKey: keys.renders, queryFn: meApi.renders });
   const pull = usePullToRefresh(() => Promise.all([boards.refetch(), renders.refetch()]));

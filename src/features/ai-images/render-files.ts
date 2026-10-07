@@ -21,25 +21,84 @@ function nameOf(renderId: string): string {
   return renderId.replace(/[^A-Za-z0-9_-]/g, "_") || "image";
 }
 
+/** The picture couldn't be fetched (offline, its address expired, a stalled download). */
+export class PictureNotFetched extends Error {
+  constructor(message = "The picture couldn't be fetched") {
+    super(message);
+    this.name = "PictureNotFetched";
+  }
+}
+
+/** How long a picture may take to arrive before it is given up on (a Luxury one is a few MB). */
+const FETCH_TIMEOUT_MS = 60_000;
+
+/** Bumped by a sign-out, so a fetch still under way can't write the last account's picture. */
+let generation = 0;
+const fetching = new Map<string, Promise<string>>();
+
+/** The bytes are a JPEG (the server always makes one). */
+function isJpeg(bytes: Uint8Array): boolean {
+  return bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8;
+}
+
 /**
- * The image as a file on the phone, fetched the first time. Throws when the picture can't
- * be fetched (its signed address may have expired: read the image again for a fresh one).
+ * The image as a file on the phone, fetched the first time (one fetch at a time per image,
+ * shared by Send, Save and the PDF). A kept file that isn't a whole picture is fetched
+ * again. Throws PictureNotFetched when the picture can't be fetched — its signed address
+ * may have expired: read the image again for a fresh one.
  */
-export async function renderFile(url: string, renderId: string): Promise<string> {
+export function renderFile(url: string, renderId: string): Promise<string> {
+  const running = fetching.get(renderId);
+  if (running) return running;
+  const job = fetchToFile(url, renderId, generation).finally(() => fetching.delete(renderId));
+  fetching.set(renderId, job);
+  return job;
+}
+
+async function fetchToFile(url: string, renderId: string, startedIn: number): Promise<string> {
   const dir = folder();
   dir.create({ intermediates: true, idempotent: true });
   const file = new File(dir, `${nameOf(renderId)}.jpg`);
-  if (file.exists) return file.uri;
-  const res = await fetchMedia(url);
-  const type = res.headers.get("content-type") ?? "";
-  if (type && !type.toLowerCase().startsWith("image/")) throw new Error("Not a picture");
-  const bytes = new Uint8Array(await res.arrayBuffer());
-  if (bytes.length === 0) throw new Error("Empty picture");
+  if (file.exists) {
+    try {
+      if (isJpeg(await file.bytes())) return file.uri;
+    } catch {
+      // Unreadable: fetched again below.
+    }
+    try {
+      file.delete();
+    } catch {
+      // Overwritten below.
+    }
+  }
+
+  let bytes: Uint8Array;
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetchMedia(url, abort.signal);
+    bytes = new Uint8Array(await res.arrayBuffer());
+  } catch (err) {
+    throw new PictureNotFetched(err instanceof Error ? err.message : undefined);
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!isJpeg(bytes)) throw new PictureNotFetched("Not a picture");
+  if (startedIn !== generation) throw new PictureNotFetched("Signed out");
+
   // Written beside its name and moved into place whole, so a half-fetched file never
   // passes for the image.
-  const part = new File(dir, `${nameOf(renderId)}.part`);
+  const part = new File(dir, `${nameOf(renderId)}-${Date.now()}.part`);
   part.create({ overwrite: true });
   part.write(bytes);
+  if (startedIn !== generation) {
+    try {
+      part.delete();
+    } catch {
+      // Gone with the folder.
+    }
+    throw new PictureNotFetched("Signed out");
+  }
   await part.move(file);
   return file.uri;
 }
@@ -50,10 +109,11 @@ export async function renderBytes(uri: string): Promise<Uint8Array> {
 
 /**
  * Save the image to the phone's photos, asking first (only now — the product asks for a
- * permission when it is needed). "denied" when the person said no: Settings can change it.
+ * permission when it is needed). Write-only: saving needs no right to read the photos.
+ * "denied" when the person said no: Settings can change it.
  */
 export async function saveRenderToPhotos(uri: string): Promise<"saved" | "denied"> {
-  const permission = await MediaLibrary.requestPermissionsAsync(true, ["photo"]);
+  const permission = await MediaLibrary.requestPermissionsAsync(true);
   if (!permission.granted) return "denied";
   await MediaLibrary.saveToLibraryAsync(uri);
   return "saved";
@@ -82,6 +142,8 @@ export async function sharePdf(pdf: Uint8Array, renderId: string, roomName: stri
 
 /** Forget every AI image kept on the phone (sign-out, or a switch of profile). */
 export function clearRenderFiles(): void {
+  generation += 1;
+  fetching.clear();
   try {
     const dir = folder();
     if (dir.exists) dir.delete();

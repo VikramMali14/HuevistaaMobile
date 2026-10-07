@@ -1,11 +1,12 @@
-import { useQuery, useQueryClient, type Query } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useQuery, type Query, type UseQueryOptions } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 import { projectsApi } from "@/api/endpoints/projects";
 import { isApiError } from "@/api/errors";
-import { keys, renderChanges } from "@/api/query-keys";
+import { keys } from "@/api/query-keys";
 import type { AiCreditSummary, ProjectRender } from "@/api/types";
 
+import { startedAtFor, trackRender } from "./in-flight";
 import { serverTime } from "./start-render";
 
 /** The copy turns to "taking longer than usual" here (the website's SLOW_AFTER_MS). */
@@ -28,53 +29,55 @@ export function isFinal(render: Pick<ProjectRender, "status"> | null | undefined
   return render?.status === "READY" || render?.status === "FAILED";
 }
 
-function isGone(err: unknown): boolean {
+export function isBeingMade(render: Pick<ProjectRender, "status"> | null | undefined): boolean {
+  return render?.status === "QUEUED" || render?.status === "RUNNING";
+}
+
+/** Not this account's (any more): the room has gone, or the image isn't on it. */
+export function isGone(err: unknown): boolean {
   return isApiError(err) && err.kind === "http" && (err.status === 404 || err.status === 403);
 }
 
-/** When the server started on it, for the elapsed time (now, if it can't be read). */
-export function startedAtOf(render: Pick<ProjectRender, "createdAt"> | null | undefined, now: number = Date.now()): number {
-  const t0 = serverTime(render?.createdAt);
-  return Number.isFinite(t0) && t0 <= now ? t0 : now;
+/** When it started, steady across renders, by the phone's clock (in-flight.ts). */
+export function startedAtOf(render: Pick<ProjectRender, "id" | "createdAt">, now: number = Date.now()): number {
+  return startedAtFor(render.id, serverTime(render.createdAt), now);
 }
 
+type RenderQuery = Query<ProjectRender, Error, ProjectRender, readonly unknown[]>;
+
 /**
- * C24 · one AI image, polled while it is being made. Polls pause while the app is in the
- * background and run at once on return (React Query's focus, wired to AppState); a dropped
- * poll waits for the next one, but "not found" ends it. A finished image is never read
- * again on its own — its picture's address is signed afresh on every read.
+ * One image as the app reads it. A finished one is never read again on its own — its
+ * picture's address is signed afresh on every read. `poll`: read it again while it is being
+ * made (RenderWatcher does; screens only read what it brings).
  */
-export function useRender(projectId: string, renderId: string) {
-  const queryClient = useQueryClient();
-  const query = useQuery({
+export function renderQuery(projectId: string, renderId: string, poll: boolean): UseQueryOptions<ProjectRender, Error, ProjectRender, readonly unknown[]> {
+  return {
     queryKey: keys.render(projectId, renderId),
     queryFn: () => projectsApi.render(projectId, renderId),
     enabled: Boolean(projectId && renderId),
     retry: (failures, err) => !isGone(err) && failures < 2,
-    staleTime: (q: Query<ProjectRender, Error, ProjectRender, readonly unknown[]>) => (isFinal(q.state.data) ? Infinity : 0),
-    refetchInterval: (q: Query<ProjectRender, Error, ProjectRender, readonly unknown[]>) => {
-      const render = q.state.data;
-      if (isGone(q.state.error) || isFinal(render)) return false;
-      return renderPollDelay(Date.now() - startedAtOf(render));
-    },
-  });
+    staleTime: (q: RenderQuery) => (isFinal(q.state.data) ? Infinity : 0),
+    refetchInterval: poll
+      ? (q: RenderQuery) => {
+          const render = q.state.data;
+          // Nothing to go on, or gone, or ended: no more reads by themselves.
+          if (!render || isGone(q.state.error) || isFinal(render)) return false;
+          return renderPollDelay(Date.now() - startedAtOf(render));
+        }
+      : false,
+  };
+}
 
-  // Seen being made and now ended: the credits (handed back if it failed), the finished
-  // images and the room's options are read again — once.
-  const status = query.data?.status;
-  const watched = useRef(false);
+/**
+ * C24 · one AI image. While it is being made it is handed to RenderWatcher, which polls it
+ * (pausing in the background, at once on return) until it ends — wherever the customer goes.
+ */
+export function useRender(projectId: string, renderId: string) {
+  const query = useQuery(renderQuery(projectId, renderId, false));
+  const making = isBeingMade(query.data);
   useEffect(() => {
-    if (!status) return;
-    if (!isFinal(query.data)) {
-      watched.current = true;
-      return;
-    }
-    if (!watched.current) return;
-    watched.current = false;
-    for (const queryKey of renderChanges(projectId)) void queryClient.invalidateQueries({ queryKey }).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, projectId, queryClient]);
-
+    if (making) trackRender(projectId, renderId);
+  }, [making, projectId, renderId]);
   return { ...query, gone: isGone(query.error) };
 }
 

@@ -3,12 +3,15 @@
  * route carries, the one ask that is never repeated, how long to wait between polls, and
  * what a failure may say about the credits.
  */
+import { onlineManager } from "@tanstack/react-query";
+
 import { ApiError } from "@/api/errors";
 import { queryClient } from "@/api/query-client";
 import type { ProjectCombo, ProjectRender } from "@/api/types";
 
 import { byBoard, comboPdfShades, comboWords, finishedImages, imageInProgress, optionName } from "../../boards/combos";
 import { renderFailure } from "../failure";
+import { resetInFlight, trackRender, wasAskedHere } from "../in-flight";
 import { choicesFrom, choicesOf, costOf, describeRender, DEFAULT_CHOICES } from "../render-options";
 import { serverTime, startRender } from "../start-render";
 import { isFinal, refundSeen, renderPollDelay, startedAtOf } from "../use-render";
@@ -43,6 +46,7 @@ beforeEach(() => {
   mockProjects.requestRender.mockReset();
   mockProjects.renders.mockReset();
   queryClient.clear();
+  resetInFlight();
 });
 
 describe("what an image costs", () => {
@@ -90,6 +94,12 @@ describe("choices carried on a route", () => {
 
 describe("asking for an image", () => {
   const input = { projectId: "p1", comboId: "c1", choices: DEFAULT_CHOICES, note: "  curtains open " };
+  /** The looks after an unanswered ask, without their waits. */
+  const noWait = { sleep: async () => {} };
+  /** An image asked for exactly as `input` is. */
+  const mine = (extra: Partial<ProjectRender> = {}) => render({ note: "curtains open", ...extra });
+
+  afterEach(() => onlineManager.setOnline(true));
 
   it("asks once with every choice and a trimmed note, and keeps the answer for C24", async () => {
     mockProjects.renders.mockResolvedValue([]);
@@ -98,6 +108,8 @@ describe("asking for an image", () => {
     expect(outcome).toEqual({ kind: "started", render: render() });
     expect(mockProjects.requestRender).toHaveBeenCalledWith("p1", { comboId: "c1", ...DEFAULT_CHOICES, note: "curtains open" });
     expect(queryClient.getQueryData(["me", "projects", "p1", "renders", "r1"])).toEqual(render());
+    // Watched until it ends, from the moment it was asked.
+    expect(wasAskedHere("r1")).toBe(true);
   });
 
   it("leaves a blank note out", async () => {
@@ -107,7 +119,14 @@ describe("asking for an image", () => {
     expect(mockProjects.requestRender.mock.calls[0]![1]).not.toHaveProperty("note");
   });
 
-  it("obeys every reply: short of credits, an option or room gone, a note too long", async () => {
+  it("sends nothing while the phone is offline", async () => {
+    onlineManager.setOnline(false);
+    expect(await startRender(input)).toEqual({ kind: "offline" });
+    expect(mockProjects.requestRender).not.toHaveBeenCalled();
+    expect(mockProjects.renders).not.toHaveBeenCalled();
+  });
+
+  it("obeys every reply: short of credits, an option or room gone, too many asks, a note too long", async () => {
     mockProjects.renders.mockResolvedValue([]);
     mockProjects.requestRender.mockRejectedValueOnce(new ApiError("http", 402, "You need 2 AI image credits…"));
     expect(await startRender(input)).toEqual({ kind: "short", message: "You need 2 AI image credits…" });
@@ -115,39 +134,92 @@ describe("asking for an image", () => {
     expect((await startRender(input)).kind).toBe("optionGone");
     mockProjects.requestRender.mockRejectedValueOnce(new ApiError("http", 404, "Project not found: p1"));
     expect(await startRender(input)).toEqual({ kind: "refused", message: "This room isn't on your account any more." });
+    mockProjects.requestRender.mockRejectedValueOnce(new ApiError("http", 429, "Too many attempts. Please wait a minute and try again."));
+    expect(await startRender(input)).toEqual({ kind: "refused", message: "Too many attempts. Please wait a minute and try again." });
     mockProjects.requestRender.mockRejectedValueOnce(
       new ApiError("http", 400, "Some fields need your attention.", { note: "Keep the note under 500 characters." }),
     );
     expect(await startRender(input)).toEqual({ kind: "refused", message: "Keep the note under 500 characters.", field: "note" });
-    expect(mockProjects.requestRender).toHaveBeenCalledTimes(4);
+    expect(mockProjects.requestRender).toHaveBeenCalledTimes(5);
   });
 
   it("after silence, finds the image that is new since the ask — and never asks again", async () => {
     let asked = false;
-    mockProjects.renders.mockImplementation(async () => (asked ? [render({ id: "new" }), render({ id: "old" })] : [render({ id: "old" })]));
+    mockProjects.renders.mockImplementation(async () => (asked ? [mine({ id: "new" }), mine({ id: "old" })] : [mine({ id: "old" })]));
     mockProjects.requestRender.mockImplementation(async () => {
       asked = true;
       throw new ApiError("timeout", 0, "Timed out");
     });
-    const outcome = await startRender(input);
+    const outcome = await startRender(input, noWait);
     expect(outcome.kind === "started" && outcome.render.id).toBe("new");
     expect(mockProjects.requestRender).toHaveBeenCalledTimes(1);
+    expect(wasAskedHere("new")).toBe(true);
+  });
+
+  it("looks again a few seconds apart when the image is slow to show", async () => {
+    const waits: number[] = [];
+    const lists = [[], [], [], [mine({ id: "late" })]];
+    mockProjects.renders.mockImplementation(async () => lists.shift() ?? []);
+    mockProjects.requestRender.mockRejectedValue(new ApiError("http", 503, "Service unavailable"));
+    const outcome = await startRender(input, { sleep: async (ms) => void waits.push(ms) });
+    expect(outcome.kind === "started" && outcome.render.id).toBe("late");
+    expect(waits).toEqual([2_000, 5_000]);
   });
 
   it("after silence, an older image of the option is not taken for this one", async () => {
-    mockProjects.renders.mockResolvedValue([render({ id: "old" })]);
+    mockProjects.renders.mockResolvedValue([mine({ id: "old" })]);
     mockProjects.requestRender.mockRejectedValue(new ApiError("http", 503, "Service unavailable"));
-    expect(await startRender(input)).toEqual({ kind: "unknown" });
+    expect(await startRender(input, noWait)).toEqual({ kind: "unknown" });
+    // The list before the ask, then three looks after it — and the ask itself only once.
+    expect(mockProjects.renders).toHaveBeenCalledTimes(4);
+    expect(mockProjects.requestRender).toHaveBeenCalledTimes(1);
   });
 
-  it("with the room's images unreadable before the ask, only one made just now can be ours", async () => {
+  it("after silence, a new image with other choices or another note is not this one", async () => {
+    let asked = false;
+    mockProjects.renders.mockImplementation(async () =>
+      asked ? [mine({ id: "other-look", style: "MINIMAL" }), render({ id: "no-note" }), mine({ id: "other-option", comboId: "c2" })] : [],
+    );
+    mockProjects.requestRender.mockImplementation(async () => {
+      asked = true;
+      throw new ApiError("network", 0, "Network error");
+    });
+    expect(await startRender(input, noWait)).toEqual({ kind: "unknown" });
+  });
+
+  describe("with the room's images unreadable before the ask", () => {
     const now = Date.parse("2026-10-06T10:00:00+05:30");
-    mockProjects.renders
-      .mockRejectedValueOnce(new ApiError("network", 0, "Network error"))
-      .mockResolvedValue([render({ id: "fresh", createdAt: "2026-10-06T10:00:30" }), render({ id: "stale", createdAt: "2026-10-06T09:30:00" })]);
-    mockProjects.requestRender.mockRejectedValue(new ApiError("network", 0, "Network error"));
-    const outcome = await startRender(input, () => now);
-    expect(outcome.kind === "started" && outcome.render.id).toBe("fresh");
+    const earlier = mine({ id: "earlier", status: "READY", createdAt: "2026-10-06T09:20:00", completedAt: "2026-10-06T09:30:00" });
+
+    beforeEach(() => {
+      mockProjects.requestRender.mockRejectedValue(new ApiError("network", 0, "Network error"));
+    });
+
+    it("takes one of exactly this ask still being made", async () => {
+      mockProjects.renders.mockRejectedValueOnce(new ApiError("network", 0, "Network error")).mockResolvedValue([earlier, mine({ id: "making", status: "RUNNING" })]);
+      const outcome = await startRender(input, { now: () => now, ...noWait });
+      expect(outcome.kind === "started" && outcome.render.id).toBe("making");
+    });
+
+    it("or one that ended since the ask", async () => {
+      const ended = mine({ id: "ended", status: "FAILED", completedAt: "2026-10-06T10:00:20" });
+      mockProjects.renders.mockRejectedValueOnce(new ApiError("network", 0, "Network error")).mockResolvedValue([earlier, ended]);
+      const outcome = await startRender(input, { now: () => now, ...noWait });
+      expect(outcome.kind === "started" && outcome.render.id).toBe("ended");
+    });
+
+    it("never an earlier finished one of the same option", async () => {
+      mockProjects.renders.mockRejectedValueOnce(new ApiError("network", 0, "Network error")).mockResolvedValue([earlier]);
+      expect(await startRender(input, { now: () => now, ...noWait })).toEqual({ kind: "unknown" });
+    });
+
+    it("but tells new from old by the list the screen last had, when there is one", async () => {
+      // Ended a moment before the ask: near enough in time to pass for this one — but it was on the list.
+      const justBefore = mine({ id: "just-before", status: "READY", completedAt: "2026-10-06T09:59:30" });
+      queryClient.setQueryData(["me", "projects", "p1", "renders"], [justBefore, earlier]);
+      mockProjects.renders.mockRejectedValueOnce(new ApiError("network", 0, "Network error")).mockResolvedValue([justBefore, earlier]);
+      expect(await startRender(input, { now: () => now, ...noWait })).toEqual({ kind: "unknown" });
+    });
   });
 });
 
@@ -165,13 +237,30 @@ describe("waiting for it", () => {
     expect(isFinal(null)).toBe(false);
   });
 
-  it("reads the server's India time, and never starts the clock in the future", () => {
+  it("reads the server's India time", () => {
     expect(serverTime("2026-10-06T10:00:00")).toBe(Date.parse("2026-10-06T04:30:00Z"));
     expect(serverTime("2026-10-06T10:00:00Z")).toBe(Date.parse("2026-10-06T10:00:00Z"));
+    expect(serverTime("2026-10-06T10:00:00+01:00")).toBe(Date.parse("2026-10-06T09:00:00Z"));
+    expect(serverTime(null)).toBeNaN();
+  });
+
+  it("starts the clock at the ask when it was asked here, whatever the server's clock says", () => {
     const now = Date.parse("2026-10-06T04:30:10Z");
-    expect(startedAtOf(render(), now)).toBe(Date.parse("2026-10-06T04:30:00Z"));
-    expect(startedAtOf(render({ createdAt: "2026-10-06T11:00:00" }), now)).toBe(now);
-    expect(startedAtOf(render({ createdAt: "garbage" }), now)).toBe(now);
+    trackRender("p1", "asked", now - 3_000);
+    expect(startedAtOf(render({ id: "asked", createdAt: "2026-10-06T08:00:00" }), now)).toBe(now - 3_000);
+    expect(startedAtOf(render({ id: "asked", createdAt: "2026-10-06T11:00:00" }), now + 60_000)).toBe(now - 3_000);
+  });
+
+  it("otherwise at the server's start, kept between the first sight of it and 25 minutes before that", () => {
+    const now = Date.parse("2026-10-06T04:30:10Z");
+    expect(startedAtOf(render({ id: "a" }), now)).toBe(Date.parse("2026-10-06T04:30:00Z"));
+    // A server start in the phone's future never makes the wait start later than now…
+    expect(startedAtOf(render({ id: "b", createdAt: "2026-10-06T11:00:00" }), now)).toBe(now);
+    // …nor one hours back make it look ancient.
+    expect(startedAtOf(render({ id: "c", createdAt: "2026-10-06T08:00:00" }), now)).toBe(now - 25 * 60_000);
+    expect(startedAtOf(render({ id: "d", createdAt: "garbage" }), now)).toBe(now);
+    // And it holds steady from one read to the next.
+    expect(startedAtOf(render({ id: "b", createdAt: "2026-10-06T11:00:00" }), now + 60_000)).toBe(now);
   });
 });
 

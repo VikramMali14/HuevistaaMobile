@@ -15,6 +15,7 @@ import { tokens } from "@/api/instance";
 import { authApi } from "@/api/endpoints/auth";
 import { isApiError } from "@/api/errors";
 import { queryClient } from "@/api/query-client";
+import { resetInFlight } from "@/features/ai-images/in-flight";
 import { clearRenderFiles } from "@/features/ai-images/render-files";
 import { resetMadeBoards } from "@/features/boards/made-boards";
 import { resetPayments } from "@/features/payments/payments";
@@ -57,6 +58,7 @@ async function forgetAccountData(): Promise<void> {
   clearUpload();
   clearStudioCache();
   clearRenderFiles();
+  resetInFlight();
   await Promise.all([resetRecentShades(), resetMadeBoards(), resetPending()]);
   // The catalogue copy, which rooms open on Paint, and the board trays (Phase 3 studio).
   await AsyncStorage.multiRemove([CATALOGUE_CACHE_KEY, "hv.paintedRooms", "hv.boardTrays", "hv.askedShop"]).catch(() => {});

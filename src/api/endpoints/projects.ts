@@ -120,8 +120,14 @@ export const projectsApi = {
   requestRender: (id: string, body: RenderRequest) =>
     api.request<ProjectRender>(`api/projects/${encodeURIComponent(id)}/renders`, { body, timeoutMs: 45_000 }),
 
-  /** C23, C25. Every AI image of the room, in any state, newest first. */
-  renders: (id: string) => api.request<ProjectRender[]>(`api/projects/${encodeURIComponent(id)}/renders`),
+  /**
+   * C23, C25. Every AI image of the room, in any state, newest first. `timeoutMs` for the
+   * quick look C23 takes around asking for one.
+   */
+  renders: (id: string, timeoutMs?: number) =>
+    timeoutMs
+      ? api.request<ProjectRender[]>(`api/projects/${encodeURIComponent(id)}/renders`, { timeoutMs })
+      : api.request<ProjectRender[]>(`api/projects/${encodeURIComponent(id)}/renders`),
 
   /** C24's poll. 404 when it isn't this account's room's (or the room has gone). */
   render: (id: string, renderId: string) =>

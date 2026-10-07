@@ -6,6 +6,7 @@ import { projectsApi } from "@/api/endpoints/projects";
 import { keys } from "@/api/query-keys";
 import {
   BackButton,
+  Banner,
   Button,
   Card,
   Disclaimer,
@@ -58,6 +59,8 @@ export default function BoardDetail() {
   const name = data?.name?.trim() || t("rooms.untitled");
   const boards = byBoard(combos.data ?? []);
   const images = finishedImages(renders.data);
+  // The room's images couldn't be read: an option's own flag still says one was asked for.
+  const imagesUnknown = renders.isError && !renders.data;
 
   let body;
   if (room.isPending || combos.isPending) {
@@ -90,6 +93,11 @@ export default function BoardDetail() {
         <Text variant="small" tone="soft">
           {codesAreUniversal(scheme) ? t("boardDetail.codesUniversal") : t("boardDetail.codesShop")}
         </Text>
+        {imagesUnknown ? (
+          <Banner tone="warning" message={t("aiImage.rendersFailed")} testID="board-renders-failed">
+            <Button variant="ghost" block={false} label={t("common.retry")} onPress={() => void renders.refetch()} />
+          </Banner>
+        ) : null}
         {boards.map(([boardIndex, options]) => (
           <View key={boardIndex} style={{ gap: space.sm }}>
             {boards.length > 1 ? (
@@ -109,6 +117,10 @@ export default function BoardDetail() {
                       {image ? (
                         <Text variant="caption" tone="mute">
                           {t("boardDetail.imageMade")}
+                        </Text>
+                      ) : imagesUnknown && combo.rendered ? (
+                        <Text variant="caption" tone="mute">
+                          {t("boardDetail.imageAsked")}
                         </Text>
                       ) : null}
                     </View>

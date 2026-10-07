@@ -1,14 +1,16 @@
 import { StyleSheet, View } from "react-native";
 
 import type { ProjectCombo } from "@/api/types";
-import { Card, Text } from "@/components/ui";
+import { Card, ShadeCode, Text } from "@/components/ui";
 import { comboCode, comboWords, optionName } from "@/features/boards/combos";
 import { t } from "@/i18n";
 import { hairline, useTheme } from "@/theme";
 
 /**
- * One option from a room's colour board (C22, C23): its colours side by side, then each wall
- * with its code. Two options can share a name across boards, so the swatches always show.
+ * One option from a room's colour board (C22, C23, C24): its colours side by side, then each
+ * wall with its code. Two options can share a name across boards, so the swatches always
+ * show, and the board is said. When the card itself isn't pressed, the codes are the large,
+ * copyable ones a customer reads out at a counter.
  */
 export function ComboCard({
   combo,
@@ -27,8 +29,9 @@ export function ComboCard({
 }) {
   const { colors, radius, space } = useTheme();
   const name = optionName(combo);
+  const said = [board, name, badge].filter(Boolean).join(", ");
   return (
-    <Card onPress={onPress} accessibilityLabel={onPress ? t("aiImage.optionLabel", { option: name, shades: comboWords(combo) }) : undefined}>
+    <Card onPress={onPress} accessibilityLabel={onPress ? t("aiImage.optionLabel", { option: said, shades: comboWords(combo) }) : undefined}>
       <View style={{ gap: space.sm }} testID={testID}>
         <View style={styles.row}>
           <Text variant="label" tone="accent" style={styles.fill}>
@@ -55,9 +58,13 @@ export function ComboCard({
                 {shade.shadeName ? ` · ${shade.shadeName}` : ""}
               </Text>
               {code ? (
-                <Text variant="bodyStrong" tone="soft">
-                  {code}
-                </Text>
+                onPress ? (
+                  <Text variant="bodyStrong" tone="soft">
+                    {code}
+                  </Text>
+                ) : (
+                  <ShadeCode code={code} size="medium" />
+                )
               ) : null}
             </View>
           );

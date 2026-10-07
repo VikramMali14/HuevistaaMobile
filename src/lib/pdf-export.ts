@@ -214,6 +214,8 @@ function pageChrome(
   /** The small tracked-out line above the title. "COLOUR BOARD" on a board; a
    *  one-page sheet of a single AI image says what it actually is instead. */
   eyebrow: string = t("pdf.eyebrowBoard"),
+  /** The line above the footer. An AI image's page says it was made by AI as well. */
+  disclaimer: string = t("pdf.disclaimer"),
 ): string[] {
   const ops: string[] = [];
   const right = PAGE_W - MARGIN;
@@ -244,7 +246,6 @@ function pageChrome(
   // Indicative-colour disclaimer, centred just above the footer rule. Screens,
   // print and real paint never match exactly, so the board is a guide, not a
   // colour proof — say so on every page.
-  const disclaimer = t("pdf.disclaimer");
   ops.push(
     textOp("F1", 7.5, (PAGE_W - textWidth(disclaimer, 7.5)) / 2, FOOT_RULE_Y + 7, disclaimer, MUTE),
   );
@@ -289,11 +290,12 @@ function pageContent(
   /** Optional right-aligned note beside that heading — how the image was made. */
   sectionNote?: string,
   eyebrow?: string,
+  disclaimer?: string,
 ): string {
   const right = PAGE_W - MARGIN;
   const stripHexes = entry.shades.length ? entry.shades.map((s) => s.hex) : ["#c08b4e"];
   const ops = pageChrome(stripHexes, title, dateLine, pageNo, pageCount, universalCodes,
-    counter, eyebrow);
+    counter, eyebrow, disclaimer);
 
   // Shade table, anchored to the bottom so every page shares one layout.
   const rows = Math.max(1, entry.shades.length);
@@ -552,6 +554,7 @@ export function buildColourBoardPdf(
     counter: string,
     sectionLabel: string,
     sectionNote?: string,
+    disclaimer?: string,
   ) => {
     const { w, h } = bytes ? jpegSize(bytes) : { w: 0, h: 0 };
     const imageId = bytes
@@ -563,7 +566,7 @@ export function buildColourBoardPdf(
         ])
       : null;
     const content = pageContent({ jpeg: bytes, shades: entry.shades }, w, h, title, dateLine, universalCodes,
-      pageNo, pageCount, counter, sectionLabel, sectionNote, eyebrow);
+      pageNo, pageCount, counter, sectionLabel, sectionNote, eyebrow, disclaimer);
     const contentBytes = latin1(content);
     const contentId = addObject([
       `<< /Length ${contentBytes.length} >>\nstream\n`,
@@ -602,7 +605,7 @@ export function buildColourBoardPdf(
 
   if (closing) {
     addPicturePage(closing.entry, closing.bytes, pageCount - (reward ? 1 : 0), t("pdf.aiImage"),
-      t("pdf.coloursImage"), closing.entry.caption);
+      t("pdf.coloursImage"), closing.entry.caption, t("pdf.disclaimerAi"));
   }
 
   if (reward) {

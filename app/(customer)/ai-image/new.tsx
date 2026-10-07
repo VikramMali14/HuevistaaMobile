@@ -7,7 +7,7 @@ import { meApi } from "@/api/endpoints/me";
 import { projectsApi } from "@/api/endpoints/projects";
 import { isApiError } from "@/api/errors";
 import { keys } from "@/api/query-keys";
-import { BackButton, Card, EmptyState, ErrorState, RemoteImage, Screen, Skeleton, Text } from "@/components/ui";
+import { BackButton, Card, Disclaimer, EmptyState, ErrorState, RemoteImage, Screen, Skeleton, Text } from "@/components/ui";
 import { ComboCard } from "@/features/ai-images/ComboCard";
 import { byBoard, finishedImages } from "@/features/boards/combos";
 import { useRoom } from "@/features/studio/use-room";
@@ -53,7 +53,8 @@ function ChooseRoom() {
         title={t("aiImage.emptyTitle")}
         body={t("aiImage.emptyBody")}
         actionLabel={t("aiImage.openRooms")}
-        onAction={() => router.push("/studio")}
+        // Back to the tabs already there, rather than a second set of them.
+        onAction={() => (router.canDismiss() ? router.dismissTo("/studio") : router.replace("/studio"))}
       />
     );
   } else {
@@ -185,6 +186,7 @@ function ChooseOption({ projectId }: { projectId: string }) {
             })}
           </View>
         ))}
+        <Disclaimer kind="shades" />
       </View>
     );
   }

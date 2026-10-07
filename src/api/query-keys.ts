@@ -65,4 +65,12 @@ export const boardChanges = (id: string) => [keys.room(id), keys.projects, keys.
  * on asking, handed back if it fails), the finished images, and the room's own images and
  * options (an option's `rendered`).
  */
-export const renderChanges = (id: string) => [keys.aiCredits, keys.renders, keys.roomRenders(id), keys.combos(id)] as const;
+export const renderChanges = (id: string): readonly { queryKey: readonly unknown[]; exact?: boolean }[] =>
+  [
+    { queryKey: keys.aiCredits },
+    { queryKey: keys.renders },
+    // Exact: the room's list is a prefix of each of its images, and reading an image again
+    // signs its picture's address afresh — a picture loading would start over.
+    { queryKey: keys.roomRenders(id), exact: true },
+    { queryKey: keys.combos(id), exact: true },
+  ];

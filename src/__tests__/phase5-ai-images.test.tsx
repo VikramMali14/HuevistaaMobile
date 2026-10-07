@@ -5,12 +5,16 @@
  * photos and share sheet are faked.
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { onlineManager } from "@tanstack/react-query";
+import { Image } from "expo-image";
 import { act, fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
 
 import { ApiError } from "@/api/errors";
 import { queryClient } from "@/api/query-client";
+import { keys } from "@/api/query-keys";
 import type { AiCreditSummary, CartCatalogue, ProjectCombo, ProjectRender, RenderableProject, RoomDetail, UserProfile } from "@/api/types";
 import { forgetRememberedRoute } from "@/auth/pending-route";
+import { resetInFlight } from "@/features/ai-images/in-flight";
 import { resetPayments, verifyPayment } from "@/features/payments/payments";
 import { clearPending, savePending } from "@/features/payments/pending-payment";
 
@@ -31,6 +35,7 @@ const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x02, 0x0
 
 // The phone's files, photos and share sheet.
 const mockFiles = {
+  PictureNotFetched: class PictureNotFetched extends Error {},
   renderFile: jest.fn(async (_url: string, renderId: string) => `file://cache/ai-images/${renderId}.jpg`),
   renderBytes: jest.fn(async (_uri: string) => JPEG),
   saveRenderToPhotos: jest.fn(async (_uri: string): Promise<"saved" | "denied"> => "saved"),
@@ -40,6 +45,9 @@ const mockFiles = {
   clearRenderFiles: jest.fn(),
 };
 jest.mock("@/features/ai-images/render-files", () => ({
+  get PictureNotFetched() {
+    return mockFiles.PictureNotFetched;
+  },
   get renderFile() {
     return mockFiles.renderFile;
   },
@@ -190,6 +198,10 @@ const ready = (extra: Partial<ProjectRender> = {}) =>
   image({ status: "READY", imageUrl: "https://bucket.s3/r1.jpg?sig=1", completedAt: "2026-10-06T10:01:00", ...extra });
 
 const press = (text: string | RegExp) => fireEvent.press(screen.getByText(text));
+const pressLast = (text: string | RegExp) => {
+  const all = screen.getAllByText(text);
+  fireEvent.press(all[all.length - 1]!);
+};
 
 beforeEach(async () => {
   for (const key of Object.keys(mockSecure)) delete mockSecure[key];
@@ -221,11 +233,14 @@ beforeEach(async () => {
   mockFiles.sharePdf.mockResolvedValue(undefined);
   resetPayments();
   clearPending();
+  resetInFlight();
   queryClient.clear();
   queryClient.setDefaultOptions({ queries: { retry: false, staleTime: 30_000 }, mutations: { retry: false } });
   forgetRememberedRoute();
   await AsyncStorage.clear();
 });
+
+afterEach(() => onlineManager.setOnline(true));
 
 // ── C22 ───────────────────────────────────────────────────────────────────────
 
@@ -352,20 +367,79 @@ describe("C23 · AI image — options", () => {
     await waitFor(() => expect(screen.getByTestId("ai-wallet-failed")).toBeTruthy());
     expect(screen.queryByTestId("ai-make")).toBeNull();
     expect(screen.queryByTestId("ai-buy")).toBeNull();
+    // Nor a price on the qualities, from a wallet that hasn't answered.
+    expect(screen.getByText("Premium")).toBeTruthy();
+    expect(screen.queryByText(/Premium ·/)).toBeNull();
   });
 
-  it("obeys a 402 — the server's sentence, and the wallet read again", async () => {
+  it("while the wallet is being read, the button waits — with no price on it", async () => {
+    signedIn();
+    mockMe.aiCredits.mockReturnValue(new Promise<AiCreditSummary>(() => {}));
+    open();
+    await waitFor(() => expect(screen.getByText("Reading your AI credits…")).toBeTruthy());
+    expect(screen.getByText("Make my image")).toBeTruthy();
+    expect(screen.queryByText(/Make my image ·/)).toBeNull();
+    expect(screen.queryByTestId("ai-make")).toBeNull();
+  });
+
+  it("an account that can't hold AI credits is told so, with nothing to press", async () => {
+    signedIn();
+    mockMe.aiCredits.mockResolvedValue(wallet({ eligible: false, balance: 0 }));
+    open();
+    await waitFor(() => expect(screen.getByTestId("ai-not-eligible")).toBeTruthy());
+    expect(screen.queryByTestId("ai-make")).toBeNull();
+    expect(screen.queryByTestId("ai-buy")).toBeNull();
+  });
+
+  it("obeys a 402 — the server's sentence, the wallet read again, and the sentence kept until credits come", async () => {
     signedIn();
     mockProjects.requestRender.mockRejectedValue(
-      new ApiError("http", 402, "You need 2 AI image credits to make this image and you have 1. Top up your AI wallet to carry on."),
+      new ApiError("http", 402, "You need 1 AI image credit to make this image and you have 0. Top up your AI wallet to carry on."),
     );
     open();
     await waitFor(() => expect(screen.getByTestId("ai-make")).toBeTruthy());
     const reads = mockMe.aiCredits.mock.calls.length;
+    // The credits were spent elsewhere meanwhile: the server knows, the screen not yet.
+    mockMe.aiCredits.mockResolvedValue(wallet({ balance: 0 }));
     fireEvent.press(screen.getByTestId("ai-make"));
-    await waitFor(() => expect(screen.getByTestId("ai-problem")).toHaveTextContent(/You need 2 AI image credits/));
+    await waitFor(() => expect(screen.getByTestId("ai-buy")).toBeTruthy());
     expect(mockMe.aiCredits.mock.calls.length).toBeGreaterThan(reads);
+    // Its own re-read doesn't clear it…
+    expect(screen.getByTestId("ai-problem")).toHaveTextContent(/You need 1 AI image credit/);
     expect(screen).toHavePathname("/ai-image/options");
+    // …credits bought do.
+    mockMe.aiCredits.mockResolvedValue(wallet({ balance: 3 }));
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: keys.aiCredits });
+    });
+    await waitFor(() => expect(screen.queryByTestId("ai-problem") === null).toBe(true));
+    expect(screen.getByTestId("ai-make")).toBeTruthy();
+  });
+
+  it("offline, sends nothing and says nothing was spent", async () => {
+    signedIn();
+    open();
+    await waitFor(() => expect(screen.getByTestId("ai-make")).toBeTruthy());
+    act(() => onlineManager.setOnline(false));
+    fireEvent.press(screen.getByTestId("ai-make"));
+    await waitFor(() => expect(screen.getByTestId("ai-problem")).toHaveTextContent(/nothing was sent and nothing was spent/));
+    expect(mockProjects.requestRender).not.toHaveBeenCalled();
+  });
+
+  it("a second tap while asking sends nothing more, and says why it waits", async () => {
+    signedIn();
+    let answer: (r: ProjectRender) => void = () => {};
+    mockProjects.requestRender.mockReturnValue(new Promise<ProjectRender>((resolve) => (answer = resolve)));
+    mockProjects.render.mockResolvedValue(image());
+    open();
+    await waitFor(() => expect(screen.getByTestId("ai-make")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("ai-make"));
+    await waitFor(() => expect(screen.getByTestId("ai-asking")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("ai-make"));
+    expect(screen.getByTestId("ai-choice-LUXURY")).toHaveProp("accessibilityState", { checked: false, disabled: true });
+    await act(async () => answer(image()));
+    await waitFor(() => expect(screen).toHavePathname("/ai-image/r1"));
+    expect(mockProjects.requestRender).toHaveBeenCalledTimes(1);
   });
 
   it("an ask that goes unanswered is never sent again: the room's images say it started", async () => {
@@ -387,15 +461,30 @@ describe("C23 · AI image — options", () => {
     expect(mockProjects.requestRender).toHaveBeenCalledTimes(1);
   });
 
-  it("an ask that goes unanswered, with no sign it started, says to look before trying again", async () => {
+  it("an ask that goes unanswered, with no sign it started, says to wait — and asks before a second", async () => {
     signedIn();
     mockProjects.requestRender.mockRejectedValue(new ApiError("network", 0, "Network error"));
     open();
     await waitFor(() => expect(screen.getByTestId("ai-make")).toBeTruthy());
     fireEvent.press(screen.getByTestId("ai-make"));
-    await waitFor(() => expect(screen.getByTestId("ai-problem")).toHaveTextContent(/If your image did start/));
+    // The room's images are looked at again over a few seconds before it says so.
+    await waitFor(() => expect(screen.getByTestId("ai-problem")).toHaveTextContent(/If your image started/), { timeout: 12_000 });
     expect(mockProjects.requestRender).toHaveBeenCalledTimes(1);
-  });
+
+    fireEvent.press(screen.getByTestId("ai-make"));
+    await waitFor(() => expect(screen.getByText("Make a second image?")).toBeTruthy());
+    expect(screen.getByText(/Making another uses 1 AI credit again\./)).toBeTruthy();
+    press("Cancel");
+    expect(mockProjects.requestRender).toHaveBeenCalledTimes(1);
+
+    mockProjects.requestRender.mockResolvedValue(image({ id: "r2" }));
+    mockProjects.render.mockResolvedValue(image({ id: "r2" }));
+    fireEvent.press(screen.getByTestId("ai-make"));
+    await waitFor(() => expect(screen.getByText("Make a second image?")).toBeTruthy());
+    press("Make another image");
+    await waitFor(() => expect(screen).toHavePathname("/ai-image/r2"));
+    expect(mockProjects.requestRender).toHaveBeenCalledTimes(2);
+  }, 20_000);
 
   it("offers Paint from only when the room has a cleaned photo, and words the outside for the outside", async () => {
     signedIn();
@@ -407,14 +496,47 @@ describe("C23 · AI image — options", () => {
     expect(screen.getByText("Cleared of cars, bins and clutter, so the walls are fully visible.")).toBeTruthy();
   });
 
-  it("an image of the room already being made is offered first", async () => {
+  it("an image of the room already being made is offered first — and a second of it is asked about", async () => {
     signedIn();
     mockProjects.renders.mockResolvedValue([image({ id: "r5", status: "RUNNING" })]);
     mockProjects.render.mockResolvedValue(image({ id: "r5", status: "RUNNING" }));
     open();
     await waitFor(() => expect(screen.getByTestId("ai-in-flight")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("ai-make"));
+    await waitFor(() => expect(screen.getByText("Make a second image?")).toBeTruthy());
+    press("Cancel");
+    expect(mockProjects.requestRender).not.toHaveBeenCalled();
     press("See it");
     await waitFor(() => expect(screen).toHavePathname("/ai-image/r5"));
+  });
+
+  it("an image of another option being made is pointed to, but doesn't hold this one up", async () => {
+    signedIn();
+    mockProjects.renders.mockResolvedValue([image({ id: "r5", comboId: "c2", status: "RUNNING" })]);
+    mockProjects.requestRender.mockResolvedValue(image({ id: "r6" }));
+    mockProjects.render.mockResolvedValue(image({ id: "r6" }));
+    open();
+    await waitFor(() => expect(screen.getByTestId("ai-in-flight")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("ai-make"));
+    await waitFor(() => expect(screen).toHavePathname("/ai-image/r6"));
+    expect(screen.queryByText("Make a second image?")).toBeNull();
+  });
+
+  it("says when the room's images couldn't be checked", async () => {
+    signedIn();
+    mockProjects.renders.mockRejectedValue(new ApiError("network", 0, "Network error"));
+    open();
+    await waitFor(() => expect(screen.getByTestId("ai-renders-failed")).toBeTruthy());
+  });
+
+  it("Change option goes back to the room's options", async () => {
+    signedIn();
+    open();
+    await waitFor(() => expect(screen.getByText("Change option")).toBeTruthy());
+    press("Change option");
+    await waitFor(() => expect(screen).toHavePathname("/ai-image/new"));
+    expect(screen).toHaveSearchParams({ projectId: "p1" });
+    await waitFor(() => expect(screen.getByText("Which option shall we photograph?")).toBeTruthy());
   });
 
   it("an option no longer on the board says so", async () => {
@@ -425,14 +547,19 @@ describe("C23 · AI image — options", () => {
     await waitFor(() => expect(screen).toHavePathname("/ai-image/new"));
   });
 
-  it("arrives with an earlier image's choices (Make another, Try again)", async () => {
+  it("arrives with an earlier image's choices and note (Make another, Try again)", async () => {
     signedIn();
-    renderRouter("./app", { initialUrl: "/ai-image/options?projectId=p1&comboId=c1&quality=LUXURY&style=LUXE&timeOfDay=NIGHT&lighting=BOGUS" });
-    await waitFor(() => expect(screen.getByTestId("ai-choice-LUXE")).toHaveProp("accessibilityState", { selected: true, disabled: false }));
-    expect(screen.getByTestId("ai-choice-LUXURY")).toHaveProp("accessibilityState", { selected: true, disabled: false });
-    expect(screen.getByTestId("ai-choice-NIGHT")).toHaveProp("accessibilityState", { selected: true, disabled: false });
+    renderRouter("./app", {
+      initialUrl: "/ai-image/options?projectId=p1&comboId=c1&quality=LUXURY&style=LUXE&timeOfDay=NIGHT&lighting=BOGUS&note=curtains%20open",
+    });
+    const on = { checked: true, disabled: false };
+    await waitFor(() => expect(screen.getByTestId("ai-choice-LUXE")).toHaveProp("accessibilityState", on));
+    expect(screen.getByTestId("ai-choice-LUXE")).toHaveProp("accessibilityRole", "radio");
+    expect(screen.getByTestId("ai-choice-LUXURY")).toHaveProp("accessibilityState", on);
+    expect(screen.getByTestId("ai-choice-NIGHT")).toHaveProp("accessibilityState", on);
     // A value it doesn't know is the default.
-    expect(screen.getByTestId("ai-choice-NATURAL")).toHaveProp("accessibilityState", { selected: true, disabled: false });
+    expect(screen.getByTestId("ai-choice-NATURAL")).toHaveProp("accessibilityState", on);
+    expect(screen.getByTestId("ai-note")).toHaveProp("value", "curtains open");
   });
 });
 
@@ -488,10 +615,15 @@ describe("C24 · AI image — working and result", () => {
     expect(mockFiles.openPhotoSettings).toHaveBeenCalled();
   });
 
-  it("a failed image gives the server's reason; Try again is a new image with the same choices", async () => {
+  it("a failed image gives the server's reason; Try again is a new image with the same choices and note", async () => {
     signedIn();
     mockProjects.render.mockResolvedValue(
-      image({ status: "FAILED", style: "MINIMAL", failureReason: "Your image couldn't be made just now. Your credit is back — please try again." }),
+      image({
+        status: "FAILED",
+        style: "MINIMAL",
+        note: "curtains open",
+        failureReason: "Your image couldn't be made just now. Your credit is back — please try again.",
+      }),
     );
     renderRouter("./app", { initialUrl: "/ai-image/r1?projectId=p1" });
     await waitFor(() => expect(screen.getByTestId("ai-image-failed")).toBeTruthy());
@@ -499,7 +631,8 @@ describe("C24 · AI image — working and result", () => {
     expect(screen.getByText("Trying again makes a new image, and uses credits again.")).toBeTruthy();
     fireEvent.press(screen.getByTestId("ai-try-again"));
     await waitFor(() => expect(screen).toHavePathname("/ai-image/options"));
-    expect(screen).toHaveSearchParams(expect.objectContaining({ projectId: "p1", comboId: "c1", style: "MINIMAL" }));
+    expect(screen).toHaveSearchParams(expect.objectContaining({ projectId: "p1", comboId: "c1", style: "MINIMAL", note: "curtains open" }));
+    await waitFor(() => expect(screen.getByTestId("ai-note")).toHaveProp("value", "curtains open"));
   });
 
   it("claims the credits are back only when the wallet shows it, for a reason it won't show", async () => {
@@ -516,6 +649,85 @@ describe("C24 · AI image — working and result", () => {
     renderRouter("./app", { initialUrl: "/ai-image/r1?projectId=p1" });
     await waitFor(() => expect(screen.getByText("This AI image isn't on your account any more")).toBeTruthy());
     expect(screen.queryByText(/Render not found/)).toBeNull();
+  });
+
+  it("can be left while it is made: the AI images catch up when it ends, with C24 long gone", async () => {
+    signedIn();
+    let finished = false;
+    mockProjects.render.mockImplementation(async () => {
+      // Read once being made; the next read (the watcher's) finds it ready.
+      if (mockProjects.render.mock.calls.length > 1) finished = true;
+      return finished ? ready() : image({ status: "RUNNING", createdAt: ist(Date.now() - 5_000) });
+    });
+    mockMe.renders.mockImplementation(async () =>
+      finished ? [{ id: "r1", projectId: "p1", projectName: "Living room", status: "READY", imageUrl: "https://x/r1.jpg" }] : [],
+    );
+    renderRouter("./app", { initialUrl: "/ai-image/r1?projectId=p1" });
+    await waitFor(() => expect(screen.getByText("Leave this running")).toBeTruthy());
+    press("Leave this running");
+    await waitFor(() => expect(screen).toHavePathname("/boards"));
+    expect(screen.queryByTestId("ai-image-working")).toBeNull();
+    await waitFor(() => expect(screen.getByLabelText("AI image of Living room")).toBeTruthy(), { timeout: 8_000 });
+  }, 15_000);
+
+  it("an image that leaves the account while being made says so", async () => {
+    signedIn();
+    mockProjects.render
+      .mockResolvedValueOnce(image({ status: "RUNNING", createdAt: ist(Date.now() - 5_000) }))
+      .mockRejectedValue(new ApiError("http", 404, "Project not found: p1"));
+    renderRouter("./app", { initialUrl: "/ai-image/r1?projectId=p1" });
+    await waitFor(() => expect(screen.getByTestId("ai-image-working")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("This AI image isn't on your account any more")).toBeTruthy(), { timeout: 6_000 });
+  }, 10_000);
+
+  it("a picture that won't show is asked for afresh once, then offered again by hand", async () => {
+    signedIn();
+    mockProjects.render.mockResolvedValue(ready());
+    renderRouter("./app", { initialUrl: "/ai-image/r1?projectId=p1" });
+    await waitFor(() => expect(screen.getByTestId("ai-image-picture")).toBeTruthy());
+    const reads = mockProjects.render.mock.calls.length;
+    act(() => screen.UNSAFE_getByType(Image).props.onError({ error: "403" }));
+    await waitFor(() => expect(mockProjects.render.mock.calls.length).toBe(reads + 1));
+    act(() => screen.UNSAFE_getByType(Image).props.onError({ error: "403" }));
+    await waitFor(() => expect(screen.getByText("This picture didn't load.")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("ai-image-reload"));
+    await waitFor(() => expect(mockProjects.render.mock.calls.length).toBe(reads + 2));
+    await waitFor(() => expect(screen.queryByText("This picture didn't load.") === null).toBe(true));
+  });
+
+  it("opens the picture full screen, and closes it", async () => {
+    signedIn();
+    mockProjects.render.mockResolvedValue(ready());
+    renderRouter("./app", { initialUrl: "/ai-image/r1?projectId=p1" });
+    await waitFor(() => expect(screen.getByTestId("ai-image-picture")).toBeTruthy());
+    expect(screen.queryByTestId("ai-image-full")).toBeNull();
+    await waitFor(() => expect(screen.getByLabelText("Living room, photographed in Modern · Day · Natural light")).toBeTruthy());
+    fireEvent.press(screen.getByLabelText("Living room, photographed in Modern · Day · Natural light"));
+    await waitFor(() => expect(screen.getByTestId("ai-image-full")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("ai-image-close"));
+    await waitFor(() => expect(screen.queryByTestId("ai-image-full") === null).toBe(true));
+  });
+
+  it("never sends a PDF without its shades", async () => {
+    signedIn();
+    mockProjects.render.mockResolvedValue(ready());
+    mockProjects.combos.mockRejectedValue(new ApiError("network", 0, "Network error"));
+    renderRouter("./app", { initialUrl: "/ai-image/r1?projectId=p1" });
+    await waitFor(() => expect(screen.getByText("Its shades didn't load.")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("ai-pdf"));
+    await waitFor(() => expect(screen.getByText("Its shades couldn't be read just now, so the PDF wasn't made. Try again in a moment.")).toBeTruthy());
+    expect(mockFiles.sharePdf).not.toHaveBeenCalled();
+  });
+
+  it("a picture that can't be fetched is said as such", async () => {
+    signedIn();
+    mockProjects.render.mockResolvedValue(ready());
+    mockFiles.renderFile.mockRejectedValue(new mockFiles.PictureNotFetched("Picture not available (403)"));
+    renderRouter("./app", { initialUrl: "/ai-image/r1?projectId=p1" });
+    await waitFor(() => expect(screen.getByTestId("ai-send")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("ai-send"));
+    await waitFor(() => expect(screen.getByText("Your image couldn't be fetched. Check your connection and try again.")).toBeTruthy());
+    expect(mockFiles.shareRender).not.toHaveBeenCalled();
   });
 
   it("finds the room of an image opened without it", async () => {
@@ -540,6 +752,27 @@ describe("AI images, from elsewhere", () => {
     expect(screen.queryByTestId("board-see-image-c2")).toBeNull();
     fireEvent.press(screen.getByTestId("board-see-image-c1"));
     await waitFor(() => expect(screen).toHavePathname("/ai-image/r1"));
+  });
+
+  it("C25 says when the room's images couldn't be read, and that one was asked for", async () => {
+    signedIn();
+    mockProjects.combos.mockResolvedValue([{ ...combo("c1", 1, 0, ["HV0118"]), rendered: true }, combo("c2", 1, 1, ["HV0124"])]);
+    mockProjects.renders.mockRejectedValue(new ApiError("network", 0, "Network error"));
+    renderRouter("./app", { initialUrl: "/board/p1" });
+    await waitFor(() => expect(screen.getByTestId("board-renders-failed")).toBeTruthy());
+    expect(screen.getByTestId("board-combo-c1")).toHaveTextContent(/An AI image was asked for/);
+    expect(screen.getByTestId("board-combo-c2")).not.toHaveTextContent(/An AI image was asked for/);
+  });
+
+  it("signing out clears the AI images kept on the phone", async () => {
+    signedIn();
+    renderRouter("./app", { initialUrl: "/account" });
+    await waitFor(() => expect(screen.getByTestId("account-sign-out")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("account-sign-out"));
+    await waitFor(() => expect(screen.getByText("Sign out?")).toBeTruthy());
+    pressLast("Sign out");
+    await waitFor(() => expect(screen).toHavePathname("/welcome"));
+    expect(mockFiles.clearRenderFiles).toHaveBeenCalled();
   });
 
   it("the Boards tab opens on the AI images when asked to", async () => {
