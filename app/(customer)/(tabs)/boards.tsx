@@ -1,12 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { meApi } from "@/api/endpoints/me";
 import { keys } from "@/api/query-keys";
-import type { MyRender, RenderableProject } from "@/api/types";
+import type { MyRender, RenderableProject, RoomDetail } from "@/api/types";
 import { Button, Card, EmptyState, ErrorState, RemoteImage, Screen, Segmented, Skeleton, Text } from "@/components/ui";
+import { useTrackedRenders } from "@/features/ai-images/in-flight";
+import { isBeingMade, renderQuery } from "@/features/ai-images/use-render";
 import { t } from "@/i18n";
 import { formatDate } from "@/lib/dates";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
@@ -30,6 +32,7 @@ function newestFirst(a: RenderableProject, b: RenderableProject): number {
  */
 export default function BoardsScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { radius, space } = useTheme();
   const { tab: asked } = useLocalSearchParams<{ tab?: string }>();
   const [tab, setTab] = useState<Tab>(asked === "ai" ? "ai" : "colour");
@@ -45,6 +48,16 @@ export default function BoardsScreen() {
   }, [asked, router]);
   const boards = useQuery({ queryKey: keys.boards, queryFn: meApi.renderableProjects });
   const renders = useQuery({ queryKey: keys.renders, queryFn: meApi.renders });
+  // The shelf lists finished images only. Those this phone is following while they are made
+  // ("Leave this running") show first, as being made, so leaving one doesn't lose it.
+  const tracked = useTrackedRenders();
+  const trackedReads = useQueries({ queries: tracked.map((r) => renderQuery(r.projectId, r.renderId, false)) });
+  const making: MyRender[] = tracked.flatMap((r, i) => {
+    const read = trackedReads[i]?.data;
+    if (!isBeingMade(read) || renders.data?.some((x) => x.id === r.renderId)) return [];
+    const name = boards.data?.find((p) => p.id === r.projectId)?.name ?? queryClient.getQueryData<RoomDetail>(keys.room(r.projectId))?.name ?? "";
+    return [{ id: r.renderId, projectId: r.projectId, projectName: name, status: read!.status, imageUrl: null }];
+  });
   const pull = usePullToRefresh(() => Promise.all([boards.refetch(), renders.refetch()]));
 
   let body;
@@ -58,7 +71,7 @@ export default function BoardsScreen() {
           ))}
         </View>
       );
-    } else if (boards.isError) {
+    } else if (boards.isError && !boards.data) {
       body = <ErrorState error={boards.error} onRetry={() => void boards.refetch()} />;
     } else if (list.length === 0) {
       body = (
@@ -104,8 +117,8 @@ export default function BoardsScreen() {
       );
     }
   } else {
-    const images = (renders.data ?? []).filter((r) => r.status !== "FAILED");
-    if (renders.isPending) {
+    const images = [...making, ...(renders.data ?? []).filter((r) => r.status !== "FAILED")];
+    if (renders.isPending && !making.length) {
       body = (
         <View style={[styles.grid, { gap: space.sm }]} testID="images-loading">
           {[0, 1].map((i) => (
@@ -113,7 +126,7 @@ export default function BoardsScreen() {
           ))}
         </View>
       );
-    } else if (renders.isError) {
+    } else if (renders.isError && !renders.data && !making.length) {
       body = <ErrorState error={renders.error} onRetry={() => void renders.refetch()} />;
     } else if (images.length === 0) {
       body = (
@@ -130,7 +143,8 @@ export default function BoardsScreen() {
         <View style={{ gap: space.md }}>
           <View style={[styles.grid, { gap: space.sm }]}>
             {images.map((image: MyRender) => {
-              const label = t("boards.imageLabel", { room: image.projectName?.trim() || t("rooms.untitled") });
+              const room = image.projectName?.trim() || t("rooms.untitled");
+              const label = image.status === "READY" ? t("boards.imageLabel", { room }) : t("boards.imageMakingLabel", { room });
               return (
                 <Pressable
                   key={image.id}

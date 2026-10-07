@@ -313,9 +313,14 @@ function Ready({
       }
     });
 
+  // Its own option, known from the image (not waiting on the room's options to load), with
+  // the same choices and note; an option gone from the board says so there.
   const another = () =>
-    combo
-      ? router.push({ pathname: "/ai-image/options", params: { projectId, comboId: combo.id, ...choicesOf(render) } })
+    render.comboId
+      ? router.push({
+          pathname: "/ai-image/options",
+          params: { projectId, comboId: render.comboId, ...choicesOf(render), ...(render.note ? { note: render.note } : {}) },
+        })
       : router.push({ pathname: "/ai-image/new", params: { projectId } });
 
   const alt = combo

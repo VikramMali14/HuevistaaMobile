@@ -146,9 +146,12 @@ to get one ("Take a colour board from any room and it appears here").
 
 As built: the colour boards are `GET /api/me/renderable-projects` — rooms carrying board
 combinations, finished first (a reopened room keeps its combinations and shows "Still
-open"). The room list sends no board count, so `boardsUsed > 0` can't be read from it. AI
-images still being made show "Being made…"; failed ones are left out. Opened with
-`?tab=ai` (Leave this running on C24, All my AI images), it opens on the AI images, once.
+open"). The room list sends no board count, so `boardsUsed > 0` can't be read from it. The
+server lists finished AI images only, so the images this phone is following while they are
+made (asked for here, opened on C24, or seen on C23) come first as "Being made…" — Leave
+this running never lands on a shelf without the image. Failed ones are left out. A read
+again that fails keeps both lists on screen. Opened with `?tab=ai` (Leave this running on
+C24, All my AI images), it opens on the AI images, once.
 
 ### C5 · Account
 
@@ -631,7 +634,7 @@ As built:
   never read as 0. **Exception to the "always ₹" rule (01, rule 3):** the cost line is in
   credits only, as on the website, because the credits are already bought. The ₹ price
   shows as soon as money would be spent: short, "You need 1 more AI credit for this image,
-  at ₹70 each" and **Buy 1 AI credit · ₹70** (→ C28 with `from=ai-image`). The wallet is
+  at ₹70" ("…at ₹70 each" for more than one) and **Buy 1 AI credit · ₹70** (→ C28 with `from=ai-image`). The wallet is
   read again when the customer comes back, so a balance from before a purchase is never
   offered. An account that can't hold credits is told so.
 - **Make my image** spends the credits on the server in that one request, and the server
@@ -651,9 +654,12 @@ As built:
     so it isn't made twice". The room's images are then re-read every 5 s for 3 minutes.
 - **A second image.** While an image of this option is being made, or after an
   unanswered ask, **Make** first asks "Make a second image?", with what it costs again.
-  An image of the room being made shows a banner with **See it**. If the room's images
-  can't be read, it says so with Retry.
-- **Change option** goes back to C22 for this room. The shade disclaimer is at the foot.
+  An image of the room being made shows a banner with **See it**, and is handed to
+  `RenderWatcher`, so its end reaches the banner, the shelf and the wallet even if it is
+  never opened; the wallet is read again when one appears (it was paid for when asked). If
+  the room's images can't be read, it says so with Retry.
+- **Change option** goes back to C22 for this room — back to it when it is the screen
+  underneath, so Back never lands on a second copy. The shade disclaimer is at the foot.
 
 ### C24 · AI image — working and result
 
@@ -688,7 +694,8 @@ As built:
   without native code, as on C16. **Save to phone** asks for permission to add to the
   photos only now; a refusal offers Settings. **Send it as a PDF with its shades** makes a
   one-page PDF with the AI disclaimer, and is refused rather than sent without its shades.
-  Then **Make another of this room** and **All my AI images**. Its shades show large and
+  Then **Make another of this room** (C23 with its option, choices and note, read from the
+  image itself) and **All my AI images**. Its shades show large and
   copyable, then both disclaimers. The picture's address is signed for an hour: an expired
   one is fetched afresh once, and a picture that still won't load offers Retry. A picture
   that can't be fetched is said as such, never blamed on the phone. Ready is felt (haptic)

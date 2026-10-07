@@ -375,6 +375,34 @@ UI:
 - Outdoor wording didn't follow the server's rule.
 - C25 said nothing when the room's images didn't load.
 
+**Second review (2026-10-07):** a read-through against the backend's contract and a walk of
+every Phase 5 screen in a phone-sized Chromium, light and dark. Fixed, each with a test that
+fails without it:
+- **Change option** replaced C23 with a new C22 for the room, so Back from it landed on an
+  identical C22. It now goes back when that C22 is underneath.
+- An image seen being made on C23 (an unanswered ask that turned up, or one asked for
+  elsewhere) wasn't followed: nothing brought its end to the shelf, and the wallet kept the
+  balance from before it was paid for. C23 now hands it to `RenderWatcher` and reads the
+  wallet again.
+- **Leave this running** landed on a shelf that lists finished images only — for a first
+  image, "No AI images yet". Images being followed now show there as "Being made…".
+- **Make another** dropped the note (the spec carries it, as Try again does), and, tapped
+  before the room's options loaded, went to C22 instead of C23.
+- The Boards tab and C25 swapped their lists for an error screen when a read again failed
+  — and `RenderWatcher` reads them again each time an image ends. They now stay.
+- "You need 1 more AI credit for this image, at ₹70 each" — "each" dropped for one.
+
+Checked and sound: one charge per ask (the client never resends a POST; a 401 retry is
+refused before the handler); a blocked POST (the server's AI pool full, `CallerRunsPolicy`)
+times out at 45 s and is matched to its QUEUED row; choices and note are stored as sent,
+so the exact-ask match holds (`CLEANED` is kept as sent even with no cleaned photo);
+404 messages tell the room from the option; the sweeper's 12–22 minutes sits inside the
+clock's 25-minute clamp.
+
+Left as they are (small): an account that can't hold credits still sees the choices above
+its banner; a failed image doesn't name its room; C24's working state shows no picture of
+the room it is photographing.
+
 **Still to do on a real phone:**
 - Make a real image end to end:
   - the share sheet with the JPEG and the PDF (WhatsApp in it);
@@ -443,6 +471,8 @@ Port: `HueVistaaPainter/src/lib/reward-token.ts`, `board-file.ts` (in a WebView)
 | 6 | HueVista | A tiny public endpoint returning the minimum supported app version (X5). | Phase 8 |
 | 7 | HueVista | Optional: nearby search by area name, for people who won't share location (C32). | Phase 7 |
 | 8 | HueVista | `docs/HueVista_Mobile_API_Guide.pdf` only covers sign-in and images — update it or point it at Swagger. | Any time |
+| 9 | HueVista | `POST /api/projects/*/renders` is limited to 12 an hour **per IP only** (`SensitiveEndpointRateLimitFilter`), counting 400s and 402s. Indian mobile networks put many customers behind one address (CGNAT), so one person's asks can refuse another's. Count it per account, as the nearby-search policies do. | Phase 5 (now) |
+| 10 | HueVista | Deleting a room while its AI image is being made loses the credits: the render row is cascaded away, so the worker's and sweeper's `finishIfInFlight` match nothing and nothing is refunded. Refund in-flight renders in `deleteProject`, or refuse the delete while one is being made. | Phase 5 (now) |
 
 ## Decisions to confirm
 

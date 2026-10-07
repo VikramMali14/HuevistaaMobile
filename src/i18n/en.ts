@@ -570,6 +570,7 @@ export const en = {
     emptyImagesBody: "An AI image is made from one of a board's options. Once it's ready, it appears here.",
     makeImage: "Make an AI image",
     imageLabel: "AI image of {room}",
+    imageMakingLabel: "AI image of {room}, being made",
     working: "Being made…",
   },
   /** C22–C24: an AI image of one option on a room's colour board. */
@@ -662,7 +663,7 @@ export const en = {
     notePlaceholder: "e.g. show it with the curtains open",
     noteCount: "{n} of 500 characters",
     costLine: "This image uses {cost}. You have {balance}.",
-    shortOne: "You need 1 more AI credit for this image, at {price} each.",
+    shortOne: "You need 1 more AI credit for this image, at {price}.",
     short: "You need {n} more AI credits for this image, at {price} each.",
     make: "Make my image · {cost}",
     buy: "Buy {short} · {total}",
