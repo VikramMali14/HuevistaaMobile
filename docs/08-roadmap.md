@@ -283,9 +283,105 @@ picture (render at the photo's size, as the website does) waits for that phone t
 
 | | Screen | Spec |
 |---|---|---|
-| ☐ | C22 AI image — choose the room | [04](04-screens-customer.md#c22--ai-image--choose-the-room) |
-| ☐ | C23 AI image — options | [04](04-screens-customer.md#c23--ai-image--options) |
-| ☐ | C24 AI image — working and result | [04](04-screens-customer.md#c24--ai-image--working-and-result) |
+| ☑ | C22 AI image — choose the room | [04](04-screens-customer.md#c22--ai-image--choose-the-room) |
+| ☑ | C23 AI image — options | [04](04-screens-customer.md#c23--ai-image--options) |
+| ☑ | C24 AI image — working and result | [04](04-screens-customer.md#c24--ai-image--working-and-result) |
+
+Packages: `expo-media-library` (its `legacy` entry: the main entry's save calls throw on
+purpose in this version). Its plugin asks for no granular permissions, and Android's
+`READ_MEDIA_*` permissions are blocked in `app.json`, because saving needs no right to read
+the photos.
+
+Wired in from earlier screens:
+- C4 opens on AI images with `?tab=ai`.
+- C25 has **See the AI image**.
+- C28 → C29 leads **Back to your AI image**.
+
+New in `src/features/ai-images`:
+- `start-render` (the one ask).
+- `in-flight` and `RenderWatcher` (images being made, polled wherever the customer is).
+- `use-render`, `render-files` (the picture on the phone) and `render-options`.
+
+C24's PDF is the website's one-page AI image with its shades (`buildAiImagePdf`, ported in
+Phase 4), now printed with the AI disclaimer.
+
+**Done:** 2026-10.
+- **Tests.** Route tests for every screen and the ways in and out
+  (`src/__tests__/phase5-ai-images.test.tsx`: 41, through the real route tree with the
+  phone's files, photos and share sheet faked). Unit tests for:
+  - the one ask: offline, every reply obeyed, and an unanswered ask matched only to an
+    image asked for exactly so;
+  - the clock, the polling pace, refunds seen in the wallet and the price per quality;
+  - the picture on the phone (`render-files.test.ts`): one fetch per image, only a whole
+    JPEG kept, nothing written after sign-out, saving asks to add only.
+- **Browser walk.** In a phone-sized Chromium against a stand-in backend, light and dark:
+  - C22's rooms and options;
+  - C23's prices, short of credits, an unanswered ask and the second-image question;
+  - C24 working, then ready (full screen, its shades), and failed with Try again;
+  - C25's link to the image;
+  - leaving an image being made, and the AI images shelf catching up when it ended.
+
+As built, against the spec (details in [04](04-screens-customer.md#c22--ai-image--choose-the-room)):
+- C22 lists every room with a board page, open ones after finished ones, as the server
+  does; a room with one option goes straight on.
+- C23's choices are text pills with the website's labels and hints, not pictures. Quality
+  comes first (the only one that changes the price). **Paint from** (cleaned or original
+  photo) is offered when there is a cleaned one.
+- C23's cost line is in credits only, as on the website. The ₹ price appears as soon as
+  money would be spent (short: "at ₹70 each", **Buy 1 AI credit · ₹70**). This is the one
+  exception to "always ₹" (01, rule 3).
+- C24 has one **Send the image** (the share sheet, where WhatsApp is), as on C16, not
+  separate WhatsApp and Share buttons. It adds **Send it as a PDF with its shades**.
+- The render carries no refund field. "Your credits are back" is said only in the server's
+  own failure sentence, or when the wallet shows a refund row made since the ask.
+
+**Review (2026-10):** every Phase 5 screen and the logic under it was reviewed by
+independent passes for money, lifecycle, files and UI. Each finding was checked against
+the code, the backend and the website before it was fixed, each with a test.
+
+Money (the backend has no idempotency key, so one ask is one charge):
+- Offline, nothing is sent; React Query would have paused the request until the phone was
+  back online.
+- An unanswered ask is matched only to an image asked for exactly so that is new since the
+  ask, or still being made. It used to take an earlier finished image of the same option,
+  and the customer was told it had started. It is looked for again a few seconds apart.
+- Making another while one may be under way asks first.
+- The 402 sentence stays until the balance rises; its own wallet re-read had cleared it.
+- No price is shown before the wallet answers. Buy waits while the wallet is re-read.
+
+Lifecycle:
+- Polling lived in C24, so leaving it froze the shelf, C25 and the wallet until something
+  else refetched. `RenderWatcher` now polls every image being made.
+- Leave this running and All my AI images pushed a second set of tabs.
+- The wait's clock restarted on each visit, or jumped with a phone clock that was off.
+- Cached "being made" data flashed Working for an image long finished.
+- The error screen flickered while retrying.
+
+Files:
+- Send, Save and the PDF could fetch the picture three times at once.
+- A half-written or error-page file could be kept as the image and never fetched again.
+- A fetch had no time limit.
+- A sign-out mid-fetch wrote the last account's picture.
+- Saving asked to read the photos as well as add to them.
+
+UI:
+- The ready picture could push Send and Save off a small screen; it is now capped, with a
+  full-screen view.
+- The working state's live region re-announced the time every second.
+- Pills read as buttons, not radio buttons.
+- The PDF could go out without its shades.
+- A failed fetch was reported as a share failure.
+- Try again dropped the note.
+- Outdoor wording didn't follow the server's rule.
+- C25 said nothing when the room's images didn't load.
+
+**Still to do on a real phone:**
+- Make a real image end to end:
+  - the share sheet with the JPEG and the PDF (WhatsApp in it);
+  - **Save to phone** on Android 13+ and iOS, where only "add photos" should be asked;
+  - leaving an image being made and coming back from the background;
+  - an expired picture address (open a ready image after an hour).
+- The VoiceOver and TalkBack announcements: asking, ready, failed.
 
 ## Phase 6 — The painter
 

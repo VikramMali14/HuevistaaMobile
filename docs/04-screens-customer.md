@@ -147,7 +147,8 @@ to get one ("Take a colour board from any room and it appears here").
 As built: the colour boards are `GET /api/me/renderable-projects` — rooms carrying board
 combinations, finished first (a reopened room keeps its combinations and shows "Still
 open"). The room list sends no board count, so `boardsUsed > 0` can't be read from it. AI
-images still being made show "Being made…"; failed ones are left out.
+images still being made show "Being made…"; failed ones are left out. Opened with
+`?tab=ai` (Leave this running on C24, All my AI images), it opens on the AI images, once.
 
 ### C5 · Account
 
@@ -590,6 +591,17 @@ Finished rooms that have board combinations (`GET /api/me/renderable-projects`),
 the combination to photograph (`GET /api/projects/{id}/combos`). Empty → "Take a colour
 board from a room first — the AI image is made from one of its options."
 
+As built: the list is every room with a board page, in the server's order: finished rooms
+first, then rooms still open ("Finished 1 Oct 2026" / "Still open"; `closedAt` can be null
+whatever the backend's comments say). Each shows the cleaned photo where there is one,
+since that is what gets painted. Opened with `projectId` (from C16, or Change option on
+C23), it goes straight to that room's options. A room with one option goes on to C23 with
+`replace`, so back doesn't land on a one-item list. Options are grouped by board, in printed
+order, with their swatches and codes, so two options that share a name can still be told
+apart. An option with a finished image says "AI image made"; a failed one doesn't. A room
+no longer on the account says so, never "Project not found". A list that won't load is
+an error with Retry, never "no rooms". The shade disclaimer sits under the options.
+
 ### C23 · AI image — options
 
 **Route** `ai-image/options.tsx` · **Phase** 5 · **Web reference** `components/atelier/render-studio.tsx`
@@ -603,6 +615,46 @@ Empty) · **Border** (Keep original · AI suggested) · **Quality** (from the wa
 Above the button: "This uses **2 AI credits**. You have 12." Short → **Buy credits**
 (→ C28). **Make the image** → `POST /api/projects/{id}/renders { comboId, …options }` → C24.
 
+As built:
+- **Choices.** Text pills with the website's labels; there are no pictures. The hint for
+  the chosen value sits under each row. The rows run Quality (first, as the only choice
+  that changes the price), Paint from, Time of day, Borders and trim, Light, Furniture,
+  Look. Paint from (`sourceImage`: cleaned or original photo) shows only when the room has
+  a cleaned photo. An outdoor room says Surroundings for Furniture and uses outdoor hints.
+  The server's own rule decides which: anything not marked `INDOOR` is outdoors. The
+  defaults are the website's: Premium, and the room as it is. Pills are radio buttons to a
+  screen reader. Make another and Try again arrive with the earlier image's choices and
+  note on the route, and a value it doesn't know falls back to the default.
+- **Price.** Each quality's price comes from the wallet's `renderTiers` ("Premium · 1 AI
+  credit"). Until the wallet answers there is no price and no live button ("Make my image",
+  disabled). A wallet that won't load says so, offers nothing to press or buy, and is
+  never read as 0. **Exception to the "always ₹" rule (01, rule 3):** the cost line is in
+  credits only, as on the website, because the credits are already bought. The ₹ price
+  shows as soon as money would be spent: short, "You need 1 more AI credit for this image,
+  at ₹70 each" and **Buy 1 AI credit · ₹70** (→ C28 with `from=ai-image`). The wallet is
+  read again when the customer comes back, so a balance from before a purchase is never
+  offered. An account that can't hold credits is told so.
+- **Make my image** spends the credits on the server in that one request, and the server
+  has no idempotency key. So:
+  - The request is never sent twice: a second tap does nothing, the choices lock, a line
+    says "Asking for your image… It will only be made once", and back is held, with a
+    toast saying why.
+  - Offline, nothing is sent, and the screen says nothing was spent.
+  - A reply is obeyed, and nothing was spent: 402 shows the server's sentence and reads
+    the wallet again. That sentence stays until the balance goes up; its own re-read
+    doesn't clear it. A 404 for the option or for the room says which. 429 shows the
+    server's wait. A note that is too long goes under the note field.
+  - Silence (no answer in 45 s, a timeout, a 5xx) is not a "no". The room's images are
+    looked at again 0, 2 and 5 s later. An image asked for exactly so (same option, every
+    choice, the note) that is new since the ask, or is still being made, is this one, and
+    C24 opens on it. Otherwise: "We couldn't hear back… please wait before trying again,
+    so it isn't made twice". The room's images are then re-read every 5 s for 3 minutes.
+- **A second image.** While an image of this option is being made, or after an
+  unanswered ask, **Make** first asks "Make a second image?", with what it costs again.
+  An image of the room being made shows a banner with **See it**. If the room's images
+  can't be read, it says so with Retry.
+- **Change option** goes back to C22 for this room. The shade disclaimer is at the foot.
+
 ### C24 · AI image — working and result
 
 **Route** `ai-image/[renderId].tsx` · **Phase** 5
@@ -614,6 +666,39 @@ Boards when ready.
 **Result:** the image full bleed, pinch to zoom · **Save to phone** · **Send on
 WhatsApp** · **Share…** · the AI disclaimer. `FAILED` → plain reason; credits are not
 lost (say so only if the server confirms a refund).
+
+As built:
+- **Working.** QUEUED and RUNNING look the same. The customer sees the time taken, never a
+  status. The words change after 90 s ("the AI is busy… still trying", the website's
+  wording) and again after 9½ minutes, past the server's 8-minute budget ("will still
+  finish, or fail and hand your credits back"). The clock starts at the ask when it was
+  asked on this phone. Otherwise it starts at the server's `createdAt` (India time, no
+  zone), clamped between first sight and 25 minutes before it, so a phone clock that is
+  off can't restart the wait or make it look ancient.
+- **Polling.** `RenderWatcher`, mounted once under the customer's screens, does it, not C24.
+  It polls every 2 s for the first minute, then every 5 s, then every 15 s once it is very
+  late, pausing in the background. Because of that, **Leave this running** (back to the
+  tabs already open, on Boards → AI images) loses nothing. When the image ends, the
+  watcher re-reads the wallet, the shelf, the room's images and its options, so C4, C25
+  and Home catch up wherever the customer is. An image remembered as "being made" from an
+  earlier visit is checked with the server before Working is shown.
+- **Ready.** The picture is capped at half the screen, so Send and Save stay in reach. Tap
+  it for full screen (pinch to zoom, close button). **Send the image** opens the share
+  sheet with the file. There is one button because a file reaches WhatsApp no other way
+  without native code, as on C16. **Save to phone** asks for permission to add to the
+  photos only now; a refusal offers Settings. **Send it as a PDF with its shades** makes a
+  one-page PDF with the AI disclaimer, and is refused rather than sent without its shades.
+  Then **Make another of this room** and **All my AI images**. Its shades show large and
+  copyable, then both disclaimers. The picture's address is signed for an hour: an expired
+  one is fetched afresh once, and a picture that still won't load offers Retry. A picture
+  that can't be fetched is said as such, never blamed on the phone. Ready is felt (haptic)
+  and announced when the customer watched it finish.
+- **Failed.** Shows the server's own sentence when it is fit to show (it says the credit is
+  back). Otherwise "Your credits are back" only when the wallet shows a `RENDER_REFUNDED`
+  row since the ask; the render itself has no refund field. **Try again** goes to C23 with
+  the same choices and note, and says it uses credits again.
+- **Gone.** An image no longer on the account (404 or 403, even mid-wait) says so plainly.
+  An old link without its room finds it from the shelf.
 
 ---
 
@@ -633,6 +718,9 @@ when one was made. **Send the board again** when the file is on this phone; **Se
 room** (C11, view only); **Review the job** for a finished room (the app can't know when
 the painting is done). A room closed without a board says so; an open one says it hasn't
 taken a board yet. An option is numbered by its place on its printed page.
+Phase 5: **See the AI image** on an option with a finished one (→ C24). When the room's
+images can't be read, a banner says so with Retry, and an option the server marks as
+rendered says "An AI image was asked for" rather than nothing.
 
 ### C26 · Review the job
 
@@ -718,6 +806,8 @@ only after a cold start. Try again reopens the same basket — the quantities as
 not what the packing added. A re-check keeps the checking screen (only its button is
 busy). The server's 403 "Payment verification error." means Razorpay couldn't be asked,
 so it stays "checking"; any other 4xx is a refusal for good. Paid gives a success haptic.
+Bought from C23 (`from=ai-image`, carried through C28), paid leads **Back to your AI
+image**, back to the C23 it came from with its choices kept (C22 after a cold start).
 
 ### C30 · Add a shop code
 

@@ -48,7 +48,21 @@ now opens), sharing a room, rooms and credits, checkout through Razorpay on the 
 app mid-payment. Left for a real phone: make a board on `expo-gl`, and a Razorpay test
 payment including the cold start.
 
-**Next: Phase 5 — AI images.** The order is in [docs/08-roadmap.md](docs/08-roadmap.md).
+**Phase 5 — AI images — is built.**
+- Choose a room and the option to photograph.
+- Choose how it is photographed, with each quality priced from the wallet. If credits
+  are short, buy them.
+- The ask is sent once. If it goes unanswered, the app checks whether the image started
+  and never asks again on its own.
+- The wait can be left: a watcher brings the image's end to the AI images shelf, the room
+  and the wallet.
+- Ready: send the image, save it to the photos, or send it as a PDF with its shades.
+  Failed: the server's reason, and Try again with the same choices.
+
+Left for a real phone: a real image end to end, with the share sheet and saving to the
+photos.
+
+**Next: Phase 6 — the painter.** The order is in [docs/08-roadmap.md](docs/08-roadmap.md).
 
 ## The plan
 

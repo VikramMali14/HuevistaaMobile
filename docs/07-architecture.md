@@ -77,6 +77,7 @@ HuevistaaMobile/
 │   │   ├── catalogue/                #   swatch grid, filters (Phase 2)
 │   │   ├── boards/                   #   making, keeping and sending colour boards (Phase 4)
 │   │   ├── payments/                 #   checkout, verification, the payment kept (Phase 4)
+│   │   ├── ai-images/                #   the one ask, images being made, the picture kept (Phase 5)
 │   │   └── painter/                  #   scanner, claim (Phase 6)
 │   ├── config/env.ts                 # API origin, site origin, app scheme
 │   ├── i18n/                         # every user-facing string
@@ -363,6 +364,41 @@ After the Phase 4 audit:
   an offscreen framebuffer read back as JPEG, to be checked on a real phone before it
   ships. Wall names typed in another script print as "?" for the same font reason.
 
+## AI images
+
+The server spends an image's credits inside `POST /api/projects/{id}/renders` and has no
+idempotency key: every request is a new charge.
+
+- `features/ai-images/start-render.ts` sends it at most once. It isn't sent while
+  `onlineManager` says the phone is offline: a React Query request started offline waits
+  until the phone is back online, so the request is called directly. Every reply is obeyed
+  (4xx: nothing spent).
+- Silence (a timeout, no connection, a 5xx) is reconciled, never retried. The room's images
+  are read just before the ask and again 0, 2 and 5 s after it. An image matching the ask
+  (option, every choice, the note) that wasn't there before, or is still being made, is
+  this one. Without the list from before, only one still being made, or one that ended
+  since the ask, counts. Otherwise C23 says the outcome is unknown and watches the list.
+- `in-flight.ts` is a small store of the images being made that this run knows of: asked
+  for here, or opened while being made. It also holds when each started by the phone's
+  clock: the ask's own moment, else the server's `createdAt` clamped between the first
+  sight and 25 minutes before.
+- `RenderWatcher`, mounted once in `app/(customer)/_layout.tsx`, polls each image with
+  `useQueries` (2 s, then 5 s after a minute, then 15 s after 9½ minutes; React Query
+  pauses it in the background). When one ends or is gone, it is dropped, and
+  `renderChanges(projectId)` in `query-keys.ts` is invalidated: the wallet, the shelf, and
+  the room's images and options (`exact`, so one image's own key is not refetched). C24
+  reads the same query without polling it.
+- A finished image's query is never stale by itself: its picture's address is presigned
+  again on every read (valid an hour), so C24 reads it again only when a picture fails.
+  `expo-image` keys the picture by image (`cacheKey: render-{id}`), not by address.
+- `render-files.ts` fetches the picture once per image into `cache/ai-images/` (shared by
+  Send, Save and the PDF). It times out after 60 s and keeps only a whole JPEG (FF D8),
+  written beside its name and moved into place. A kept file that isn't one is fetched
+  again. A sign-out bumps a generation counter, so a fetch still running writes nothing.
+  The folder is deleted on sign-out. Saving goes through `expo-media-library/legacy` with
+  `requestPermissionsAsync(true)` (write only). The browser preview downloads instead
+  (`render-files.web.ts`).
+
 ## Reusing the website's code
 
 Copy plain TypeScript files from `HueVistaFrontEnd/src/lib/` into `src/lib/` when a
@@ -381,6 +417,8 @@ If the copies start drifting, move them into a shared npm package later. Not bef
 - The shade catalogue and the profile are persisted, so they work offline.
 - Colour autosaves queue while offline and replay in order.
 - Uploads shrink photos on the phone first.
+- The request that spends an AI image's credits is never queued or retried. Offline, it
+  isn't sent; an unanswered one is reconciled from what the server shows afterwards.
 - Skeletons, never blank screens; nothing blocks on a request it doesn't need.
 
 ## Security
