@@ -415,22 +415,72 @@ the room it is photographing.
 
 | | Screen | Spec |
 |---|---|---|
-| ☐ | P1 Home | [05](05-screens-painter.md#p1--home) |
-| ☐ | P3 Scan | [05](05-screens-painter.md#p3--scan) |
-| ☐ | P6 Claim a board | [05](05-screens-painter.md#p6--claim-a-board) |
-| ☐ | P8 Type the code | [05](05-screens-painter.md#p8--type-the-code) |
-| ☐ | P2 Points | [05](05-screens-painter.md#p2--points) |
-| ☐ | P4 Rewards | [05](05-screens-painter.md#p4--rewards) |
-| ☐ | P9 Reward detail | [05](05-screens-painter.md#p9--reward-detail) |
-| ☐ | P10 My vouchers | [05](05-screens-painter.md#p10--my-vouchers) |
-| ☐ | P11 Voucher | [05](05-screens-painter.md#p11--voucher) |
-| ☐ | P5 Nearby — be found | [05](05-screens-painter.md#p5--nearby--be-found-by-customers) |
-| ☐ | P12 Trade profile | [05](05-screens-painter.md#p12--trade-profile) |
-| ☐ | P7 Board came as a PDF | [05](05-screens-painter.md#p7--board-came-as-a-pdf) |
-| ☐ | C33 Work as a painter | [04](04-screens-customer.md#c33--work-as-a-painter) |
+| ☑ | P1 Home | [05](05-screens-painter.md#p1--home) |
+| ☑ | P3 Scan | [05](05-screens-painter.md#p3--scan) |
+| ☑ | P6 Claim a board | [05](05-screens-painter.md#p6--claim-a-board) |
+| ☑ | P8 Type the code | [05](05-screens-painter.md#p8--type-the-code) |
+| ☑ | P2 Points | [05](05-screens-painter.md#p2--points) |
+| ☑ | P4 Rewards | [05](05-screens-painter.md#p4--rewards) |
+| ☑ | P9 Reward detail | [05](05-screens-painter.md#p9--reward-detail) |
+| ☑ | P10 My vouchers | [05](05-screens-painter.md#p10--my-vouchers) |
+| ☑ | P11 Voucher | [05](05-screens-painter.md#p11--voucher) |
+| ☑ | P5 Nearby — be found | [05](05-screens-painter.md#p5--nearby--be-found-by-customers) |
+| ☑ | P12 Trade profile | [05](05-screens-painter.md#p12--trade-profile) |
+| ☑ | P7 Board came as a PDF | [05](05-screens-painter.md#p7--board-came-as-a-pdf) |
+| ☑ | C33 Work as a painter | [04](04-screens-customer.md#c33--work-as-a-painter) |
 
-Packages: `npx expo install expo-camera expo-location expo-document-picker react-native-webview`.
-Port: `HueVistaaPainter/src/lib/reward-token.ts`, `board-file.ts` (in a WebView).
+Packages: `expo-location`, `expo-document-picker`, `expo-crypto` and
+`react-native-webview` 13.16.1 (versions from Expo's own list; `expo-camera` and
+`expo-clipboard` were already in). devDependencies, pinned exactly, for the board reader's page only: `pdfjs-dist`
+4.10.38 and `jsqr` 1.4.0. `app.json`: the location plugin (when in use only, no
+background), the camera's purpose now names the QR, a `VIEW` intent filter for PDFs
+(Android) and the PDF document type (iOS).
+
+Ported: `reward-token.ts` as it is, and `board-file.ts`'s reading, run in a WebView (see
+[07](07-architecture.md#the-painter-phase-6)). UI kit added: `Switch`, `QrFrame`,
+`CountUp`, `Pill`; `ConfirmSheet` takes a `testID`.
+
+New in `src/features/painter`:
+- `points.ts` (the words for points, batches, rewards and their status, and
+  `claimLanded`), `listing.ts` (P5, P12), `redeem.ts` (`RequestKey`) and `use-painter.ts`.
+- `board-reader/` (the page, its protocol and the WebView), `board-file.ts`, `read-file.ts`
+  and `shared-board.ts`, with `app/+native-intent.tsx`.
+
+**Done:** 2026-10.
+- **Tests.** Route tests for every screen through the real route tree
+  (`src/__tests__/phase6-painter.test.tsx`: 35, with the camera, location, files and the
+  reader's WebView faked). Unit tests for the points words and `claimLanded`, the listing
+  and trade bodies, the request key, server times, the reader's conversation, the
+  generated page being up to date, and the file and share-in rules. The reader itself in
+  Chromium (`scripts/verify-board-reader.mjs`, 9 checks on a real board).
+- **Browser walk.** Every screen in a phone-sized Chromium against a stand-in backend,
+  light and dark: claim, redeem, listing, trade profile and becoming a painter end to end,
+  and a real board's PDF picked and read by the iframe reader to its claim.
+
+As built, against the spec (details under each screen in [05](05-screens-painter.md)):
+- A board pays what the server says: 25 points today, not 50. A refunded voucher is the
+  server's `REJECTED`. The record is `jobsCompleted`.
+- The ledger is the newest 20 movements, all the server gives.
+- P7 reads PDFs and photos; **Open with HueVistaa** works, **Share to** is left for later
+  (a native share-intent module).
+- P12 never sends the phone; P5 always sends `about` and a position rounded to ~1 km.
+
+**Review (2026-10)**, from the walk and a pass over the money paths. Fixed, each with a test:
+- A painter who opened a board's link (or a shared PDF) while signed out landed on Home
+  after signing in: the guard reported only `/painter?token=…` on its way out, which
+  replaced the page asked for. The deeper path is now kept.
+- After an unanswered claim, another board's 25 points from a minute before looked like
+  this one's. Landed now also needs the board to read as claimed.
+- "Expires tomorrow" for a batch lapsing in an hour tonight: the day is now worded by the
+  date in India; the warning still counts as the website does.
+- The request key: `expo-crypto` answering nothing meant a new key on every retry. A key
+  is always made.
+- The older route tests opened painter screens that read the real network; they're faked.
+- On screen: a phone number no longer breaks across lines; P12's **Add** sits level with
+  its field; shorter labels where a button wrapped (P2, P5).
+
+Left for a real phone: the camera on a printed board, the WebView reader on Android and
+iOS (memory on a 25 MB board), and "Open with" from WhatsApp.
 
 ## Phase 7 — Nearby, community, help and links
 
@@ -471,8 +521,10 @@ Port: `HueVistaaPainter/src/lib/reward-token.ts`, `board-file.ts` (in a WebView)
 | 6 | HueVista | A tiny public endpoint returning the minimum supported app version (X5). | Phase 8 |
 | 7 | HueVista | Optional: nearby search by area name, for people who won't share location (C32). | Phase 7 |
 | 8 | HueVista | `docs/HueVista_Mobile_API_Guide.pdf` only covers sign-in and images — update it or point it at Swagger. | Any time |
-| 9 | HueVista | `POST /api/projects/*/renders` is limited to 12 an hour **per IP only** (`SensitiveEndpointRateLimitFilter`), counting 400s and 402s. Indian mobile networks put many customers behind one address (CGNAT), so one person's asks can refuse another's. Count it per account, as the nearby-search policies do. | Phase 5 (now) |
-| 10 | HueVista | Deleting a room while its AI image is being made loses the credits: the render row is cascaded away, so the worker's and sweeper's `finishIfInFlight` match nothing and nothing is refunded. Refund in-flight renders in `deleteProject`, or refuse the delete while one is being made. | Phase 5 (now) |
+| 9 | HueVista | ~~`POST /api/projects/*/renders` limited per IP only.~~ Fixed on branch `claude/stoic-knuth-d9829w`: 12 an hour per account, checked first, and a network cap of 120 for many accounts behind one address. Merge it. | Phase 5 (merge) |
+| 10 | HueVista | ~~Deleting a room while its AI image is being made loses the credits.~~ Fixed on branch `claude/stoic-knuth-d9829w`: `deleteProject` locks the room and refunds every image still being made, in the same transaction. Merge it. | Phase 5 (merge) |
+| 11 | HueVista | `POST /api/rewards/{token}/claim` takes no request key. The app reconciles an unanswered claim by reading the points and the board, but a key (as redeem has) would make a retry simply safe. | Any time |
+| 12 | HueVista | There's no read of one redemption, so P11 reads the whole list. `GET /api/painter/redemptions/{id}` would do. | Any time |
 
 ## Decisions to confirm
 

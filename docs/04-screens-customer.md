@@ -872,3 +872,8 @@ painter account** → `POST /api/painters/me` → reload profile → `/painter`.
 
 Refused (rooms or a shop code on the account) → the backend's reason: "Sign up
 separately to work as a painter."
+
+**As built:** the change is confirmed first in a sheet that says it's for good. Refused →
+the server's own sentence. No new token comes back (the role is read on every request),
+so the profile is read again and the guards hand over to `/painter`. Pressing again after
+a lost answer is safe: the server's call is idempotent.

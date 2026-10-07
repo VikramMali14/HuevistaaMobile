@@ -62,7 +62,22 @@ payment including the cold start.
 Left for a real phone: a real image end to end, with the share sheet and saving to the
 photos.
 
-**Next: Phase 6 — the painter.** The order is in [docs/08-roadmap.md](docs/08-roadmap.md).
+**Phase 6 — the painter — is built.**
+- Home, points with each batch's expiry, and the newest movements.
+- Scan a board's QR, type its code, or open its PDF: the PDF is read on the phone (pdf.js
+  and jsQR in a hidden WebView, no network) and only the code is sent. PDFs open with
+  HueVistaa from other apps.
+- Claim a board: an unanswered claim is checked against the points, never repeated.
+- Rewards priced against the balance, redeemed with a key that makes a retry safe, and
+  vouchers with their codes.
+- Be found nearby (a rough location and a line about you), the trade profile, and C33 for
+  a customer becoming a painter.
+
+Left for a real phone: the camera on a printed board, the reader on Android and iOS, and
+"Open with" from WhatsApp.
+
+**Next: Phase 7 — nearby, community, help and links.** The order is in
+[docs/08-roadmap.md](docs/08-roadmap.md).
 
 ## The plan
 

@@ -78,7 +78,7 @@ HuevistaaMobile/
 │   │   ├── boards/                   #   making, keeping and sending colour boards (Phase 4)
 │   │   ├── payments/                 #   checkout, verification, the payment kept (Phase 4)
 │   │   ├── ai-images/                #   the one ask, images being made, the picture kept (Phase 5)
-│   │   └── painter/                  #   scanner, claim (Phase 6)
+│   │   └── painter/                  #   points, rewards, listing, board reader (Phase 6)
 │   ├── config/env.ts                 # API origin, site origin, app scheme
 │   ├── i18n/                         # every user-facing string
 │   ├── lib/                          # pure helpers (money, validation, ported web logic)
@@ -398,6 +398,56 @@ idempotency key: every request is a new charge.
   The folder is deleted on sign-out. Saving goes through `expo-media-library/legacy` with
   `requestPermissionsAsync(true)` (write only). The browser preview downloads instead
   (`render-files.web.ts`).
+
+## The painter (Phase 6)
+
+Points, rewards and the painter's profile are read with React Query (`use-painter.ts`;
+keys in `query-keys.ts`). What a claim changes (`claimChanges`: wallet, catalogue) and what
+a redemption changes (`redeemChanges`: also the vouchers) are invalidated whatever the
+answer. Server times carry no zone and are India's wall clock (`serverMoment` in
+`lib/dates.ts`). Days left are counted as the website counts them (rounded up); "today"
+and "tomorrow" go by the date in India.
+
+Money and points:
+- **Claim** (`POST /api/rewards/{token}/claim`) has no key. A refusal re-reads the board
+  and shows how it stands. Silence is reconciled, never retried: the points and the board
+  are read again, and it counts as landed only when the board no longer reads claimable
+  and a board credit for that much has appeared since the ask (`claimLanded`).
+- **Redeem** carries a `requestKey`. `RequestKey` keeps one across retries of the same
+  press and makes a new one once a redemption comes back, so a lost answer is retried
+  safely: the server answers a repeated key with the redemption it already made.
+
+**The board reader (P7).** A board's PDF is read on the phone, never uploaded.
+- `scripts/board-reader/reader.js` runs in a page beside pdf.js 4.10.38 (legacy build, its
+  worker run in the page) and jsQR 1.4.0 (both pinned exactly, devDependencies).
+  `scripts/build-board-reader.mjs` puts them in one ASCII page under 2 MiB:
+  `src/features/painter/board-reader/reader-html.generated.ts`, committed, with the
+  sha-256 of everything it was built from. `board-reader-generated.test.ts` fails when the
+  committed page is out of step with them.
+- The page's content security policy shuts the network off (`connect-src 'none'`). Native:
+  a hidden `react-native-webview` (no files, no storage, no other page; every URL passes
+  the allowlist so none is handed to the browser, and all but `about:` are refused). Web: a
+  sandboxed `srcdoc` iframe (`allow-scripts` only). The page is a lazy import, its own
+  chunk on the web.
+- `board-reader/protocol.ts` is the conversation: the file goes in 256 KiB base64 chunks,
+  each acknowledged; the page reports each page it starts and offers every QR text it
+  reads; the app answers whether it's ours (`rewardTokenFrom`) and the page reads on after
+  a no. Pages are read last first, then the first, then backwards, at 1400 and 2200 px
+  wide; the first two looked at are also cut into four overlapping tiles at 3200 px. No
+  canvas goes over 16 MP (iOS). Drawn with pdf.js's print intent, which doesn't wait on
+  animation frames a hidden WebView may never give. 60 s without a word from the page is
+  a failure.
+- `scripts/verify-board-reader.mjs` proves the page in Chromium: a real colour board
+  (`scripts/board-reader/fixtures/colour-board.pdf`, from the studio's own builder) gives
+  its token from its last page with nothing fetched; a photo of that page does too; another
+  QR is refused and the reading carries on; no QR, not a PDF, and a broken image each end
+  as they should.
+- **Open with HueVistaa.** Android: a `VIEW` intent filter for `application/pdf` on
+  `content://`. iOS: the PDF document type (`LSHandlerRank` Alternate, copied into the
+  app). `app/+native-intent.tsx` holds the file (`shared-board.ts`, memory only) and opens
+  P7, which reads it at once. A board link or file opened while signed out is remembered
+  through sign-in (`pending-route.ts` keeps the deeper path when a guard reports only its
+  own segment on the way out).
 
 ## Reusing the website's code
 
