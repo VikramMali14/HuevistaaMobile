@@ -12,7 +12,19 @@
     "primaryColor": "#c08b4e",
     "ios": {
       "bundleIdentifier": "com.gridstore.huevistaa",
-      "supportsTablet": false
+      "supportsTablet": false,
+      "infoPlist": {
+        "CFBundleDocumentTypes": [
+          {
+            "CFBundleTypeName": "PDF document",
+            "LSHandlerRank": "Alternate",
+            "LSItemContentTypes": [
+              "com.adobe.pdf"
+            ]
+          }
+        ],
+        "LSSupportsOpeningDocumentsInPlace": false
+      }
     },
     "android": {
       "package": "com.gridstore.huevistaa",
@@ -26,6 +38,20 @@
         "android.permission.READ_MEDIA_VIDEO",
         "android.permission.READ_MEDIA_AUDIO",
         "android.permission.READ_MEDIA_VISUAL_USER_SELECTED"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "category": [
+            "DEFAULT"
+          ],
+          "data": [
+            {
+              "scheme": "content",
+              "mimeType": "application/pdf"
+            }
+          ]
+        }
       ]
     },
     "plugins": [
@@ -52,16 +78,25 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "HueVistaa uses the camera to photograph the walls you want to paint.",
+          "cameraPermission": "HueVistaa uses the camera to photograph the walls you want to paint, and to scan the QR on a colour board.",
           "microphonePermission": false,
           "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "HueVistaa uses your location when you choose to be listed, so customers near you can find you. Only a rough area is shown.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false
         }
       ],
       [
         "expo-image-picker",
         {
           "photosPermission": "HueVistaa opens your photos so you can pick a room to paint.",
-          "cameraPermission": "HueVistaa uses the camera to photograph the walls you want to paint.",
+          "cameraPermission": "HueVistaa uses the camera to photograph the walls you want to paint, and to scan the QR on a colour board.",
           "microphonePermission": false
         }
       ],

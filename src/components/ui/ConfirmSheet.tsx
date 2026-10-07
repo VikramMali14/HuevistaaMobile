@@ -23,6 +23,8 @@ export interface ConfirmSheetProps {
   error?: string | null;
   onConfirm: () => void;
   onCancel: () => void;
+  /** On the sheet; its confirm button gets `${testID}-confirm`. */
+  testID?: string;
 }
 
 /** "Are you sure?" — the title, what happens, and two buttons. */
@@ -37,10 +39,11 @@ export function ConfirmSheet({
   error,
   onConfirm,
   onCancel,
+  testID,
 }: ConfirmSheetProps) {
   const { space } = useTheme();
   return (
-    <Sheet visible={visible} onClose={loading ? () => {} : onCancel} title={title}>
+    <Sheet visible={visible} onClose={loading ? () => {} : onCancel} title={title} testID={testID}>
       {body ? <Text variant="body" tone="soft">{body}</Text> : null}
       {consequences?.length ? (
         <View style={{ gap: space.xs }}>
@@ -58,6 +61,7 @@ export function ConfirmSheet({
           variant={destructive ? "danger" : "primary"}
           onPress={onConfirm}
           loading={loading}
+          testID={testID ? `${testID}-confirm` : undefined}
         />
         <Button label={t("common.cancel")} variant="ghost" onPress={onCancel} disabled={loading} />
       </View>

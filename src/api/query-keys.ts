@@ -31,7 +31,20 @@ export const keys = {
   /** Every AI image of one room (C23, C25); one of them below it (C24). */
   roomRenders: (id: string) => ["me", "projects", id, "renders"] as const,
   render: (id: string, renderId: string) => ["me", "projects", id, "renders", renderId] as const,
+  /** The painter's side (P1–P12). */
+  painterWallet: ["painter", "wallet"] as const,
+  painterCatalogue: ["painter", "catalogue"] as const,
+  painterRedemptions: ["painter", "redemptions"] as const,
+  painterProfile: ["painter", "profile"] as const,
+  /** P6: a board's preview, by its token. */
+  boardScan: (token: string) => ["painter", "board", token] as const,
 };
+
+/** What a claimed board changes: the balance, its batches and statement — and what it buys. */
+export const claimChanges = [keys.painterWallet, keys.painterCatalogue] as const;
+
+/** What a redemption changes: the balance, what's affordable, and the vouchers. */
+export const redeemChanges = [keys.painterWallet, keys.painterCatalogue, keys.painterRedemptions] as const;
 
 /**
  * What a redeemed shop code changes. The rooms are read again as well: whether a room is

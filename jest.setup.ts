@@ -30,3 +30,18 @@ jest.mock("expo-gl", () => ({ GLView: require("react-native").View }));
 // GPU canvas above, what is tested is everything around it.
 require("react-native-gesture-handler/jestSetup");
 jest.mock("@/components/ui/ZoomView", () => ({ ZoomView: ({ children }: { children: unknown }) => children }));
+
+// The board reader (P7) runs pdf.js in a WebView, which Jest has no browser for: the
+// WebView is an empty view here, and the 2 MB page it would load is left out. The reading
+// itself is proved in Chromium (scripts/verify-board-reader.mjs); the conversation with
+// it is unit-tested (board-reader-protocol.test.ts).
+jest.mock("react-native-webview", () => {
+  const { forwardRef, useImperativeHandle } = require("react");
+  const { View } = require("react-native");
+  const WebView = forwardRef(function WebView(props: Record<string, unknown>, ref: unknown) {
+    useImperativeHandle(ref, () => ({ postMessage: () => {}, injectJavaScript: () => {} }));
+    return require("react").createElement(View, { testID: props.testID ?? "webview" });
+  });
+  return { __esModule: true, WebView, default: WebView };
+});
+jest.mock("@/features/painter/board-reader/reader-html.generated", () => ({ READER_HTML: "<!doctype html>", READER_INPUTS: {} }));

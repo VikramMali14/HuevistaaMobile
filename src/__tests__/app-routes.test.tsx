@@ -32,6 +32,16 @@ jest.mock("@/api/endpoints/auth", () => ({
   },
 }));
 
+// The painter's screens read points, rewards and the painter's profile as they open; here
+// those answers never come (the screens stay loading), so nothing reaches the network.
+const mockNoAnswer = () => new Promise<never>(() => {});
+jest.mock("@/api/endpoints/rewards", () => ({
+  rewardsApi: { wallet: mockNoAnswer, catalogue: mockNoAnswer, redemptions: mockNoAnswer, redeem: mockNoAnswer, scan: mockNoAnswer, claim: mockNoAnswer },
+}));
+jest.mock("@/api/endpoints/painter", () => ({
+  painterApi: { becomePainter: mockNoAnswer, profile: mockNoAnswer, updateProfile: mockNoAnswer, updateListing: mockNoAnswer },
+}));
+
 function signedInAs(profile: Partial<UserProfile> & Pick<UserProfile, "role">) {
   mockSecure["hv.access"] = "access-token";
   mockSecure["hv.refresh"] = "refresh-token";
