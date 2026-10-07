@@ -10,6 +10,8 @@ export interface Balance {
   credits: number | null;
   /** At least one of the three answered — otherwise show nothing, never "0 rooms". */
   loaded: boolean;
+  /** Both room sources answered, so `rooms` is the whole count (C27 shows the figure). */
+  roomsKnown: boolean;
   /** Null while the entitlement is unknown (loading or failed): no card beats a wrong one. */
   nextStep: NextStep | null;
   entitlement: CustomerEntitlement | null;
@@ -41,5 +43,6 @@ export function balanceFrom(
   let nextStep: NextStep | null = null;
   if (entitlement?.ok) nextStep = rooms > 0 ? "ready" : ent ? "exhausted" : "missing";
 
-  return { rooms, credits, loaded, nextStep, entitlement: ent, options: opts };
+  const roomsKnown = Boolean(entitlement?.ok && options?.ok);
+  return { rooms, credits, loaded, roomsKnown, nextStep, entitlement: ent, options: opts };
 }

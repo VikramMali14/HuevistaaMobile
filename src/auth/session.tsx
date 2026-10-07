@@ -15,6 +15,11 @@ import { tokens } from "@/api/instance";
 import { authApi } from "@/api/endpoints/auth";
 import { isApiError } from "@/api/errors";
 import { queryClient } from "@/api/query-client";
+import { resetInFlight } from "@/features/ai-images/in-flight";
+import { clearRenderFiles } from "@/features/ai-images/render-files";
+import { resetMadeBoards } from "@/features/boards/made-boards";
+import { resetPayments } from "@/features/payments/payments";
+import { resetPending } from "@/features/payments/pending-payment";
 import { clearStudioCache } from "@/features/studio/engine/texture-loader";
 import { resetPaintStore, resetRecentShades } from "@/features/studio/paint-store";
 import { clearUpload } from "@/features/studio/photo-upload";
@@ -39,7 +44,9 @@ const CATALOGUE_CACHE_KEY = "hv.catalogue";
 
 /**
  * Everything kept for one account: the screens' data, the catalogue copy (a shop
- * customer's is limited to their shop), the studio's colours and trays, and the pictures. Dropped on sign-out AND when a
+ * customer's is limited to their shop), the studio's colours and trays, the boards made
+ * here, an unpaid order, the AI images fetched here, and the pictures. (A payment that went through and is not yet
+ * confirmed stays: the money has left — it is shown to its own account only.) Dropped on sign-out AND when a
  * sign-in brings a different profile (S10, C5's switch back), so one profile's rooms
  * never show under the other's name.
  */
@@ -47,11 +54,14 @@ async function forgetAccountData(): Promise<void> {
   queryClient.clear();
   resetPaintStore();
   resetTrays();
+  resetPayments();
   clearUpload();
   clearStudioCache();
-  await resetRecentShades();
+  clearRenderFiles();
+  resetInFlight();
+  await Promise.all([resetRecentShades(), resetMadeBoards(), resetPending()]);
   // The catalogue copy, which rooms open on Paint, and the board trays (Phase 3 studio).
-  await AsyncStorage.multiRemove([CATALOGUE_CACHE_KEY, "hv.paintedRooms", "hv.boardTrays"]).catch(() => {});
+  await AsyncStorage.multiRemove([CATALOGUE_CACHE_KEY, "hv.paintedRooms", "hv.boardTrays", "hv.askedShop"]).catch(() => {});
   try {
     await Promise.all([Image.clearMemoryCache(), Image.clearDiskCache()]);
   } catch {

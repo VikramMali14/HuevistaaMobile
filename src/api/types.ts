@@ -128,6 +128,25 @@ export interface AiCreditSummary {
   soonestExpiryAt?: string | null;
   expiringCredits?: number;
   currency: string;
+  /**
+   * What each quality of AI image costs, in credits (C23), in the backend's order (Premium,
+   * then Luxury). `quality` is sent straight back as the render's quality.
+   */
+  renderTiers?: { quality: RenderQuality | (string & {}); credits: number }[];
+  /** The wallet's latest movements, newest first (C27's statement). */
+  recentActivity?: AiCreditActivity[];
+}
+
+/** One movement in the AI credit wallet (backend AiCreditSummaryResponse.ActivityRow). */
+export interface AiCreditActivity {
+  id: string;
+  /** Signed: positive is bought or handed back, negative is spent. */
+  credits: number;
+  /** PURCHASED · SPENT_ON_RENDER · RENDER_REFUNDED · GRANTED · EXPIRED */
+  type: string;
+  balanceAfter: number;
+  note?: string | null;
+  createdAt?: string;
 }
 
 // ── Rooms ─────────────────────────────────────────────────────────────────────
@@ -201,11 +220,16 @@ export interface RoomDetail {
   cleanAngle?: "AS_SHOT" | "BEST_VIEW" | null;
   regions: RoomRegion[];
   hasShareLink?: boolean;
+  /** Owner view only, while a link is live: when it stops working, and its token. */
+  shareExpiresAt?: string | null;
+  shareToken?: string | null;
   createdAt?: string;
   updatedAt?: string;
   closedAt?: string | null;
   boardsUsed?: number;
   boardsAllowed?: number;
+  /** Combinations its colour boards handed over (a reopened room keeps them). */
+  comboCount?: number;
   fromLibrary?: boolean;
   readOnly?: boolean;
   readOnlyReason?: string | null;
@@ -297,7 +321,64 @@ export interface MaskReport {
 
 export type RenderStatus = "QUEUED" | "RUNNING" | "READY" | "FAILED";
 
-/** GET /api/me/renders (one row) — an AI image. */
+// ── AI images (C22–C24) ───────────────────────────────────────────────────────
+// The backend's CreateRenderRequest enums (ProjectRender.java), sent exactly as written.
+
+/** Which model makes it: the only choice that changes the price. */
+export type RenderQuality = "PREMIUM" | "LUXURY";
+export type RenderTime = "DAY" | "NIGHT";
+export type RenderBorder = "KEEP_ORIGINAL" | "AI_SUGGESTED";
+export type RenderLighting = "NATURAL" | "WARM" | "COOL" | "DRAMATIC";
+export type RenderFurnishing = "KEEP" | "STAGED" | "EMPTY";
+export type RenderStyle = "MODERN" | "MINIMAL" | "TRADITIONAL" | "HERITAGE" | "LUXE";
+/** Paint from the cleaned photo (the usual) or the photo as taken. */
+export type RenderSource = "CLEANED" | "ORIGINAL";
+
+/** How an AI image is photographed (C23). */
+export interface RenderChoices {
+  quality: RenderQuality;
+  sourceImage: RenderSource;
+  timeOfDay: RenderTime;
+  borderMode: RenderBorder;
+  lighting: RenderLighting;
+  furnishing: RenderFurnishing;
+  style: RenderStyle;
+}
+
+/** POST /api/projects/{id}/renders. Every choice is sent; the note only when there is one. */
+export interface RenderRequest extends RenderChoices {
+  comboId: string;
+  /** At most 500 characters. */
+  note?: string;
+}
+
+/**
+ * GET /api/projects/{id}/renders[/{renderId}] — one AI image of a room, in any state. The
+ * choices are the server's words (an older or newer value may come back). `imageUrl` is
+ * signed afresh on every read, so it changes each time; `failureReason` is set only when
+ * FAILED, and a FAILED image has already handed its credits back.
+ */
+export interface ProjectRender {
+  id: string;
+  /** Null only if its board page was deleted. */
+  comboId: string | null;
+  status: RenderStatus;
+  imageUrl: string | null;
+  failureReason: string | null;
+  timeOfDay: string;
+  borderMode: string;
+  lighting: string;
+  furnishing: string;
+  style: string;
+  quality: string;
+  sourceImage: string;
+  note: string | null;
+  /** India time, no zone. */
+  createdAt: string;
+  completedAt: string | null;
+}
+
+/** GET /api/me/renders (one row) — a finished AI image (the server lists READY ones only). */
 export interface MyRender {
   id: string;
   projectId: string;
@@ -307,6 +388,15 @@ export interface MyRender {
   imageUrl?: string | null;
   createdAt?: string;
   completedAt?: string | null;
+  timeOfDay?: string;
+  lighting?: string;
+  style?: string;
+  quality?: string;
+  comboId?: string | null;
+  comboTitle?: string | null;
+  boardIndex?: number | null;
+  /** The shades its combination was printed in; empty if the board page has gone. */
+  shades?: ProjectCombo["shades"];
 }
 
 /** GET /api/free-projects (one row) — a ready-made room the team published. */
@@ -331,6 +421,165 @@ export interface StartedFreeProject {
   name: string;
   status: string;
   regionCount: number;
+}
+
+// ── Colour boards (C15, C16, C25, C4) ─────────────────────────────────────────
+
+/** One colour on a board page, as it is reported once the board is built. */
+export interface ColourBoardPageShade {
+  regionId?: number | null;
+  regionLabel?: string | null;
+  /** The code the catalogue has; for a customer that is the HV code. */
+  shadeCode?: string | null;
+  shadeName?: string | null;
+  /** #rrggbb — validated by the backend. */
+  hex: string;
+}
+
+/** POST /api/projects/{id}/colour-boards — one page each; the server keeps shades, not pictures. */
+export interface ColourBoardPage {
+  title?: string;
+  shades: ColourBoardPageShade[];
+}
+
+/** GET /api/billing/pdf-allowance. A customer's is unmetered; only `imagesPerPdf` matters. */
+export interface PdfAllowance {
+  imagesPerPdf: number;
+  monthlyLimit: number;
+  used: number;
+  remaining: number;
+  unlimited: boolean;
+}
+
+/** What recording (and charging for) a colour board answers. */
+export interface ColourBoardResult {
+  allowance: PdfAllowance;
+  boardsUsed: number;
+  boardsAllowed: number;
+  /** This board was the room's last: the room has closed. */
+  closed: boolean;
+}
+
+/** GET /api/projects/{id}/reward-code — the QR on the board's last page (204: none). */
+export interface RewardCode {
+  token: string;
+  /** What the QR encodes: a website address, so any camera app opens it. */
+  scanUrl: string;
+  expiresAt: string;
+  /** False on a room the customer did not buy: the QR is for their review only. */
+  paysPoints?: boolean;
+}
+
+/** GET /api/projects/{id}/combos (one row): one page of one of the room's boards. */
+export interface ProjectCombo {
+  id: string;
+  /** Which board (1-based) and where on it (0-based). */
+  boardIndex: number;
+  pageIndex: number;
+  title?: string | null;
+  /**
+   * An AI image of it has been ASKED for — in any state, a failed one included. Whether
+   * one was made is the room's renders' to say (GET /api/projects/{id}/renders).
+   */
+  rendered: boolean;
+  shades: {
+    regionId?: number | null;
+    regionLabel?: string | null;
+    shadeCode?: string | null;
+    shadeName?: string | null;
+    hvCode?: string | null;
+    hex: string;
+  }[];
+}
+
+/** GET /api/me/renderable-projects (one row): a room with board combinations. */
+export interface RenderableProject {
+  id: string;
+  name: string;
+  roomType?: string | null;
+  imageUrl: string;
+  cleanedImageUrl?: string | null;
+  /** Null while the room is still open (a reopened room keeps its combinations). */
+  closedAt?: string | null;
+  comboCount: number;
+}
+
+/** POST /api/projects/{id}/share — created, or the same link refreshed. */
+export interface ShareLink {
+  shareUrl: string;
+  shareToken: string;
+  expiresAt?: string | null;
+}
+
+// ── Buying (C27, C28, C29, D3) ────────────────────────────────────────────────
+
+/** GET /api/billing/cart — the customer's counter. Every amount is in paise. */
+export interface CartCatalogue {
+  /** False for an account this counter is not for (it answers 403 to an order). */
+  eligible: boolean;
+  projectPricePaise: number;
+  creditPricePaise: number;
+  /** The combo: cheaper than its parts bought separately. */
+  comboPricePaise: number;
+  comboProjects: number;
+  comboCredits: number;
+  /** The special offer; `bundleAvailable` false takes it off the counter. */
+  bundleAvailable?: boolean;
+  bundlePricePaise?: number;
+  bundleListPricePaise?: number;
+  bundleProjects?: number;
+  bundleCredits?: number;
+  /** How long everything bought here lasts. */
+  validDays: number;
+  /** The most of any one line one order may hold. */
+  maxQuantity: number;
+  /** Percentage offers, weakest first; the best one a basket reaches applies itself. */
+  offers: { code: string; minSubtotalPaise: number; percentOff: number }[];
+  /** Whether those offers also come off the combo and the bundle. */
+  offersApplyToPackages?: boolean;
+  availableProjects: number;
+  creditBalance: number;
+  creditsExpireAt?: string | null;
+  creditsExpiring?: number;
+  currency: string;
+}
+
+/** The four lines the server prices — what an order sends. */
+export interface CartSplit {
+  projects: number;
+  credits: number;
+  combos: number;
+  bundles: number;
+}
+
+/** POST /api/billing/cart/order — the Razorpay order and the bill behind it. */
+export interface CartOrder {
+  orderId: string;
+  subtotalPaise: number;
+  discountCode?: string | null;
+  discountPercent: number;
+  discountPaise: number;
+  /** What Checkout charges. */
+  amountPaise: number;
+  /** What it hands over once paid — packages already unpacked. */
+  projectsGranted: number;
+  creditsGranted: number;
+  validDays: number;
+  currency: string;
+  razorpayKeyId: string;
+}
+
+/** POST /api/billing/attempts/{reference}/events — what happened to a checkout. */
+export interface CheckoutEventBody {
+  status: "OPENED" | "ABANDONED" | "FAILED" | "VERIFY_FAILED";
+  pageUrl?: string;
+  referrer?: string;
+  paymentId?: string;
+  errorCode?: string;
+  errorDescription?: string;
+  errorSource?: string;
+  errorStep?: string;
+  errorReason?: string;
 }
 
 // ── Shades ────────────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 import Feather from "@expo/vector-icons/Feather";
 import { Children, Fragment, type ComponentProps, type ReactNode } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 
 import { hairline, useTheme } from "@/theme";
 
@@ -18,11 +18,13 @@ export interface ListRowProps {
   onLongPress?: () => void;
   /** `danger` for a destructive row — Delete account, Sign out. */
   tone?: "default" | "danger";
+  /** Working on it: a spinner in place of the chevron, and presses ignored. */
+  busy?: boolean;
   testID?: string;
 }
 
 /** One row of a grouped list: icon, title (and detail), value, chevron. */
-export function ListRow({ title, detail, value, icon, onPress, onLongPress, tone = "default", testID }: ListRowProps) {
+export function ListRow({ title, detail, value, icon, onPress, onLongPress, tone = "default", busy = false, testID }: ListRowProps) {
   const { colors, space } = useTheme();
   const ink = tone === "danger" ? colors.dangerText : colors.fg;
   const body = (
@@ -43,7 +45,11 @@ export function ListRow({ title, detail, value, icon, onPress, onLongPress, tone
           {value}
         </Text>
       ) : null}
-      {onPress ? <Feather name="chevron-right" size={18} color={colors.fgMute} /> : null}
+      {busy ? (
+        <ActivityIndicator size="small" color={colors.fgMute} />
+      ) : onPress ? (
+        <Feather name="chevron-right" size={18} color={colors.fgMute} />
+      ) : null}
     </>
   );
 
@@ -55,7 +61,9 @@ export function ListRow({ title, detail, value, icon, onPress, onLongPress, tone
       testID={testID}
       onPress={onPress}
       onLongPress={onLongPress}
+      disabled={busy}
       accessibilityRole="button"
+      accessibilityState={busy ? { busy: true, disabled: true } : undefined}
       accessibilityLabel={value ? `${title}, ${value}` : title}
       style={({ pressed }) => [
         styles.row,

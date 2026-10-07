@@ -20,7 +20,8 @@
 Added later, by the screen that needs them (see [08-roadmap.md](08-roadmap.md)):
 `expo-camera`, `expo-image-picker`, `expo-image-manipulator`, `expo-gl`,
 `expo-file-system`, `expo-sharing`, `expo-media-library`, `expo-document-picker`,
-`expo-location`, `@shopify/flash-list`, `react-native-webview`. Always add them with
+`expo-location`, `@shopify/flash-list`, `react-native-webview`, `qrcode` (its core only,
+for the board's QR). Always add them with
 `npx expo install <name>` so the version matches the SDK. (If the network blocks Expo's
 version service, prefix it with `EXPO_OFFLINE=1` — it then uses the versions listed
 inside the installed `expo` package.)
@@ -74,6 +75,9 @@ HuevistaaMobile/
 │   ├── features/                     # screen-specific logic (created as screens need it)
 │   │   ├── studio/                   #   recolor engine, canvas, board tray (Phase 3)
 │   │   ├── catalogue/                #   swatch grid, filters (Phase 2)
+│   │   ├── boards/                   #   making, keeping and sending colour boards (Phase 4)
+│   │   ├── payments/                 #   checkout, verification, the payment kept (Phase 4)
+│   │   ├── ai-images/                #   the one ask, images being made, the picture kept (Phase 5)
 │   │   └── painter/                  #   scanner, claim (Phase 6)
 │   ├── config/env.ts                 # API origin, site origin, app scheme
 │   ├── i18n/                         # every user-facing string
@@ -211,6 +215,41 @@ never decided on the phone or on that page.
 6. Report what happened with `POST /api/billing/attempts/{reference}/events`, as the
    website does (`lib/payments.ts`).
 
+As built (`src/features/payments`):
+- One counter for everything: `POST /api/billing/cart/order` with the basket packed by
+  `lib/cart-pack` (ported from the website), credits alone included. `pay-link.ts` builds
+  the page's address and parses its answer — ids checked against Razorpay's shapes, a
+  success believed only once verified.
+- `pending-payment.ts` keeps `{ accountId, orderId, amount, rooms, credits, basket }` in
+  AsyncStorage while the browser is open (`basket` is what was asked for, for Try again),
+  and the proof (`paymentId`, `signature`) once Razorpay says paid, until the server
+  confirms it. Only that account sees it — or, for a proof that came back while signed out
+  with no order kept, the next account to sign in (`accountId: ""`; the server checks the
+  order is theirs). An unpaid order older than two hours is forgotten, a paid proof after
+  a week; sign-out drops an unpaid order and keeps a paid proof.
+- `payments.ts` settles an answer: one verification per payment, shared between the
+  waiting browser session and D3's deep link (Android can deliver both). A verification
+  that fails after a success is `checking` — reported as VERIFY_FAILED, tried again by
+  C29, and C27/C28 say a payment is being confirmed and C28 disables Pay. Verifying again
+  is safe: the backend answers a payment it already redeemed for this account as a
+  success. A refusal for good (a 4xx other than 401/408/429, and other than the 403
+  "Payment verification error." that means Razorpay couldn't be asked) is `refused`: the
+  proof goes, so Pay works again, and C29 gives the reason and the reference. OPENED,
+  ABANDONED (only for the page's own "cancelled") and FAILED (with Razorpay's code and
+  reason) are reported too, and never throw.
+- Before anything opens, the order's `amountPaise` is checked against the total the basket
+  showed; a different one throws `PriceChangedError` and re-reads the counter.
+- The browser session is opened with `preferEphemeralSession` (no iOS "wants to use … to
+  sign in" alert). On Android it can end as "dismissed" a moment before the redirect
+  carrying the answer arrives, so the app also listens for the link itself and waits
+  2.5 s for a late answer; a success always wins over a cancel, a failure or silence. A
+  browser closed with no answer is `unfinished`, not "cancelled": the order is kept (a
+  late answer can still settle it) and the balances are read again.
+- D3 reads the opening link through `use-opening-url.ts` (routing never sees a fragment).
+  While the app's own checkout is waiting it hands the answer over and steps aside; a
+  cancel or failure just after a checkout settled is its echo; on a cold start it settles
+  the kept order itself.
+
 ## The colour engine (the biggest risk)
 
 `src/features/studio/engine/`. The website's `lib/webgl-recolor.ts` shaders (`VERT`,
@@ -293,6 +332,73 @@ the board. Both are plain TypeScript apart from a few canvas helpers, so they po
 Page images come from GL snapshots (`GLView.takeSnapshotAsync`) as JPEG. The file is
 written with `expo-file-system` and shared with `expo-sharing`.
 
+As built: both are ported (`src/lib`), taking JPEG **bytes** and returning the file's
+bytes. C15's one canvas photographs each option (`RoomCanvas.snapshot(only)` paints exactly
+those colours, then puts the screen back); a page with no picture prints the option's
+swatches in the photo's place, so no recorded page is ever missing from the file. The
+reward page's QR is `qrcode`'s core (`create(url, { errorCorrectionLevel: "Q" })`), drawn
+as vector rectangles as on the website. `features/boards/board-run.ts` is the website's
+`colour-board-download.ts`: build → charge → hand over, refusals (any 4xx) obeyed, silence
+(no answer, a timeout, a 5xx) failing open. `board-files.ts` writes each board into its
+own folder under the app's documents (`boards/{room}/{time}/`), keeps it only once handed
+over (the room's earlier board then goes), throws a refused one away, and deletes the lot
+on sign-out; `made-boards.ts` remembers each room's last board for C16 and C25. Save to
+phone on Android writes a copy into a folder picked with `Directory.pickDirectoryAsync()`.
+The browser preview keeps boards as in-memory links (`board-files.web.ts`).
+
+After the Phase 4 audit:
+- Files are kept as their place inside the documents (`boards/…`), resolved by
+  `boardUri()` on use: iOS changes the documents' own path when the app updates.
+- `made-boards.ts` writes only after the boards of earlier runs are read in (writing
+  before replaced every other room's record), and a sign-out can't be undone by a read
+  still under way.
+- C15 makes the board only once every wall's mask has loaded (`RoomCanvas` reports
+  `loading`), holds back while it runs, and doesn't wait for the room refetches after the
+  hand-over. A charge that went unanswered keeps the tray. What's recorded with the charge
+  is kept within the server's limits (16 walls a page, label 255, name 160, code 64,
+  `#rrggbb`).
+- The printed text is in `src/i18n` (`pdf.*`). The board's base-14 fonts print Latin
+  letters only, so a room name in another script prints as "Your room" (`pdfPrintable`).
+- Known limit: a page's picture is the size of C15's preview canvas (`takeSnapshotAsync`
+  of the view), not the photo's; the website renders up to 1500 px. A larger render needs
+  an offscreen framebuffer read back as JPEG, to be checked on a real phone before it
+  ships. Wall names typed in another script print as "?" for the same font reason.
+
+## AI images
+
+The server spends an image's credits inside `POST /api/projects/{id}/renders` and has no
+idempotency key: every request is a new charge.
+
+- `features/ai-images/start-render.ts` sends it at most once. It isn't sent while
+  `onlineManager` says the phone is offline: a React Query request started offline waits
+  until the phone is back online, so the request is called directly. Every reply is obeyed
+  (4xx: nothing spent).
+- Silence (a timeout, no connection, a 5xx) is reconciled, never retried. The room's images
+  are read just before the ask and again 0, 2 and 5 s after it. An image matching the ask
+  (option, every choice, the note) that wasn't there before, or is still being made, is
+  this one. Without the list from before, only one still being made, or one that ended
+  since the ask, counts. Otherwise C23 says the outcome is unknown and watches the list.
+- `in-flight.ts` is a small store of the images being made that this run knows of: asked
+  for here, or opened while being made. It also holds when each started by the phone's
+  clock: the ask's own moment, else the server's `createdAt` clamped between the first
+  sight and 25 minutes before.
+- `RenderWatcher`, mounted once in `app/(customer)/_layout.tsx`, polls each image with
+  `useQueries` (2 s, then 5 s after a minute, then 15 s after 9½ minutes; React Query
+  pauses it in the background). When one ends or is gone, it is dropped, and
+  `renderChanges(projectId)` in `query-keys.ts` is invalidated: the wallet, the shelf, and
+  the room's images and options (`exact`, so one image's own key is not refetched). C24
+  reads the same query without polling it.
+- A finished image's query is never stale by itself: its picture's address is presigned
+  again on every read (valid an hour), so C24 reads it again only when a picture fails.
+  `expo-image` keys the picture by image (`cacheKey: render-{id}`), not by address.
+- `render-files.ts` fetches the picture once per image into `cache/ai-images/` (shared by
+  Send, Save and the PDF). It times out after 60 s and keeps only a whole JPEG (FF D8),
+  written beside its name and moved into place. A kept file that isn't one is fetched
+  again. A sign-out bumps a generation counter, so a fetch still running writes nothing.
+  The folder is deleted on sign-out. Saving goes through `expo-media-library/legacy` with
+  `requestPermissionsAsync(true)` (write only). The browser preview downloads instead
+  (`render-files.web.ts`).
+
 ## Reusing the website's code
 
 Copy plain TypeScript files from `HueVistaFrontEnd/src/lib/` into `src/lib/` when a
@@ -311,6 +417,8 @@ If the copies start drifting, move them into a shared npm package later. Not bef
 - The shade catalogue and the profile are persisted, so they work offline.
 - Colour autosaves queue while offline and replay in order.
 - Uploads shrink photos on the phone first.
+- The request that spends an AI image's credits is never queued or retried. Offline, it
+  isn't sent; an unanswered one is reconciled from what the server shows afterwards.
 - Skeletons, never blank screens; nothing blocks on a request it doesn't need.
 
 ## Security

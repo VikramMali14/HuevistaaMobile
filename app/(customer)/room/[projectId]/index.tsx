@@ -9,8 +9,8 @@ import { useTheme } from "@/theme";
 /**
  * CR · Open a room. Spec: docs/04-screens-customer.md — "The studio — one room, five steps".
  *
- * Loads the room and goes straight on to the step it is at. Any shade passed along (from
- * C19) goes with it.
+ * Loads the room and goes straight on to the step it is at — a finished room to its board
+ * (C25). Any shade passed along (from C19) goes with it.
  */
 export default function OpenRoom() {
   const router = useRouter();
@@ -26,10 +26,11 @@ export default function OpenRoom() {
     void wasPainted(id).then((painted) => {
       if (cancelled) return;
       const step = stepFor(data, painted);
-      router.replace({
-        pathname: `/room/[projectId]/${step}`,
-        params: { projectId: id, shade: params.shade, brand: params.brand },
-      } as Href);
+      router.replace(
+        step === "board"
+          ? ({ pathname: "/board/[projectId]", params: { projectId: id } } as Href)
+          : ({ pathname: `/room/[projectId]/${step}`, params: { projectId: id, shade: params.shade, brand: params.brand } } as Href),
+      );
     });
     return () => {
       cancelled = true;

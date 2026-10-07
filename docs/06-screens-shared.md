@@ -168,6 +168,23 @@ screen never shows. On a cold start (Android killed the app during payment) this
 reads the fragment, finds the pending order saved before checkout, verifies it, and
 shows C29.
 
+As built: when it opens while the app's own checkout is waiting, it hands the answer to
+that checkout and steps aside. On Android the browser session can end (as "dismissed") a
+moment BEFORE the redirect carrying the answer arrives, so the checkout waits briefly for
+a late answer, and a success always wins — over an earlier cancel, failure or a browser
+closed with no answer. A cancel or failure arriving just after the checkout settled is its
+echo, and goes back. On a cold start it reads the fragment, finds the order kept on the
+phone (`hv.pendingPayment`, the same account's only), and settles it: success → verify →
+C29; cancelled → back to the basket; failed → C29 with the reason. A cancel or failure
+never overwrites a payment that went through or a kept proof.
+
+Signed out — or with the server unreachable — a success's proof is kept even when no
+order was (sign-out clears unpaid orders but keeps paid proofs; one kept while signed out
+goes to the next account to sign in, and the server, which checks the order is theirs,
+decides). It then asks for sign-in (or offers Try again offline); C27 confirms it
+afterwards. A cancel or failure only says to sign in. An unpaid order older than two hours
+is forgotten; a paid proof is kept for a week — long past the server's own webhook.
+
 ---
 
 ## System states (X1–X6)

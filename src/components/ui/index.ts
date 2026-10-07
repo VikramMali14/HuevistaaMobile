@@ -26,6 +26,7 @@ export { ShadeCode } from "./ShadeCode";
 export { Sheet, type SheetProps } from "./Sheet";
 export { Skeleton } from "./Skeleton";
 export { STUDIO_STEPS, StepDots, type StudioStep } from "./StepDots";
+export { Stepper, type StepperProps } from "./Stepper";
 export { EmptyState, ErrorState, type EmptyStateProps, type ErrorStateProps } from "./States";
 export { SwatchTile, type SwatchTileProps } from "./SwatchTile";
 export { Em, Text, type TextProps, type TextTone } from "./Text";

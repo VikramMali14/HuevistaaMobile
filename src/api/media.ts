@@ -42,11 +42,13 @@ function withToken(uri: string): ImageSource {
  * once on a 401, like every other call), anything else as it is. For the studio, which
  * needs the pixels themselves rather than an <Image>.
  */
-export async function fetchMedia(url: string): Promise<Response> {
+export async function fetchMedia(url: string, signal?: AbortSignal): Promise<Response> {
   const src = mediaSource(url);
   if (!src?.uri) throw new Error("No picture to fetch");
-  const send = (token: string | null) =>
-    fetch(src.uri!, token && src.headers ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
+  const send = (token: string | null) => {
+    const headers = token && src.headers ? { Authorization: `Bearer ${token}` } : undefined;
+    return fetch(src.uri!, headers || signal ? { ...(headers ? { headers } : {}), ...(signal ? { signal } : {}) } : undefined);
+  };
   const used = src.headers ? tokens.accessToken : null;
   let res = await send(used);
   if (res.status === 401 && src.headers && tokens.hasSession()) {

@@ -35,16 +35,19 @@ export function WorkingState({ stage, sentence, estimate, startedAt, onLeave }: 
     return () => clearInterval(timer);
   }, []);
   return (
-    <View style={{ gap: space.sm }} accessibilityLiveRegion="polite">
-      <View style={styles.head}>
-        <ActivityIndicator color={colors.accentText} />
-        <Text variant="title3" accessibilityRole="header" style={{ flex: 1 }}>
-          {stage}
+    <View style={{ gap: space.sm }}>
+      {/* Announced when the stage or its sentence changes — not the clock, every second. */}
+      <View style={{ gap: space.sm }} accessibilityLiveRegion="polite">
+        <View style={styles.head}>
+          <ActivityIndicator color={colors.accentText} />
+          <Text variant="title3" accessibilityRole="header" style={{ flex: 1 }}>
+            {stage}
+          </Text>
+        </View>
+        <Text variant="body" tone="soft">
+          {sentence}
         </Text>
       </View>
-      <Text variant="body" tone="soft">
-        {sentence}
-      </Text>
       <Text variant="small" tone="mute">
         {[estimate, t("working.elapsed", { time: formatElapsed((now - startedAt) / 1000) })].filter(Boolean).join(" · ")}
       </Text>

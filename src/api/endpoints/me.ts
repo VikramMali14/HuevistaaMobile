@@ -2,7 +2,7 @@
  * The signed-in customer's own things: balance, rooms, AI images, shop codes.
  * Backend: account/controller/{CustomerEntitlementController,AccessCodeController},
  * billing/controller/{RewardPointsController,AiCreditController},
- * project/controller/{ProjectController,MyRendersController}. Screens: C1, C5, C27, C30, C31.
+ * project/controller/{ProjectController,MyRendersController}. Screens: C1, C4, C5, C27, C30, C31.
  */
 import { api } from "../instance";
 import type {
@@ -13,6 +13,7 @@ import type {
   ProjectPurchaseOptions,
   ProjectSummary,
   RedeemedCode,
+  RenderableProject,
   ShopCombo,
 } from "../types";
 
@@ -28,6 +29,12 @@ export const meApi = {
   projects: () => api.request<ProjectSummary[]>("api/projects"),
 
   renders: () => api.request<MyRender[]>("api/me/renders"),
+
+  /** C4: rooms that took a colour board — finished first, then reopened ones. */
+  renderableProjects: () => api.request<RenderableProject[]>("api/me/renderable-projects"),
+
+  /** C27: a shop customer whose rooms are used up asks the shop for another (202). */
+  requestMoreRooms: () => api.request<void>("api/me/request-more-projects", { method: "POST" }),
 
   /** C30. Adds the shop's rooms; the rooms and boards already here stay. */
   redeemCode: (code: string) => api.request<RedeemedCode>("api/access-codes/redeem", { body: { code } }),
