@@ -30,6 +30,8 @@ export const en = {
     mobile: "Mobile number",
     mobileOptional: "Mobile number (optional)",
     code: "Code",
+    // How a screen reader says the +91 printed before the number.
+    phonePrefixSpoken: "plus 91",
   },
   auth: {
     welcome: {
@@ -43,6 +45,7 @@ export const en = {
       terms: "Terms",
       legalAnd: " and the ",
       privacy: "Privacy Policy",
+      legalEnd: ".",
       shops: "Run a paint shop? HueVistaa for shops",
       demoNote: "The same room, three shades. Only the wall changes.",
       photoLabel: "A living room. Only the wall changes colour; the furniture and the light stay the same.",
@@ -172,6 +175,11 @@ export const en = {
     daysLeft: "{n} days left",
     oneDayLeft: "1 day left",
     closesToday: "Closes today",
+    // Comma-separated, January first. Dates are written by hand, not through Intl (lib/dates.ts).
+    monthsShort: "Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec",
+    monthsLong: "January,February,March,April,May,June,July,August,September,October,November,December",
+    am: "am",
+    pm: "pm",
   },
   greeting: {
     morning: "Good morning",
@@ -234,6 +242,10 @@ export const en = {
     deleteTitle: "Delete this room?",
     deleteBody: "Deleting a room is permanent and does not give the room back to your balance.",
     deleted: "Room deleted.",
+    // When a run on a photo fails and the server's reason isn't fit to show (failure-message.ts).
+    runFailed: "Something went wrong while we were preparing your photo. It's saved — press Try again. Trying again won't use another room.",
+    cleanFailed: "We couldn't prepare this photo just now. It's saved — try again in a few minutes, or mark the walls yourself. Trying again won't use another room.",
+    maskFailed: "We couldn't find the walls in this photo. Press Try again, or mark the walls yourself. Trying again won't use another room.",
   },
   addPhoto: {
     title: "Add a photo",
@@ -1060,7 +1072,14 @@ export const en = {
     appearanceValue: "Follows your phone's light or dark setting.",
     showAround: "Show me around",
     language: "Language",
-    languageValue: "English",
+    languagePhone: "Phone's language",
+    languagePhoneValue: "Phone's language ({language})",
+    languagePhoneBody: "Hindi when your phone is set to Hindi, otherwise English.",
+    // Each language is named in its own script, in every language.
+    languageEnglish: "English",
+    languageHindi: "हिन्दी",
+    languageNote: "Some messages from our server, and the colour board's PDF, stay in English.",
+    languageDone: "Done",
     legal: "Legal",
     terms: "Terms",
     privacy: "Privacy Policy",
@@ -1712,6 +1731,7 @@ export const en = {
     tooMany: "Too many tries. Wait a few minutes and try again.",
     sessionEnded: "Please sign in again.",
     generic: "That didn't go through. Try again.",
+    unreadable: "The server's answer couldn't be read. Try again.",
   },
   validation: {
     mobile: "Enter a 10-digit mobile number, e.g. 98765 43210.",

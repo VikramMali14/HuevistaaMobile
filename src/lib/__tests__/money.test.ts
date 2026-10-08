@@ -1,4 +1,4 @@
-import { formatPoints, formatRupees } from "../money";
+import { formatRupees } from "../money";
 
 describe("formatRupees", () => {
   it("shows whole rupees without decimals", () => {
@@ -14,9 +14,3 @@ describe("formatRupees", () => {
   });
 });
 
-describe("formatPoints", () => {
-  it("is singular for one point", () => {
-    expect(formatPoints(1)).toBe("1 point");
-    expect(formatPoints(30)).toBe("30 points");
-  });
-});

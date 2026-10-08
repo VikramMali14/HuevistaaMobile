@@ -1,6 +1,7 @@
 import { forwardRef, useState } from "react";
 import { StyleSheet, TextInput, View, type TextInputProps } from "react-native";
 
+import { t } from "@/i18n";
 import { formatMobileForDisplay, mobileDigits } from "@/lib/validation";
 import { fonts, hairline, useTheme } from "@/theme";
 
@@ -64,7 +65,7 @@ export const PhoneField = forwardRef<TextInput, PhoneFieldProps>(function PhoneF
           textContentType="telephoneNumber"
           autoComplete="tel-national"
           editable={editable}
-          accessibilityLabel={`${label}, plus 91`}
+          accessibilityLabel={`${label}, ${t("fields.phonePrefixSpoken")}`}
           accessibilityHint={error ?? hint}
           placeholder="98765 43210"
           placeholderTextColor={colors.fgMuteDeep}

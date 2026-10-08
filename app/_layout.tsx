@@ -19,6 +19,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { connectQueryClientToApp, queryClient } from "@/api/query-client";
 import { SessionProvider, useSession } from "@/auth/session";
 import { ToastProvider } from "@/components/ui";
+import { loadLanguage, useLanguage } from "@/i18n/language";
 import { useTheme } from "@/theme";
 
 // A1: keep the native splash up until fonts are in and the session is known.
@@ -36,6 +37,12 @@ export default function RootLayout() {
     InstrumentSerif_400Regular_Italic,
   });
 
+  // The language is read before anything is drawn, so no screen shows in the wrong one.
+  const [languageReady, setLanguageReady] = useState(false);
+  useEffect(() => {
+    void loadLanguage().finally(() => setLanguageReady(true));
+  }, []);
+
   useEffect(() => connectQueryClientToApp(), []);
 
   return (
@@ -45,7 +52,7 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <SessionProvider>
             <ToastProvider>
-              <Root ready={fontsLoaded || Boolean(fontError)} />
+              <Root ready={(fontsLoaded || Boolean(fontError)) && languageReady} />
             </ToastProvider>
           </SessionProvider>
         </QueryClientProvider>
@@ -57,6 +64,7 @@ export default function RootLayout() {
 function Root({ ready }: { ready: boolean }) {
   const { state } = useSession();
   const { colors, scheme } = useTheme();
+  const language = useLanguage();
   const [waitedTooLong, setWaitedTooLong] = useState(false);
 
   useEffect(() => {
@@ -78,7 +86,11 @@ function Root({ ready }: { ready: boolean }) {
   return (
     <>
       <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+      {/* A new language remounts every screen: they read their strings as they draw, and
+          the navigator keeps screens from drawing again on their own. The session, the
+          cached data and the toasts sit above and carry on. */}
       <Stack
+        key={language}
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.bg },

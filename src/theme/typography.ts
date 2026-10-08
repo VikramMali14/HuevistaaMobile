@@ -91,3 +91,17 @@ export const typeScale: Record<TextVariant, TextStyle> = {
     fontVariant: ["tabular-nums"],
   },
 };
+
+/**
+ * The same scale for Hindi. Inter has no Devanagari, so the phone's own Devanagari face
+ * fills in; its vowel signs reach well above and below Latin letters, and are clipped at
+ * Latin line heights — so every role gets at least 1.5× its size. Tracking is dropped: it
+ * pulls Devanagari's joined letters apart.
+ */
+export const hindiTypeScale: Record<TextVariant, TextStyle> = Object.fromEntries(
+  Object.entries(typeScale).map(([role, style]) => {
+    const size = style.fontSize ?? 16;
+    return [role, { ...style, letterSpacing: 0, lineHeight: Math.max(style.lineHeight ?? 0, Math.round(size * 1.5)) }];
+  }),
+) as Record<TextVariant, TextStyle>;
+

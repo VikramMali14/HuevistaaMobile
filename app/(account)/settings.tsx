@@ -4,15 +4,20 @@ import { useRef, useState } from "react";
 import { Platform, View } from "react-native";
 
 import { useSession } from "@/auth/session";
-import { BackButton, ConfirmSheet, ListGroup, ListRow, Screen, Text, useToast } from "@/components/ui";
-import { t } from "@/i18n";
+import { BackButton, Button, ChoiceCard, ConfirmSheet, ListGroup, ListRow, Screen, Sheet, Text, useToast } from "@/components/ui";
+import { getLanguage, t, type Language } from "@/i18n";
+import { chooseLanguage, languageChoice, phoneLanguage, type LanguageChoice } from "@/i18n/language";
 import { appVersion } from "@/lib/app-version";
+import { landNextOn } from "@/navigation/landing";
 import { openWebPage, webPages } from "@/lib/open-web";
 import { useSubmit } from "@/lib/use-submit";
 import { useTheme } from "@/theme";
 
 /** Taps on the version row that copy the app's details for support. */
 const DIAGNOSTIC_TAPS = 7;
+
+/** A language by its own name, the same in every language. */
+const languageName = (language: Language) => (language === "hi" ? t("settings.languageHindi") : t("settings.languageEnglish"));
 
 /**
  * S1 · Settings. Spec: docs/06-screens-shared.md — S1.
@@ -28,7 +33,17 @@ export default function Settings() {
   const { profile, signOut } = useSession();
   const leaving = useSubmit();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const choice = languageChoice();
   const taps = useRef(0);
+
+  // A new language remounts every screen (app/_layout.tsx); this one is opened again after.
+  const pick = (next: LanguageChoice) => {
+    setPicking(false);
+    const now = getLanguage();
+    if ((next === "phone" ? phoneLanguage() : next) !== now) landNextOn("/settings");
+    void chooseLanguage(next);
+  };
   const { version, build } = appVersion();
 
   const tapVersion = async () => {
@@ -58,7 +73,13 @@ export default function Settings() {
         {profile?.role === "CUSTOMER" ? (
           <ListRow icon="compass" title={t("settings.showAround")} onPress={() => router.push("/tour")} />
         ) : null}
-        <ListRow icon="globe" title={t("settings.language")} value={t("settings.languageValue")} />
+        <ListRow
+          icon="globe"
+          title={t("settings.language")}
+          value={choice === "phone" ? t("settings.languagePhoneValue", { language: languageName(phoneLanguage()) }) : languageName(choice)}
+          onPress={() => setPicking(true)}
+          testID="settings-language"
+        />
       </ListGroup>
 
       <ListGroup title={t("settings.legal")}>
@@ -87,6 +108,25 @@ export default function Settings() {
           <ListRow icon="trash-2" title={t("settings.deleteAccount")} tone="danger" onPress={() => router.push("/delete-account")} />
         ) : null}
       </ListGroup>
+
+      <Sheet visible={picking} onClose={() => setPicking(false)} title={t("settings.language")} testID="language-sheet">
+        <View style={{ gap: space.sm }}>
+          <ChoiceCard
+            title={t("settings.languagePhone")}
+            body={t("settings.languagePhoneBody")}
+            selected={choice === "phone"}
+            onPress={() => pick("phone")}
+            testID="language-phone"
+          />
+          {(["en", "hi"] as const).map((language) => (
+            <ChoiceCard key={language} title={languageName(language)} selected={choice === language} onPress={() => pick(language)} testID={`language-${language}`} />
+          ))}
+          <Text variant="small" tone="mute">
+            {t("settings.languageNote")}
+          </Text>
+          <Button variant="secondary" label={t("settings.languageDone")} onPress={() => setPicking(false)} />
+        </View>
+      </Sheet>
 
       <ConfirmSheet
         visible={confirmSignOut}

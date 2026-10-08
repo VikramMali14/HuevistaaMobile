@@ -172,7 +172,7 @@ export default function Welcome() {
             >
               {t("auth.welcome.privacy")}
             </Text>
-            .
+            {t("auth.welcome.legalEnd")}
           </Text>
 
           <View style={[styles.rule, { backgroundColor: colors.rule, marginVertical: space.md }]} />

@@ -1,7 +1,9 @@
 import { useColorScheme } from "react-native";
 
+import { getLanguage } from "@/i18n";
+
 import { dark, light, type Palette } from "./colors";
-import { fonts, typeScale } from "./typography";
+import { fonts, hindiTypeScale, typeScale } from "./typography";
 
 export { dark, light, fonts, typeScale };
 export type { Palette };
@@ -73,6 +75,7 @@ export function useTheme(): Theme {
     colors: scheme === "light" ? light : dark,
     space,
     radius,
-    type: typeScale,
+    // Read at render: a change of language remounts every screen (app/_layout.tsx).
+    type: getLanguage() === "hi" ? hindiTypeScale : typeScale,
   };
 }

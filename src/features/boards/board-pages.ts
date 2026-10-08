@@ -1,5 +1,5 @@
 import type { ColourBoardPage, RoomDetail } from "@/api/types";
-import { t } from "@/i18n";
+import { t, tEn } from "@/i18n";
 import type { PdfShade } from "@/lib/pdf-export";
 
 import type { SavedCombo } from "../studio/tray-store";
@@ -41,7 +41,7 @@ export function boardOption(
   for (const wall of walls) {
     const colour = combo.colours[wall.id];
     if (!colour) continue;
-    const name = nameOf(colour.code) ?? (namesShown && !colour.code ? t("board.customColour") : "");
+    const name = nameOf(colour.code) ?? (namesShown && !colour.code ? tEn("board.customColour") : "");
     shades.push({
       label: wall.label,
       regionId: Number(wall.id),

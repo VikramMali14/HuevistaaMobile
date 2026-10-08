@@ -6,7 +6,10 @@
 
 import { t } from "@/i18n";
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** A month's name in the current language, January being 0. */
+export function monthName(index: number, form: "short" | "long" = "short"): string {
+  return t(form === "short" ? "time.monthsShort" : "time.monthsLong").split(",")[index]?.trim() ?? "";
+}
 /** India Standard Time is UTC+5:30 all year — no daylight saving to follow. */
 const IST_OFFSET_MS = 330 * 60_000;
 
@@ -21,7 +24,7 @@ export function formatDate(iso: string | null | undefined): string {
   const d = toDate(iso);
   if (!d) return "—";
   const ist = new Date(d.getTime() + IST_OFFSET_MS);
-  return `${ist.getUTCDate()} ${MONTHS[ist.getUTCMonth()]} ${ist.getUTCFullYear()}`;
+  return `${ist.getUTCDate()} ${monthName(ist.getUTCMonth())} ${ist.getUTCFullYear()}`;
 }
 
 export function hasPassed(iso: string | null | undefined, now: number = Date.now()): boolean {
@@ -49,17 +52,15 @@ export function formatServerDate(iso: string | null | undefined): string {
   const at = serverMoment(iso);
   if (!Number.isFinite(at)) return "—";
   const ist = new Date(at + IST_OFFSET_MS);
-  return `${ist.getUTCDate()} ${MONTHS[ist.getUTCMonth()]} ${ist.getUTCFullYear()}`;
+  return `${ist.getUTCDate()} ${monthName(ist.getUTCMonth())} ${ist.getUTCFullYear()}`;
 }
-
-const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 /** "May 2026" from a server time, in India; "" when there isn't one (as the website's monthYear). */
 export function formatServerMonth(iso: string | null | undefined): string {
   const at = serverMoment(iso);
   if (!Number.isFinite(at)) return "";
   const ist = new Date(at + IST_OFFSET_MS);
-  return `${LONG_MONTHS[ist.getUTCMonth()]} ${ist.getUTCFullYear()}`;
+  return `${monthName(ist.getUTCMonth(), "long")} ${ist.getUTCFullYear()}`;
 }
 
 /** "14 Mar, 4:20 pm" from a server time, in India; "—" when there isn't one. */
@@ -69,8 +70,8 @@ export function formatServerDateTime(iso: string | null | undefined): string {
   const ist = new Date(at + IST_OFFSET_MS);
   const hours = ist.getUTCHours();
   const minutes = String(ist.getUTCMinutes()).padStart(2, "0");
-  const half = hours < 12 ? "am" : "pm";
-  return `${ist.getUTCDate()} ${MONTHS[ist.getUTCMonth()]}, ${hours % 12 || 12}:${minutes} ${half}`;
+  const half = hours < 12 ? t("time.am") : t("time.pm");
+  return `${ist.getUTCDate()} ${monthName(ist.getUTCMonth())}, ${hours % 12 || 12}:${minutes} ${half}`;
 }
 
 /**

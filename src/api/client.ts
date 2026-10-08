@@ -1,4 +1,5 @@
 import type { TokenManager } from "@/auth/token-manager";
+import { t } from "@/i18n";
 
 import { ApiError } from "./errors";
 import type { ErrorBody } from "./types";
@@ -70,7 +71,7 @@ async function readBody<T>(res: Response): Promise<T> {
     return JSON.parse(text) as T;
   } catch {
     // Truncated, or a proxy's page wearing a JSON content type.
-    throw new ApiError("http", res.status, "The server's answer could not be read");
+    throw new ApiError("http", res.status, t("errors.unreadable"));
   }
 }
 
