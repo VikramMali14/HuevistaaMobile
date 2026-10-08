@@ -200,13 +200,18 @@ describe("deep links", () => {
 describe("every planned screen", () => {
   // Who may open each area — the same rule the route guards enforce.
   const roleFor = { auth: null, links: null, onboarding: "CUSTOMER", customer: "CUSTOMER", account: "CUSTOMER", painter: "PAINTER" } as const;
-  const planned = Object.entries(screens).filter(([id, s]) => id !== "A1" && s.status === "planned");
+  const planned = Object.entries(screens).filter(([id, s]) => id !== "A1" && (s.status as string) === "planned");
 
-  it.each(planned)("%s opens without breaking", async (id, info) => {
-    const role = roleFor[info.area];
-    if (role) signedInAs({ role });
-    renderRouter("./app", { initialUrl: info.href });
-    await waitFor(() => expect(screen.getByText(`${id} · Phase ${info.phase}`)).toBeTruthy());
-    expect(screen.getAllByText(info.title).length).toBeGreaterThan(0);
-  });
+  // Every screen through Phase 7 is built; a new one added as planned is opened here.
+  if (planned.length === 0) {
+    it("has none left — every screen is built", () => expect(planned).toEqual([]));
+  } else {
+    it.each(planned)("%s opens without breaking", async (id, info) => {
+      const role = roleFor[info.area];
+      if (role) signedInAs({ role });
+      renderRouter("./app", { initialUrl: info.href });
+      await waitFor(() => expect(screen.getByText(`${id} · Phase ${info.phase}`)).toBeTruthy());
+      expect(screen.getAllByText(info.title).length).toBeGreaterThan(0);
+    });
+  }
 });

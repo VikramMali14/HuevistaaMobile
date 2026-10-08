@@ -48,6 +48,10 @@ export const keys = {
   boardReview: (token: string) => ["community", "board", token] as const,
   /** C26: the room's board code. Under the room, so a new board there reaches it. */
   reviewBoardFor: (projectId: string) => ["me", "projects", projectId, "review-board"] as const,
+  /** D2: a shared room, its companies and one company's shades — public, by the link's token. */
+  sharedRoom: (token: string) => ["share", token] as const,
+  sharedBrands: (token: string) => ["share", token, "brands"] as const,
+  sharedShades: (token: string, brandSlug: string) => ["share", token, "shades", brandSlug] as const,
   /** C32: a search, by its point and distance (memory only — nothing here is written down). */
   nearbyPainters: (lat: number, lon: number, radiusKm: number) => ["nearby", "painters", lat, lon, radiusKm] as const,
   nearbyShops: (lat: number, lon: number, radiusKm: number) => ["nearby", "shops", lat, lon, radiusKm] as const,

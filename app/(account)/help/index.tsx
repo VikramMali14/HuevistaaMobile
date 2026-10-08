@@ -131,32 +131,6 @@ export default function Help() {
       </Card>
 
       <View style={{ gap: space.sm }}>
-        <SectionHeader title={t("help.past")} />
-        {list.isPending ? (
-          <Skeleton height={64} radius={16} />
-        ) : list.isError && !list.data ? (
-          <ErrorState message={messageFor(list.error, t("help.loadFailed"))} onRetry={() => void list.refetch()} />
-        ) : !list.data?.length ? (
-          <Text variant="small" tone="mute">
-            {t("help.none")}
-          </Text>
-        ) : (
-          <ListGroup>
-            {list.data.map((c) => (
-              <ListRow
-                key={c.id}
-                title={c.subject || t("help.title")}
-                detail={`${formatServerDateTime(c.updatedAt)} · ${c.lastMessage}`.slice(0, 140)}
-                value={statusLabel(c.status)}
-                onPress={() => router.push({ pathname: "/help/[conversationId]", params: { conversationId: c.id } })}
-                testID={`help-chat-${c.id}`}
-              />
-            ))}
-          </ListGroup>
-        )}
-      </View>
-
-      <View style={{ gap: space.sm }}>
         <SectionHeader title={t("help.answers")} />
         <Card>
           <View style={{ gap: space.xs }}>
@@ -186,6 +160,32 @@ export default function Help() {
             })}
           </View>
         </Card>
+      </View>
+
+      <View style={{ gap: space.sm }}>
+        <SectionHeader title={t("help.past")} />
+        {list.isPending ? (
+          <Skeleton height={64} radius={16} />
+        ) : list.isError && !list.data ? (
+          <ErrorState message={messageFor(list.error, t("help.loadFailed"))} onRetry={() => void list.refetch()} />
+        ) : !list.data?.length ? (
+          <Text variant="small" tone="mute">
+            {t("help.none")}
+          </Text>
+        ) : (
+          <ListGroup>
+            {list.data.map((c) => (
+              <ListRow
+                key={c.id}
+                title={c.subject || t("help.title")}
+                detail={`${formatServerDateTime(c.updatedAt)} · ${c.lastMessage}`.slice(0, 140)}
+                value={statusLabel(c.status)}
+                onPress={() => router.push({ pathname: "/help/[conversationId]", params: { conversationId: c.id } })}
+                testID={`help-chat-${c.id}`}
+              />
+            ))}
+          </ListGroup>
+        )}
       </View>
 
       <View style={{ gap: space.sm }}>

@@ -51,6 +51,26 @@
               "mimeType": "application/pdf"
             }
           ]
+        },
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ],
+          "data": [
+            {
+              "scheme": "https",
+              "host": "huevistaa.com",
+              "pathPrefix": "/r/"
+            },
+            {
+              "scheme": "https",
+              "host": "huevistaa.com",
+              "pathPrefix": "/share/"
+            }
+          ]
         }
       ]
     },

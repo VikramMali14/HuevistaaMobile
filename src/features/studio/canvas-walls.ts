@@ -12,7 +12,7 @@ export function withoutQuery(url: string): string {
 }
 
 /** The room's photo for the canvas, cached across signed links. */
-export function roomPhoto(room: RoomDetail) {
+export function roomPhoto(room: Pick<RoomDetail, "cleanedImageUrl" | "imageUrl">) {
   const url = canvasUrl(room);
   return { key: withoutQuery(url), load: () => loadTexture(url, withoutQuery(url)) };
 }
@@ -23,11 +23,15 @@ export function roomPhoto(room: RoomDetail) {
  * redrawn wall is fetched again and an unchanged one is not.
  */
 export function canvasWalls(
-  room: RoomDetail,
+  room: Pick<RoomDetail, "id" | "regions">,
   colourOf: (region: RoomRegion) => Pick<CanvasWall, "hex" | "lrv" | "strength">,
+  /** Where each mask comes from: the owner's route, or (D2) a shared link's. */
+  maskPath: (regionId: number) => string = (regionId) => projectsApi.maskPath(room.id, regionId),
+  /** What the masks are cached under — a shared room's never mixes with its owner's. */
+  cacheScope: string = room.id,
 ): CanvasWall[] {
   return wallsWithMasks(room).map((r) => {
-    const maskKey = `${room.id}:${r.id}:${withoutQuery(r.maskUrl ?? "")}`;
+    const maskKey = `${cacheScope}:${r.id}:${withoutQuery(r.maskUrl ?? "")}`;
     const { hex, lrv, strength } = colourOf(r);
     return {
       id: String(r.id),
@@ -36,7 +40,7 @@ export function canvasWalls(
       hex,
       lrv,
       strength,
-      load: () => loadTexture(projectsApi.maskPath(room.id, r.id), maskKey),
+      load: () => loadTexture(maskPath(r.id), maskKey),
     };
   });
 }

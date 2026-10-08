@@ -41,6 +41,16 @@ describe("a PDF opened with HueVistaa from another app", () => {
     expect(takeSharedBoard()).toBe("file:///b.pdf");
   });
 
+  // App Links: the website's board and share links open the same screens here.
+  it("opens the website's board and shared-room links on their screens, without tags", () => {
+    expect(redirectSystemPath({ path: "https://huevistaa.com/r/0VkTlzUw5CGJ-bTtxixeiS0nVfg", initial: true })).toBe("/r/0VkTlzUw5CGJ-bTtxixeiS0nVfg");
+    expect(redirectSystemPath({ path: "https://huevistaa.com/r/0VkTlzUw5CGJ-bTtxixeiS0nVfg/?utm_source=wa#x", initial: false })).toBe("/r/0VkTlzUw5CGJ-bTtxixeiS0nVfg");
+    expect(redirectSystemPath({ path: "https://huevistaa.com/share/0123456789abcdef0123456789abcdef", initial: true })).toBe("/share/0123456789abcdef0123456789abcdef");
+    // Anything else on the site is the website's, not ours.
+    expect(redirectSystemPath({ path: "https://huevistaa.com/pay/mobile?order=1", initial: false })).toBe("https://huevistaa.com/pay/mobile?order=1");
+    expect(redirectSystemPath({ path: "https://evil.example/r/0VkTlzUw5CGJ-bTtxixeiS0nVfg", initial: false })).toBe("https://evil.example/r/0VkTlzUw5CGJ-bTtxixeiS0nVfg");
+  });
+
   it("leaves every other link as it came", () => {
     expect(redirectSystemPath({ path: "huevista://r/abc", initial: false })).toBe("huevista://r/abc");
     expect(redirectSystemPath({ path: "/painter/scan", initial: false })).toBe("/painter/scan");

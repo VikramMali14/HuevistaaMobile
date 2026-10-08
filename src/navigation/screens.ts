@@ -182,7 +182,7 @@ export const screens = {
   // ── Links from outside the app ────────────────────────────────────────────
   D1: { title: "A board's QR", area: "links", href: "/r/demo", phase: 7, spec: SHARED, status: "built",
     summary: "Painter: claim points. Customer: review the job." },
-  D2: { title: "A shared room", area: "links", href: "/share/demo", phase: 7, spec: SHARED, status: "planned",
+  D2: { title: "A shared room", area: "links", href: "/share/demo", phase: 7, spec: SHARED, status: "built",
     summary: "View and repaint someone's shared room; save it as your own." },
   D3: { title: "Payment return", area: "links", href: "/pay/callback", phase: 4, spec: SHARED,
     status: "built", summary: "Finish a payment when Android restarted the app mid-checkout.", next: ["C29", "C28"] },
