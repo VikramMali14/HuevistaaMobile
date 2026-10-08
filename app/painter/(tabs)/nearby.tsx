@@ -9,10 +9,10 @@ import { messageFor } from "@/api/errors";
 import { painterApi, type PainterProfile } from "@/api/endpoints/painter";
 import { keys } from "@/api/query-keys";
 import { useSession } from "@/auth/session";
-import { Banner, Button, Card, ErrorState, Pill, Screen, Skeleton, Switch, Text, TextField, useToast } from "@/components/ui";
-import { ABOUT_MAX, hasSavedLocation, listingBody, listingNeeds, ROUGH_FIX_METRES, rupees, type PendingLocation } from "@/features/painter/listing";
+import { Banner, Button, Card, ErrorState, Screen, Skeleton, Switch, Text, TextField, useToast } from "@/components/ui";
+import { PainterCardBody } from "@/features/nearby/NearbyCards";
+import { ABOUT_MAX, hasSavedLocation, listingBody, listingNeeds, ROUGH_FIX_METRES, type PendingLocation } from "@/features/painter/listing";
 import { PainterHeader } from "@/features/painter/PainterHeader";
-import { displayPhone } from "@/features/painter/redeem";
 import { isNoProfile, usePainterProfile } from "@/features/painter/use-painter";
 import { t } from "@/i18n";
 import { formatServerDate } from "@/lib/dates";
@@ -125,11 +125,6 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
   else status = t("painter.nearby.none");
 
   const name = (account?.namePending ? null : account?.name?.trim()) || profile.name?.trim() || t("painter.nearby.painter");
-  const facts = [
-    profile.yearsExperience ? t("painter.nearby.years", { n: profile.yearsExperience }) : null,
-    profile.dayRateInr ? t("painter.nearby.perDay", { rupees: rupees(profile.dayRateInr) }) : null,
-    profile.jobsCompleted ? t("painter.nearby.jobs", { n: profile.jobsCompleted }) : null,
-  ].filter(Boolean);
 
   return (
     <Screen
@@ -243,36 +238,24 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
           <Button variant="ghost" block={false} label={t("painter.nearby.editDetails")} onPress={() => router.push("/painter/profile")} />
         </View>
         <Card>
-          <View style={{ gap: space.xs }} testID="nearby-preview">
-            <View style={[styles.row, { gap: space.sm }]}>
-              <Text variant="painterStrong" style={styles.fill}>
-                {name}
-              </Text>
-              <Pill label={t("painter.nearby.exampleDistance")} tone="plain" />
-            </View>
-            {profile.phoneVerified && profile.phone ? (
-              <Text variant="bodyStrong" tone="soft">
-                {displayPhone(profile.phone)}
-              </Text>
-            ) : null}
-            {about.trim() ? <Text variant="body">{about.trim()}</Text> : null}
-            {profile.specialties?.length ? (
-              <View style={[styles.wrap, { gap: space.xs }]}>
-                {profile.specialties.map((s) => (
-                  <Pill key={s} label={s} tone="accent" />
-                ))}
-              </View>
-            ) : null}
-            {profile.serviceAreas?.length ? (
-              <Text variant="small" tone="soft">
-                {t("painter.nearby.worksIn", { areas: profile.serviceAreas.join(", ") })}
-              </Text>
-            ) : null}
-            {facts.length ? (
-              <Text variant="small" tone="mute">
-                {facts.join(" · ")}
-              </Text>
-            ) : null}
+          <View testID="nearby-preview">
+            {/* The row a customer sees in C32, at an example distance; the number shows only to a customer who presses Call. */}
+            <PainterCardBody
+              painter={{
+                id: profile.userId,
+                name,
+                about: about.trim() || null,
+                serviceAreas: profile.serviceAreas ?? [],
+                specialties: profile.specialties ?? [],
+                yearsExperience: profile.yearsExperience ?? null,
+                dayRateInr: profile.dayRateInr ?? null,
+                rating: profile.rating ?? null,
+                ratingCount: profile.ratingCount ?? 0,
+                jobsCompleted: profile.jobsCompleted ?? 0,
+                distanceKm: 2.4,
+              }}
+              actions={<Button icon="phone" label={t("nearby.call")} disabled onPress={() => {}} />}
+            />
           </View>
         </Card>
         <Text variant="caption" tone="mute">

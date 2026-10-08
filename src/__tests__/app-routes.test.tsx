@@ -41,6 +41,9 @@ jest.mock("@/api/endpoints/rewards", () => ({
 jest.mock("@/api/endpoints/painter", () => ({
   painterApi: { becomePainter: mockNoAnswer, profile: mockNoAnswer, updateProfile: mockNoAnswer, updateListing: mockNoAnswer },
 }));
+jest.mock("@/api/endpoints/community", () => ({
+  communityApi: { boardForProject: mockNoAnswer, boardReview: mockNoAnswer, submitReview: mockNoAnswer, questions: mockNoAnswer, myQuestions: mockNoAnswer, ask: mockNoAnswer },
+}));
 
 function signedInAs(profile: Partial<UserProfile> & Pick<UserProfile, "role">) {
   mockSecure["hv.access"] = "access-token";
@@ -178,15 +181,14 @@ describe("deep links", () => {
   it("opens a customer screen, with its params", async () => {
     signedInAs({ role: "CUSTOMER" });
     renderRouter("./app", { initialUrl: "/review/abc123" });
-    await waitFor(() => expect(screen.getByText("Review the job")).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId("review-loading")).toBeTruthy());
     expect(screen).toHavePathname("/review/abc123");
-    expect(screen.getByText(/projectId=abc123/)).toBeTruthy();
   });
 
   it("opens a board's QR link without signing in", async () => {
-    renderRouter("./app", { initialUrl: "/r/some-token" });
-    await waitFor(() => expect(screen.getByText("A board's QR")).toBeTruthy());
-    expect(screen).toHavePathname("/r/some-token");
+    renderRouter("./app", { initialUrl: "/r/0VkTlzUw5CGJ-bTtxixeiS0nVfg" });
+    await waitFor(() => expect(screen.getByText("Sign in to collect points or review the job")).toBeTruthy());
+    expect(screen).toHavePathname("/r/0VkTlzUw5CGJ-bTtxixeiS0nVfg");
   });
 
   it("shows Not found for a link that opens nothing", async () => {

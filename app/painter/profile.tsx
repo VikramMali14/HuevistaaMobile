@@ -270,6 +270,11 @@ function TradeForm({ profile, onRefresh }: { profile: PainterProfile; onRefresh:
         />
         <ListRow icon="settings" title={t("painter.profile.settings")} onPress={() => router.push("/settings")} testID="profile-settings" />
       </ListGroup>
+
+      <ListGroup>
+        <ListRow icon="life-buoy" title={t("account.helpSupport")} onPress={() => router.push("/help")} testID="profile-help" />
+        <ListRow icon="message-circle" title={t("account.questions")} onPress={() => router.push("/questions")} />
+      </ListGroup>
     </Screen>
   );
 }

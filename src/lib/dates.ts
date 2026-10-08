@@ -52,6 +52,16 @@ export function formatServerDate(iso: string | null | undefined): string {
   return `${ist.getUTCDate()} ${MONTHS[ist.getUTCMonth()]} ${ist.getUTCFullYear()}`;
 }
 
+const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** "May 2026" from a server time, in India; "" when there isn't one (as the website's monthYear). */
+export function formatServerMonth(iso: string | null | undefined): string {
+  const at = serverMoment(iso);
+  if (!Number.isFinite(at)) return "";
+  const ist = new Date(at + IST_OFFSET_MS);
+  return `${LONG_MONTHS[ist.getUTCMonth()]} ${ist.getUTCFullYear()}`;
+}
+
 /** "14 Mar, 4:20 pm" from a server time, in India; "—" when there isn't one. */
 export function formatServerDateTime(iso: string | null | undefined): string {
   const at = serverMoment(iso);

@@ -176,7 +176,7 @@ export default function TidyUp() {
               onPress={() => start({ ...choices, maskMode: "MANUAL" })}
               loading={starting.busy}
             />
-            <Button variant="ghost" label={t("tidy.getHelp")} onPress={() => router.push("/help")} />
+            <Button variant="ghost" label={t("tidy.getHelp")} onPress={() => router.push({ pathname: "/help", params: { draft: t("help.wallsDraft") } })} />
           </View>
         }
       >

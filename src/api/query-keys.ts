@@ -38,6 +38,21 @@ export const keys = {
   painterProfile: ["painter", "profile"] as const,
   /** P6: a board's preview, by its token. */
   boardScan: (token: string) => ["painter", "board", token] as const,
+  /** S6, S7: the account's support conversations, and one of them with its messages. */
+  supportList: ["me", "support"] as const,
+  supportConversation: (id: string) => ["me", "support", id] as const,
+  /** S8: the answered questions (paged), and the account's own. */
+  questions: ["community", "questions"] as const,
+  myQuestions: ["me", "questions"] as const,
+  /** C26, D1: what a board allows the caller (review it, or why not), by its token. */
+  boardReview: (token: string) => ["community", "board", token] as const,
+  /** C26: the room's board code. Under the room, so a new board there reaches it. */
+  reviewBoardFor: (projectId: string) => ["me", "projects", projectId, "review-board"] as const,
+  /** C32: a search, by its point and distance (memory only — nothing here is written down). */
+  nearbyPainters: (lat: number, lon: number, radiusKm: number) => ["nearby", "painters", lat, lon, radiusKm] as const,
+  nearbyShops: (lat: number, lon: number, radiusKm: number) => ["nearby", "shops", lat, lon, radiusKm] as const,
+  /** C32: a painter's number once asked for — kept for the session so it's never asked twice. */
+  nearbyPhone: (painterId: string) => ["nearby", "phone", painterId] as const,
 };
 
 /** What a claimed board changes: the balance, its batches and statement — and what it buys. */

@@ -184,7 +184,11 @@ export default function PaymentResult() {
       <Screen
         footer={
           <View style={{ gap: space.xs }}>
-            <Button label={t("common.getHelp")} icon="help-circle" onPress={() => router.push("/help")} />
+            <Button
+              label={t("common.getHelp")}
+              icon="help-circle"
+              onPress={() => router.push({ pathname: "/help", params: { draft: t("help.paymentDraft", { id: state.paymentId }) } })}
+            />
             <Button variant="ghost" label={t("common.goHome")} onPress={home} />
           </View>
         }

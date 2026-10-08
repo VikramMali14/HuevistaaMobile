@@ -86,7 +86,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "HueVistaa uses your location when you choose to be listed, so customers near you can find you. Only a rough area is shown.",
+          "locationWhenInUsePermission": "HueVistaa uses your location to find painters and shops near you. A painter who chooses to be listed shares only a rough area with customers.",
           "isIosBackgroundLocationEnabled": false,
           "isAndroidBackgroundLocationEnabled": false,
           "isAndroidForegroundServiceEnabled": false
