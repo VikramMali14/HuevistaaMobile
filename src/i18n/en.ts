@@ -1327,7 +1327,7 @@ export const en = {
     notYours: "This one isn't yours to review.",
     shopAndPainter: "Your shop and your painter scan this same board for their reward points, so show it to them too. Opening it on your phone doesn't use anything up.",
     whoPainted: "Who painted it?",
-    whoPaintedBody: "Show this board to your painter. They scan it with a painter account in HueVistaa to collect their points. Nothing on it is used up by you opening it.",
+    whoPaintedBody: "Show this board to your painter. They scan it with a painter account in HueVistaa to collect their points.",
     roomGone: "This room isn't on your account any more.",
     sent: "Thanks — we'll read it soon.",
   },

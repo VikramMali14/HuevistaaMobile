@@ -79,12 +79,18 @@ export function PainterCard({ painter }: { painter: NearbyPainter }) {
   const wa = whatsappHref(phone);
   const actions = (
     <View style={{ gap: space.xs }}>
+      {/* On a line of its own: inside the button, beside WhatsApp, a phone's width cuts it off. */}
+      {phone ? (
+        <Text variant="bodyStrong" selectable testID={`phone-${painter.id}`}>
+          {displayPhone(phone)}
+        </Text>
+      ) : null}
       <View style={[styles.row, { gap: space.xs }]}>
         <View style={styles.fill}>
           <Button
             icon="phone"
-            label={contact.isFetching ? t("nearby.gettingNumber") : phone ? t("nearby.callNumber", { phone: displayPhone(phone) }) : t("nearby.call")}
-            accessibilityHint={phone ? undefined : t("nearby.callHint")}
+            label={contact.isFetching ? t("nearby.gettingNumber") : t("nearby.call")}
+            accessibilityHint={phone ? t("nearby.callNumber", { phone: displayPhone(phone) }) : t("nearby.callHint")}
             onPress={() => void call()}
             loading={contact.isFetching}
             testID={`call-${painter.id}`}

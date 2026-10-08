@@ -281,8 +281,10 @@ function SaveAction({ token, room }: { token: string; room: SharedRoom }) {
         label={t("sharedRoom.signInToSave")}
         onPress={() => {
           // Back here after signing in, to press Save — never saved by itself: it spends a room.
+          // Replaced, as D1 does: signing in lands on this page again, and a pushed sign-in
+          // would leave this room under it twice.
           rememberRoute(`/share/${encodeURIComponent(token)}`);
-          router.push("/welcome");
+          router.replace("/welcome");
         }}
         testID="shared-sign-in"
       />

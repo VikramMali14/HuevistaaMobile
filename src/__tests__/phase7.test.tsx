@@ -258,6 +258,7 @@ describe("C32 · Painters and shops near you", () => {
     expect(mockNearby.painterPhone).not.toHaveBeenCalled();
     fireEvent.press(screen.getByTestId("call-p1"));
     await waitFor(() => expect(openURL).toHaveBeenCalledWith("tel:+919845012345"));
+    expect(screen.getByTestId("phone-p1")).toHaveTextContent(/\+91.98450.12345/);
     expect(screen.getByTestId("whatsapp-p1")).toBeTruthy();
     fireEvent.press(screen.getByTestId("call-p1"));
     await tick();
