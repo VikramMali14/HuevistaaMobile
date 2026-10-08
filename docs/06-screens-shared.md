@@ -84,6 +84,18 @@ Chat bubbles (You · HueVistaa assistant · Our team). Composer at the bottom.
 `POST /api/support/conversations/{id}/messages { body }`. **Talk to a person** →
 `POST …/request-human`. While open, refresh every 5 s (until push arrives in Phase 8).
 
+**As built (S6, S7):** S6 opens with the message box, then the common answers (separate
+sets for customers and painters), the past conversations, and Call or Email. A
+conversation still open or waiting for the team is offered at the top. Other screens can
+open S6 with the message already written: the payment result names the payment, and
+tidying up names the walls. The assistant answers inside the request, so a start or a
+message waits up to 130 s, with a typing bubble. One that gets no answer is looked for
+before anything is said: a new conversation with the same first message, or the message
+in the conversation. It is never sent twice, because each answer costs. S7 reads the
+conversation every 5 s while it's on screen, and stops on Resolved, on a 404, and while
+sending. Writing under a Resolved conversation starts a new one, as the server's own note
+says. **Talk to a person** shows only while the assistant is answering.
+
 ### S8 · Questions and answers
 
 **Route** `(account)/questions.tsx` · **Phase** 7 · **Web reference** `app/community/questions/`
@@ -91,6 +103,13 @@ Chat bubbles (You · HueVistaa assistant · Our team). Composer at the bottom.
 Answered questions from the community (`GET /api/community/questions`, paged) · **Ask a
 question** (`POST /api/community/questions { body, displayName }`) · **My questions**
 (`GET /api/community/questions/mine`).
+
+**As built:** one scrolling list: **Ask a question** (inline, the name prefilled with
+`suggestedName`, checked as the server checks it — 10–500 characters, a 2–60 character
+name), then **Your questions** with where each stands (Waiting for an answer · Answered ·
+Not published — a taken-down question's old answer is not shown), then the answered
+questions, 20 at a time. An ask that gets no answer is looked for among the account's own
+questions before an error is shown. Painters reach S6 and S8 from their trade profile.
 
 ### S9 · Delete account
 
@@ -145,6 +164,12 @@ Opened by `https://huevistaa.com/r/{token}` (once App Links are set up) or from 
 | Customer | The review flow (`GET /api/community/reviews/board/{token}`): review the job, or the plain `reason` when they can't |
 | Shop | "Shops collect their half on the website" + link |
 
+**As built:** a link that isn't a board code says "That link doesn't carry one of our
+codes." without asking the server. Signed out → **Sign in** replaces this screen with A2, and the
+link is remembered even after a sign-out by choice, because it was asked for. Painter →
+P6 (replaced, so Back doesn't land on this screen). Customer → the review screen shared
+with C26. Any other account → the website's page for the board.
+
 ### D2 · A shared room
 
 **Route** `share/[token].tsx` · **Phase** 7 · **Web reference** `HueVistaFrontEnd/src/app/share/[token]/`
@@ -158,6 +183,35 @@ room; 402 none left → C27; 409 it's your own room) → C11.
 
 Expired or withdrawn → "This link has stopped working. Ask the person who sent it for a
 new one."
+
+**As built:** the photo is repainted on the phone with the link's own masks: wall chips,
+**Colour for {wall}** (a sheet with the link's companies, one company read at a time,
+searched by code or colour, 60 tiles at once), and a reset to the shared colours.
+Only codes are shown, never names, as the link's scheme sets. Without GPU drawing the
+photo shows unpainted.
+- **Signed out:** **Sign in to save a copy** → A2, then back here. It is never saved by
+  itself, because a copy spends a room.
+- **A customer's own room:** **Open your room** → that room. Their own room answers
+  `GET /api/projects/{id}`; anyone else's is a 404.
+- **Another customer:** **Save as my room** → a confirm that it uses one room → claim →
+  C11 on the new copy. The visitor's own repaint isn't copied: the server copies the
+  owner's colours, each wall taking the nearest shade the new owner can use.
+  - 402 → the server's sentence + **Rooms and credits**.
+  - 404 → stopped working.
+  - No answer → "Look in your rooms before trying again" + **Your rooms**. The claim has
+    no key, so it is never sent again by itself.
+- **Painters and shops** can look, but not save.
+- A link that stopped (404) is told apart from a server that didn't answer (**Try
+  again**).
+
+**App Links (D1, D2):**
+- `https://huevistaa.com/r/{code}` and `/share/{token}` open these screens. The intent
+  filter in `app.json` uses `autoVerify` and covers those two paths only.
+- `+native-intent` drops a campaign tag or a fragment. Links from other hosts, and other
+  paths on the site, go on as they came.
+- The website serves `/.well-known/assetlinks.json` from `ANDROID_APP_CERT_SHA256`, and
+  answers 404 until that is set.
+- iOS universal links wait for the Apple Team ID (see docs/08).
 
 ### D3 · Payment return
 

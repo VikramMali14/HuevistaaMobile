@@ -739,6 +739,16 @@ shop's name. Already reviewed → shows it, editable while `canEdit`.
 **API:** `GET /api/community/reviews/project/{projectId}` (the board code for this
 room) → `GET/POST /api/community/reviews/board/{token}`.
 
+**As built:** C26 finds the room's board code, then shows the same review screen as D1
+(`BoardReviewScreen`). The form is checked the way the server checks it (1–5 stars; 10–1,000
+characters and a 2–60 character name, each after the server's own trimming and space
+folding), so nothing that would be refused is sent — each try counts against 10 an hour
+per network. After a sending error with no answer, a 409 or a 5xx, the board is read
+again: if the review is there (for a change, the one just sent), it's thanks, not an
+error. Changing a published review warns that it comes off the page until it's read
+again. A room with no board → the server's sentence; a room no longer on the account →
+"This room isn't on your account any more."
+
 ### C27 · Rooms and credits
 
 **Route** `balance.tsx` · **Phase** 4 · **Web reference** `components/app/projects-and-credits.tsx`, `ai-credit-wallet.tsx`, `buy-room.tsx`
@@ -861,6 +871,25 @@ list, nearest first.
 search near you" + **Open settings**.
 
 **API:** `GET /api/nearby/painters?lat&lon&radiusKm` · `GET /api/nearby/shops?lat&lon&radiusKm`.
+
+**As built:** location is asked for only on **Use my location** (a card that says why,
+and that it's used for this search only); when it was allowed before, the search starts
+by itself. The position is rounded to about 100 m before it leaves the phone. A recent
+fix is used first, then a fresh one with a 15 s limit. Refused for good → **Open
+settings**; location off or no fix → said, and **Use my location** tries again.
+
+- **Painters:** "Under 1 km away" rather than a figure (the server already blurs a
+  painter's spot); a line on jobs done and reviews, or "New on HueVistaa" when there are
+  none. **Call** asks for the number once (each one counts against 20 a day), dials it,
+  then shows it on its own line with **WhatsApp**; it is kept for the session and never
+  asked for again. Refused → the server's sentence under the card.
+- **Shops:** address, hours, **Directions** (Apple Maps on iOS, Google Maps elsewhere),
+  and **Call** when the number can be dialled.
+- Distance chips change the search; an empty list offers the next distance up. The 50
+  nearest are shown, and the list says so. Searches share 60 an hour per account, so a
+  refusal is shown in the server's words and never retried by itself; nothing reloads on
+  focus or reconnect.
+- The painter's P5 preview shows their own card as customers see it.
 
 ### C33 · Work as a painter
 

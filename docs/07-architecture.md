@@ -449,6 +449,82 @@ Money and points:
   through sign-in (`pending-route.ts` keeps the deeper path when a guard reports only its
   own segment on the way out).
 
+## Nearby, community, help and links (Phase 7)
+
+Each area has an endpoint file (`nearby.ts`, `community.ts`, `support.ts`, `share.ts` in
+`src/api/endpoints`) and a feature folder. Keys live in `query-keys.ts`. Anything read
+under `me` goes with the account on sign-out, as all of the cache does.
+
+The rules for every write:
+- **Check first.** What the server would refuse is refused on the phone, with the
+  server's own trimming and space folding (`cleanBody`, `cleanName` mirror
+  `CommunityText.clean`; Java's `\s` is ASCII only). Most of these limits count per
+  network, and one refused send still counts.
+- **Never send twice.** A send with no answer is looked for before anything is said:
+  - a review: the board read again (an edit must match what was sent);
+  - a question: the account's own questions;
+  - a support start: a new conversation with the same first message since the ask
+    (`startedChat`);
+  - a support message: the conversation.
+
+  Each counts as sent only when found. A shared room's copy is never looked for or sent
+  again; the visitor is pointed to their rooms.
+- **Refusals in the server's words.** `messageFor` shows a 4xx sentence as it came; a
+  server's internal wording ("Project not found: …") is replaced where it would leak an
+  id.
+
+**Nearby (C32).**
+- `locate.ts` returns one of four outcomes: a fix, refused (and whether Settings is the
+  only way), location off, or failed. It asks once, takes a fix up to 60 s old, then a
+  fresh one raced against 15 s.
+- `searchPoint` rounds to 3 decimals before anything is sent.
+- The lists keep for 5 minutes and don't reload on focus or reconnect. They are tried
+  again once, and only when there was no answer: the 60-an-hour allowance is shared by
+  both lists.
+- A painter's number is a query that runs only on **Call**. It is never stale and never
+  dropped for the session, so it is asked for once against the 20-a-day allowance.
+- `NearbyCards.tsx` is shared with P5's preview.
+
+**Reviews (C26, D1).**
+- `BoardReviewScreen` is one screen for both routes. C26 first asks for the room's
+  board code (`GET /api/community/reviews/project/{id}`).
+- D1 works out the role and hands over: P6 for a painter, the review for a customer, the
+  website for a shop.
+
+**Support (S6, S7).**
+- The assistant answers inside the request, so a start and a message wait up to 130 s
+  (the server allows 120).
+- S7 reads the conversation every 5 s while it's on screen (`refetchInterval`). It stops
+  for a send, on a 404 and once the conversation is resolved, and pauses while the app
+  is in the background (`focusManager`, wired to `AppState`).
+- A send cancels any read in flight and shows the message at once, with a typing bubble
+  unless the team has it.
+
+**Questions (S8).** One `FlashList` over an infinite query of 20 a page, de-duplicated
+by id across pages. The ask form and the account's own questions sit in its header.
+
+**A shared room (D2).**
+- `shareApi` reads without a token, so a signed-out phone can open it. The masks come
+  from the link's own route (`maskPath`).
+- `canvasWalls` takes the mask route and a cache scope (`share:{token}`), so a shared
+  room's textures never mix with the owner's own room if both are opened on one phone.
+- Colours come only from the link's companies (`/brands`, then `/shades?brand=` one at a
+  time), coded as the link's scheme says.
+- Whether the room is the viewer's own: `GET /api/projects/{id}` answers for the owner and
+  is a 404 for anyone else.
+
+**App Links.**
+- `app.json` has an `autoVerify` intent filter for `https://huevistaa.com` paths `/r/`
+  and `/share/`.
+- `app/+native-intent.tsx` matches only those two shapes (a code of 16–64 URL-safe
+  characters) and drops a query or fragment. Anything else goes on as it came.
+- The website (HueVistaFrontEnd, `src/app/api/app-links/android/route.ts`, rewritten
+  from `/.well-known/assetlinks.json`) answers with the statement for
+  `com.gridstore.huevistaa`. The fingerprints come from `ANDROID_APP_CERT_SHA256`
+  (comma-separated: the upload key and Play's signing key), and it answers 404 until they
+  are set.
+- iOS (`associatedDomains`, `apple-app-site-association`) waits for the Apple Team ID.
+
 ## Reusing the website's code
 
 Copy plain TypeScript files from `HueVistaFrontEnd/src/lib/` into `src/lib/` when a

@@ -76,7 +76,23 @@ photos.
 Left for a real phone: the camera on a printed board, the reader on Android and iOS, and
 "Open with" from WhatsApp.
 
-**Next: Phase 7 — nearby, community, help and links.** The order is in
+**Phase 7 — nearby, community, help and links — is built.**
+- Painters and shops near you, found from the phone's location rounded to ~100 m. A
+  painter's number is asked for once, on Call, and kept. Directions open the phone's
+  maps.
+- Review the job from a room or a board's QR, checked as the server checks it. A board's
+  link sends a painter to claim, a customer to review, and a shop to the website.
+- Help: an assistant that answers at once, a person on request, and common answers.
+  Questions and answers, with your own questions and where each stands.
+- A shared room repainted on the phone with the link's own colours, and copied into your
+  rooms once, after a confirm.
+- Android App Links for `huevistaa.com/r/*` and `/share/*`. The website serves the
+  statement once the signing fingerprints are set.
+
+Left for a real phone: the location prompts, App Links on a signed build, and handing
+over to the dialler, WhatsApp and Maps.
+
+**Next: Phase 8 — polish and release.** The order is in
 [docs/08-roadmap.md](docs/08-roadmap.md).
 
 ## The plan

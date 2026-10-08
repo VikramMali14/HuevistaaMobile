@@ -486,14 +486,73 @@ iOS (memory on a 25 MB board), and "Open with" from WhatsApp.
 
 | | Screen | Spec |
 |---|---|---|
-| ☐ | C32 Painters and shops near you | [04](04-screens-customer.md#c32--painters-and-shops-near-you) |
-| ☐ | C26 Review the job | [04](04-screens-customer.md#c26--review-the-job) |
-| ☐ | S6 Help and support | [06](06-screens-shared.md#s6--help-and-support) |
-| ☐ | S7 Support conversation | [06](06-screens-shared.md#s7--support-conversation) |
-| ☐ | S8 Questions and answers | [06](06-screens-shared.md#s8--questions-and-answers) |
-| ☐ | D1 A board's QR | [06](06-screens-shared.md#d1--a-boards-qr) |
-| ☐ | D2 A shared room | [06](06-screens-shared.md#d2--a-shared-room) |
-| ☐ | App Links for `huevistaa.com/r/*` and `/share/*` | cross-repo task 1 |
+| ☑ | C32 Painters and shops near you | [04](04-screens-customer.md#c32--painters-and-shops-near-you) |
+| ☑ | C26 Review the job | [04](04-screens-customer.md#c26--review-the-job) |
+| ☑ | S6 Help and support | [06](06-screens-shared.md#s6--help-and-support) |
+| ☑ | S7 Support conversation | [06](06-screens-shared.md#s7--support-conversation) |
+| ☑ | S8 Questions and answers | [06](06-screens-shared.md#s8--questions-and-answers) |
+| ☑ | D1 A board's QR | [06](06-screens-shared.md#d1--a-boards-qr) |
+| ☑ | D2 A shared room | [06](06-screens-shared.md#d2--a-shared-room) |
+| ☑ | App Links for `huevistaa.com/r/*` and `/share/*` | cross-repo task 1 |
+
+No new packages. `app.json`: an `autoVerify` intent filter for `huevistaa.com/r/` and
+`/share/` (Android App Links), and the location purpose now names the search.
+
+New:
+- `src/api/endpoints`: `nearby.ts`, `community.ts`, `support.ts`, `share.ts`.
+- `src/features/nearby`: `nearby.ts` (the words, distances, links), `locate.ts`,
+  `use-nearby.ts` and `NearbyCards.tsx`, which P5's preview now uses.
+- `src/features/community`: `review.ts`, `questions.ts`, `Stars.tsx` and
+  `BoardReviewScreen.tsx`, shared by C26 and D1.
+- `src/features/support`: `support.ts` and `Bubble.tsx`.
+- `src/features/share`: `shared-room.ts` and `SharedPalette.tsx`.
+- `canvasWalls` takes a mask route and a cache scope.
+- `formatServerMonth` in `lib/dates.ts`.
+- Painters reach S6 and S8 from P12. The payment result and tidying up open S6 with
+  the message written.
+
+**Done:** 2026-10.
+- **Tests.** Route tests for every screen through the real route tree
+  (`src/__tests__/phase7.test.tsx`: 35, with location, the dialler, the browser and the
+  network faked). Unit tests for the nearby words and links, the community checks (the
+  server's trimming), the support helpers, and the App Links paths. 66 suites, 940 tests,
+  typecheck and lint clean.
+- **Mutation checks.** Each of these guards was broken in turn, and a test failed each
+  time:
+  - a painter's number kept after the first Call;
+  - D2's owner check;
+  - an unanswered copy never sent again;
+  - the review, question and support-start look-ups after a lost answer.
+- **Browser walk.** Every screen in a phone-sized Chromium against a stand-in backend,
+  light and dark:
+  - location, the lists, Call and Directions;
+  - a review sent, and the board link both ways through sign-in;
+  - a support chat to a person;
+  - a question asked;
+  - a shared room repainted on the GPU, then copied once and opened in the studio.
+
+As built, against the spec (details under each screen in [04](04-screens-customer.md) and
+[06](06-screens-shared.md)):
+- C32 searches by location only. There is still no search by area (outside-repo item 7).
+  A painter under 1 km shows "Under 1 km away".
+- S7 refreshes every 5 s while open, as specified; push replaces this in Phase 8. When
+  the account's assistant allowance runs out, the server hands the chat to the team, and
+  S7 says so.
+- D2 checks ownership before offering a copy, so its 409 doesn't come up in practice; it
+  is shown in the server's words if it does. The copy opens on C11.
+- App Links are Android only. iOS needs the Apple Team ID (item 1).
+
+**Review (2026-10)**, from the walk. Fixed:
+- A painter's number, once shown, was cut off inside the Call button beside WhatsApp on
+  a phone's width. It now has its own line (selectable), and Call reads "Call".
+- After signing in from a shared room, the room was left in the stack twice (sign-in
+  was pushed, then replaced by the room). Sign-in now replaces it, as D1 does.
+- The review's thank-you said twice that opening the board uses nothing up.
+
+Left for a real phone:
+- the location prompts on Android and iOS;
+- App Links verified on a signed build, once the site has the fingerprints;
+- the dialler, WhatsApp and Maps handing over.
 
 ## Phase 8 — Polish and release
 
@@ -513,7 +572,7 @@ iOS (memory on a 25 MB board), and "Open with" from WhatsApp.
 
 | # | Repo | Change | Needed by |
 |---|---|---|---|
-| 1 | HueVistaFrontEnd | Serve `/.well-known/assetlinks.json` with the app's signing-certificate SHA-256, so `huevistaa.com/r/*` and `/share/*` open the app (App Links). Later `apple-app-site-association` for iOS. | Phase 7 |
+| 1 | HueVistaFrontEnd | App Links. Done on branch `claude/stoic-knuth-d9829w` (6d83a2a): `/.well-known/assetlinks.json` is served for `com.gridstore.huevistaa` from `ANDROID_APP_CERT_SHA256`, and is a 404 until that is set. To do: set it to both SHA-256 fingerprints, comma-separated (the upload key's, and Play App Signing's from the Play Console), then merge. iOS later: `apple-app-site-association` and `associatedDomains` in `app.json`, once there's an Apple Team ID. | Phase 7 (env + merge) · iOS Phase 8 |
 | 2 | HueVistaFrontEnd | Confirm `/pay/mobile` is deployed and `NEXT_PUBLIC_MOBILE_PAY_REDIRECT` is unset (defaults to `huevista://pay/callback`). The app opens `{SITE}/pay/mobile?order&key&amount&currency&desc&name&email&contact` — the page reads exactly these. | Phase 4 (now) |
 | 3 | HueVistaFrontEnd | Set `NEXT_PUBLIC_APK_URL` to the preview APK once one exists. | Phase 1+ |
 | 4 | HueVista | Confirm `MOBILE_OAUTH_REDIRECT_URI` is `huevista://sign-in/callback` in production. | Phase 1 |
@@ -525,6 +584,8 @@ iOS (memory on a 25 MB board), and "Open with" from WhatsApp.
 | 10 | HueVista | ~~Deleting a room while its AI image is being made loses the credits.~~ Fixed on branch `claude/stoic-knuth-d9829w`: `deleteProject` locks the room and refunds every image still being made, in the same transaction. Merge it. | Phase 5 (merge) |
 | 11 | HueVista | `POST /api/rewards/{token}/claim` takes no request key. The app reconciles an unanswered claim by reading the points and the board, but a key (as redeem has) would make a retry simply safe. | Any time |
 | 12 | HueVista | There's no read of one redemption, so P11 reads the whole list. `GET /api/painter/redemptions/{id}` would do. | Any time |
+| 13 | HueVista | Community writes (reviews and questions, 10 an hour together) and support messages (40 an hour) are limited per IP only. Many phones in India share a carrier's address (CGNAT), so strangers on one network can use up each other's allowance. A per-account cap with a wider network backstop would fix it, as renders now have. Support's spend is already capped per account in `SupportService`. | Any time |
+| 14 | HueVista | `POST /api/share/{token}/claim` spends a room and takes no request key. The app never sends an unanswered one again and points the visitor to their rooms; a key would make a retry safe. | Any time |
 
 ## Decisions to confirm
 
