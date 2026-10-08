@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { View } from "react-native";
 
 import { BackButton, Button, Card, EmptyState, ErrorState, Pill, Screen, Skeleton, Text } from "@/components/ui";
+import { AskForNotifications } from "@/features/notifications/AskForNotifications";
 import { points, redemptionStatus } from "@/features/painter/points";
 import { displayPhone } from "@/features/painter/redeem";
 import { usePainterProfile, useRedemptions } from "@/features/painter/use-painter";
@@ -102,6 +103,7 @@ export default function Voucher() {
       <Text variant="small" tone="mute">
         {t("painter.voucher.copy")}
       </Text>
+      <AskForNotifications reason="voucher" when={justRedeemed && voucher.status === "PENDING"} />
     </Screen>
   );
 }

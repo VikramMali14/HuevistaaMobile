@@ -6,14 +6,16 @@ import { isRememberablePath } from "@/auth/pending-route";
  * notification was tapped for when it started the app. Memory only — a fresh start
  * goes home.
  */
-let next: string | null = null;
+let next: { path: string; forUser?: string } | null = null;
 
-export function landNextOn(path: string): void {
-  if (isRememberablePath(path)) next = path;
+/** `forUser`: only for that account (a notification's) — anyone else goes home as usual. */
+export function landNextOn(path: string, forUser?: string): void {
+  if (isRememberablePath(path)) next = { path, forUser };
 }
 
-export function peekLanding(): string | null {
-  return next;
+export function peekLanding(userId: string): string | null {
+  if (!next || (next.forUser && next.forUser !== userId)) return null;
+  return next.path;
 }
 
 export function clearLanding(): void {

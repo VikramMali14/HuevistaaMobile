@@ -8,6 +8,9 @@ export const MESSAGE_MAX = 4000;
 /** How often an open chat is read again while it's on screen. */
 export const POLL_MS = 5_000;
 
+/** …and with notifications on, which bring a reply anyway: a fallback only. */
+export const PUSH_POLL_MS = 30_000;
+
 /** S6's label for where a conversation stands. */
 export function statusLabel(status: SupportStatus | string): string {
   if (status === "NEEDS_HUMAN") return t("help.status.NEEDS_HUMAN");

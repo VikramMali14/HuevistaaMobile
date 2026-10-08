@@ -1,14 +1,17 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIsFocused, useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AccessibilityInfo, ScrollView, StyleSheet, View } from "react-native";
 
 import { isApiError, messageFor } from "@/api/errors";
 import { supportApi, type Conversation } from "@/api/endpoints/support";
 import { keys } from "@/api/query-keys";
 import { BackButton, Banner, Button, EmptyState, ErrorState, Screen, Skeleton, Text, TextField } from "@/components/ui";
+import { AskForNotifications } from "@/features/notifications/AskForNotifications";
 import { Bubble } from "@/features/support/Bubble";
-import { lookFor, MESSAGE_MAX, POLL_MS, senderName, startedChat } from "@/features/support/support";
+import { pushReady, subscribePushReady } from "@/features/notifications/notifications";
+import { setQuietConversation } from "@/features/notifications/use-push";
+import { lookFor, MESSAGE_MAX, POLL_MS, PUSH_POLL_MS, senderName, startedChat } from "@/features/support/support";
 import { t } from "@/i18n";
 import { useAlive } from "@/lib/use-alive";
 import { useSubmit } from "@/lib/use-submit";
@@ -39,12 +42,21 @@ export default function SupportChat() {
   // Under another screen (a link opened from a chat app) it stays mounted: not read then.
   const focused = useIsFocused();
   const alive = useAlive();
+  // With notifications on, a reply arrives by itself; reading again is only a fallback.
+  const pushOn = useSyncExternalStore(subscribePushReady, pushReady, pushReady);
+  // A reply to this chat, while it's on screen, appears in it — not as a banner over it.
+  useEffect(() => {
+    if (!focused || !id) return;
+    setQuietConversation(id);
+    return () => setQuietConversation(null);
+  }, [focused, id]);
   const chat = useQuery({
     queryKey: keys.supportConversation(id),
     queryFn: () => supportApi.conversation(id),
     enabled: Boolean(id),
     retry: (failures, err) => !gone(err) && failures < 2,
-    refetchInterval: (q) => (!focused || sendingNow.current || gone(q.state.error) || q.state.data?.status === "RESOLVED" ? false : POLL_MS),
+    refetchInterval: (q) =>
+      !focused || sendingNow.current || gone(q.state.error) || q.state.data?.status === "RESOLVED" ? false : pushOn ? PUSH_POLL_MS : POLL_MS,
   });
   const sending = useSubmit();
   const asking = useSubmit();
@@ -233,6 +245,7 @@ export default function SupportChat() {
           </>
         ) : null}
       </ScrollView>
+      <AskForNotifications reason="support" when={waitingForTeam} />
     </Screen>
   );
 }

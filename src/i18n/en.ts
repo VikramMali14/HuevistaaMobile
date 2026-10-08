@@ -1706,6 +1706,32 @@ export const en = {
       setUp: "Set it up",
     },
   },
+  /** Push notifications (Phase 8): Android's channels, the ask before the phone's own (X3), and S1's row. */
+  notifications: {
+    channelRooms: "Your rooms and AI images",
+    channelPoints: "Points and vouchers",
+    channelSupport: "Replies from our team",
+    askWallsTitle: "Tell you when your walls are ready?",
+    askWallsBody: "Finding the walls can take a minute or two. We'll send one notification when they're ready, so you don't have to wait here.",
+    askImageTitle: "Tell you when your AI image is ready?",
+    askImageBody: "It can take a few minutes. We'll send one notification when it's ready — or if it couldn't be made.",
+    askVoucherTitle: "Tell you when your voucher is settled?",
+    askVoucherBody: "We'll send one notification when the team has dealt with it.",
+    askSupportTitle: "Tell you when our team replies?",
+    askSupportBody: "A team member will reply in this chat. We'll send a notification, so you don't have to keep checking.",
+    allow: "Turn on notifications",
+    row: "Notifications",
+    on: "On",
+    off: "Off",
+    offHint: "Turned off in your phone's settings. Open them to turn notifications on.",
+  },
+  /** X5: this version is too old to keep working. */
+  update: {
+    title: "Time to update HueVistaa",
+    body: "This version of the app is too old to keep working. Update it from the store to carry on — your rooms, boards and points are all kept.",
+    button: "Update",
+    available: "Update available",
+  },
   tabs: {
     home: "Home",
     studio: "Studio",
@@ -1732,6 +1758,8 @@ export const en = {
     sessionEnded: "Please sign in again.",
     generic: "That didn't go through. Try again.",
     unreadable: "The server's answer couldn't be read. Try again.",
+    // A screen that broke (the root error boundary): what was saved is safe.
+    screenBroke: "Something went wrong on this screen. Anything you saved is safe — try again.",
   },
   validation: {
     mobile: "Enter a 10-digit mobile number, e.g. 98765 43210.",

@@ -45,3 +45,33 @@ jest.mock("react-native-webview", () => {
   return { __esModule: true, WebView, default: WebView };
 });
 jest.mock("@/features/painter/board-reader/reader-html.generated", () => ({ READER_HTML: "<!doctype html>", READER_INPUTS: {} }));
+
+// Push notifications (Phase 8): the phone's notification centre, in memory. Off by default
+// (permission undetermined, no device); a test turns it on, and drives taps and arrivals
+// through `__emit`. Every listener returns a subscription that can be removed.
+jest.mock("expo-notifications", () => {
+  const listeners: Record<string, Set<(event: unknown) => void>> = { received: new Set(), response: new Set(), token: new Set() };
+  const on = (kind: string) => (listener: (event: unknown) => void) => {
+    listeners[kind]!.add(listener);
+    return { remove: () => listeners[kind]!.delete(listener) };
+  };
+  return {
+    AndroidImportance: { DEFAULT: 3, HIGH: 4 },
+    setNotificationHandler: jest.fn(),
+    setNotificationChannelAsync: jest.fn(async () => null),
+    getPermissionsAsync: jest.fn(async () => ({ granted: false, canAskAgain: true, status: "undetermined" })),
+    requestPermissionsAsync: jest.fn(async () => ({ granted: false, canAskAgain: true, status: "undetermined" })),
+    getExpoPushTokenAsync: jest.fn(async () => ({ type: "expo", data: "ExponentPushToken[test-token]" })),
+    getLastNotificationResponseAsync: jest.fn(async () => null),
+    clearLastNotificationResponseAsync: jest.fn(async () => {}),
+    dismissAllNotificationsAsync: jest.fn(async () => {}),
+    setBadgeCountAsync: jest.fn(async () => true),
+    addNotificationReceivedListener: on("received"),
+    addNotificationResponseReceivedListener: on("response"),
+    addPushTokenListener: on("token"),
+    __emit: (kind: "received" | "response" | "token", event: unknown) => {
+      for (const listener of [...listeners[kind]!]) listener(event);
+    },
+  };
+});
+jest.mock("expo-device", () => ({ isDevice: false }));

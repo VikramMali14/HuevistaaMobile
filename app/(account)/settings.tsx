@@ -1,10 +1,12 @@
 import * as Clipboard from "expo-clipboard";
-import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
-import { Platform, View } from "react-native";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useRef, useState } from "react";
+import { Linking, Platform, View } from "react-native";
 
 import { useSession } from "@/auth/session";
 import { BackButton, Button, ChoiceCard, ConfirmSheet, ListGroup, ListRow, Screen, Sheet, Text, useToast } from "@/components/ui";
+import { versionGate } from "@/features/app-update/min-version";
+import { askForPush, pushPermission, pushSupported, registerPush, type PushPermission } from "@/features/notifications/notifications";
 import { getLanguage, t, type Language } from "@/i18n";
 import { chooseLanguage, languageChoice, phoneLanguage, type LanguageChoice } from "@/i18n/language";
 import { appVersion } from "@/lib/app-version";
@@ -34,7 +36,31 @@ export default function Settings() {
   const leaving = useSubmit();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [push, setPush] = useState<PushPermission | null>(null);
   const choice = languageChoice();
+  const gate = versionGate();
+
+  // Read again on coming back — perhaps from the phone's settings.
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      void pushPermission().then((now) => alive && setPush(now));
+      return () => {
+        alive = false;
+      };
+    }, []),
+  );
+
+  const notifications = async () => {
+    if (push === "ask") {
+      const granted = await askForPush();
+      setPush(granted ? "granted" : await pushPermission());
+      if (granted && profile) void registerPush(profile.id);
+      return;
+    }
+    // On, or only the phone's settings can turn them on: that's where they're changed.
+    await Linking.openSettings().catch(() => {});
+  };
   const taps = useRef(0);
 
   // A new language remounts every screen (app/_layout.tsx); this one is opened again after.
@@ -80,6 +106,16 @@ export default function Settings() {
           onPress={() => setPicking(true)}
           testID="settings-language"
         />
+        {pushSupported() ? (
+          <ListRow
+            icon="bell"
+            title={t("notifications.row")}
+            value={push === "granted" ? t("notifications.on") : push ? t("notifications.off") : undefined}
+            detail={push === "settings" ? t("notifications.offHint") : undefined}
+            onPress={() => void notifications()}
+            testID="settings-notifications"
+          />
+        ) : null}
       </ListGroup>
 
       <ListGroup title={t("settings.legal")}>
@@ -98,6 +134,9 @@ export default function Settings() {
           onLongPress={() => router.push("/engine-check")}
           testID="settings-version"
         />
+        {gate.updateAvailable && gate.storeUrl ? (
+          <ListRow icon="download" title={t("update.available")} onPress={() => void Linking.openURL(gate.storeUrl!).catch(() => {})} testID="settings-update" />
+        ) : null}
       </ListGroup>
 
       <ListGroup>

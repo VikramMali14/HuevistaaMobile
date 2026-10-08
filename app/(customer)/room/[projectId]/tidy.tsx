@@ -8,6 +8,7 @@ import { projectsApi } from "@/api/endpoints/projects";
 import { isApiError, messageFor } from "@/api/errors";
 import { keys } from "@/api/query-keys";
 import type { RoomDetail, SegmentChoices } from "@/api/types";
+import { AskForNotifications } from "@/features/notifications/AskForNotifications";
 import {
   BackButton,
   Banner,
@@ -262,6 +263,7 @@ export default function TidyUp() {
       </View>
       {notice ? <Banner tone="info" message={notice} /> : null}
       {error ? <Banner tone="danger" message={error} /> : null}
+      <AskForNotifications reason="walls" when={working} />
     </Screen>
   );
 }

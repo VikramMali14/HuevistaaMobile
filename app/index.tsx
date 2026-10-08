@@ -20,7 +20,7 @@ import { useTheme } from "@/theme";
 export default function Start() {
   const { state, retry } = useSession();
   const { colors, space } = useTheme();
-  const landing = state.status === "signedIn" ? peekLanding() : null;
+  const landing = state.status === "signedIn" ? peekLanding(state.profile.id) : null;
   useEffect(() => {
     if (landing) clearLanding();
   }, [landing]);
