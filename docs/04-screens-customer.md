@@ -882,7 +882,8 @@ settings**; location off or no fix → said, and **Use my location** tries again
   painter's spot); a line on jobs done and reviews, or "New on HueVistaa" when there are
   none. **Call** asks for the number once (each one counts against 20 a day), dials it,
   then shows it on its own line with **WhatsApp**; it is kept for the session and never
-  asked for again. Refused → the server's sentence under the card.
+  asked for again. Refused → the server's sentence under the card. Offline → said at
+  once; it never waits for the signal and dials by itself later.
 - **Shops:** address, hours, **Directions** (Apple Maps on iOS, Google Maps elsewhere),
   and **Call** when the number can be dialled.
 - Distance chips change the search; an empty list offers the next distance up. The 50

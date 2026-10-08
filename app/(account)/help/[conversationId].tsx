@@ -1,15 +1,16 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useRef, useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { useIsFocused, useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import { AccessibilityInfo, ScrollView, StyleSheet, View } from "react-native";
 
 import { isApiError, messageFor } from "@/api/errors";
 import { supportApi, type Conversation } from "@/api/endpoints/support";
 import { keys } from "@/api/query-keys";
 import { BackButton, Banner, Button, EmptyState, ErrorState, Screen, Skeleton, Text, TextField } from "@/components/ui";
 import { Bubble } from "@/features/support/Bubble";
-import { MESSAGE_MAX, POLL_MS, startedChat } from "@/features/support/support";
+import { lookFor, MESSAGE_MAX, POLL_MS, senderName, startedChat } from "@/features/support/support";
 import { t } from "@/i18n";
+import { useAlive } from "@/lib/use-alive";
 import { useSubmit } from "@/lib/use-submit";
 import { useTheme } from "@/theme";
 
@@ -23,9 +24,10 @@ const gone = (err: unknown) => isApiError(err) && err.kind === "http" && err.sta
  * never sorted again here), read again every 5 s while it's open and on screen — and not
  * while a message is going, so a late read can't wipe out the answer. A message waits up
  * to two minutes for the assistant, which answers inside the reply. One that gets no
- * answer is looked for in the chat before anything is said; it is never sent twice by
- * itself. A closed chat isn't reopened: writing below it starts a new one, as the
- * server's own note says.
+ * answer is looked for in the chat until it shows or can't land any more, before
+ * anything is said; it is never sent twice by itself. A new reply from the assistant or
+ * the team is read out by a screen reader. A closed chat isn't reopened: writing below it
+ * starts a new one, as the server's own note says.
  */
 export default function SupportChat() {
   const router = useRouter();
@@ -34,20 +36,34 @@ export default function SupportChat() {
   const { conversationId: id = "" } = useLocalSearchParams<{ conversationId: string }>();
   const sendingNow = useRef(false);
   const scroller = useRef<ScrollView>(null);
+  // Under another screen (a link opened from a chat app) it stays mounted: not read then.
+  const focused = useIsFocused();
+  const alive = useAlive();
   const chat = useQuery({
     queryKey: keys.supportConversation(id),
     queryFn: () => supportApi.conversation(id),
     enabled: Boolean(id),
     retry: (failures, err) => !gone(err) && failures < 2,
-    refetchInterval: (q) => (sendingNow.current || gone(q.state.error) || q.state.data?.status === "RESOLVED" ? false : POLL_MS),
+    refetchInterval: (q) => (!focused || sendingNow.current || gone(q.state.error) || q.state.data?.status === "RESOLVED" ? false : POLL_MS),
   });
   const sending = useSubmit();
   const asking = useSubmit();
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
 
   const c = chat.data;
+  // A reply that arrives after the first read is announced, as a sighted person sees it appear.
+  const lastSeen = useRef<string | null>(null);
+  const last = c?.messages[c.messages.length - 1];
+  useEffect(() => {
+    if (!last) return;
+    if (lastSeen.current && lastSeen.current !== last.id && (last.sender === "AI" || last.sender === "AGENT")) {
+      AccessibilityInfo.announceForAccessibility(`${senderName(last.sender)}: ${last.body}`);
+    }
+    lastSeen.current = last.id;
+  }, [last]);
   const resolved = c?.status === "RESOLVED";
   const waitingForTeam = c?.status === "NEEDS_HUMAN";
 
@@ -65,6 +81,8 @@ export default function SupportChat() {
       if (!c) return;
       const before = c.messages.filter((m) => m.sender === "USER").length;
       const askedAt = Date.now();
+      const listed = queryClient.getQueryData<{ id: string }[]>(keys.supportList);
+      const known = listed ? new Set(listed.map((x) => x.id)) : null;
       sendingNow.current = true;
       await queryClient.cancelQueries({ queryKey: keys.supportConversation(id), exact: true });
       setPending(text);
@@ -83,7 +101,7 @@ export default function SupportChat() {
           setDraft(text);
           setError(messageFor(err, t("help.sendFailed")));
         } else {
-          await reconcile(text, before, askedAt);
+          await reconcile(text, before, askedAt, known);
         }
       } finally {
         sendingNow.current = false;
@@ -91,25 +109,35 @@ export default function SupportChat() {
       }
     });
 
-  /** No answer: did it get there? Look in the chat (or, for a new one, the list) first. */
-  const reconcile = async (text: string, before: number, askedAt: number) => {
-    try {
-      if (resolved) {
-        const list = await queryClient.fetchQuery({ queryKey: keys.supportList, queryFn: supportApi.conversations, staleTime: 0 });
-        const made = startedChat(list, text, askedAt);
-        if (made) return router.replace({ pathname: "/help/[conversationId]", params: { conversationId: made.id } });
-      } else {
-        const now = await supportApi.conversation(id);
-        queryClient.setQueryData(keys.supportConversation(id), now);
-        const mine = now.messages.filter((m) => m.sender === "USER");
-        if (mine.length > before && mine[mine.length - 1]?.body.trim() === text) return;
-      }
-      setDraft(text);
-      setError(t("help.unanswered"));
-    } catch {
-      setDraft(text);
-      setError(t("help.unansweredUnknown"));
+  /**
+   * No answer: did it get there? Look in the chat (or, for a new one, the list) until it
+   * shows or can't land any more — the message is invisible while it's being answered.
+   */
+  const reconcile = async (text: string, before: number, askedAt: number, known: ReadonlySet<string> | null) => {
+    setChecking(true);
+    const looked = resolved
+      ? await lookFor(
+          async () => startedChat(await queryClient.fetchQuery({ queryKey: keys.supportList, queryFn: supportApi.conversations, staleTime: 0 }), text, known, askedAt),
+          askedAt,
+          { alive: () => alive.current },
+        )
+      : await lookFor(
+          async () => {
+            const now = await supportApi.conversation(id);
+            const mine = now.messages.filter((m) => m.sender === "USER");
+            if (mine.length > before && mine[mine.length - 1]?.body.trim() === text) return now;
+            return null;
+          },
+          askedAt,
+          { alive: () => alive.current },
+        );
+    setChecking(false);
+    if (looked.found) {
+      if (resolved) return router.replace({ pathname: "/help/[conversationId]", params: { conversationId: looked.found.id } });
+      return settle(looked.found as Conversation);
     }
+    setDraft(text);
+    setError(looked.sure ? t("help.unanswered") : t("help.unansweredUnknown"));
   };
 
   const toPerson = () =>
@@ -145,6 +173,11 @@ export default function SupportChat() {
     <Screen
       footer={
         <View style={{ gap: space.xs }}>
+          {checking ? (
+            <Text variant="small" tone="mute" accessibilityLiveRegion="polite" testID="chat-checking">
+              {t("help.checking")}
+            </Text>
+          ) : null}
           {error ? <Banner tone="danger" message={error} testID="chat-error" /> : null}
           <View style={[styles.row, { gap: space.xs }]}>
             <View style={styles.fill}>

@@ -50,5 +50,8 @@ export function usePainterPhone(painterId: string) {
     staleTime: Infinity,
     gcTime: Infinity,
     retry: false,
+    // Offline, fail at once with the reason. A paused ask would wait for the signal, then
+    // open the dialler by itself, long after the press.
+    networkMode: "always",
   });
 }

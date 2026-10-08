@@ -9,9 +9,10 @@ import { supportApi } from "@/api/endpoints/support";
 import { keys } from "@/api/query-keys";
 import { useSession } from "@/auth/session";
 import { BackButton, Banner, Button, Card, ErrorState, ListGroup, ListRow, Screen, SectionHeader, Skeleton, Text, TextField } from "@/components/ui";
-import { MESSAGE_MAX, ongoing, startedChat, statusLabel } from "@/features/support/support";
+import { lookFor, MESSAGE_MAX, ongoing, startedChat, statusLabel } from "@/features/support/support";
 import { t, type MessageKey } from "@/i18n";
 import { formatServerDateTime } from "@/lib/dates";
+import { useAlive } from "@/lib/use-alive";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { useSubmit } from "@/lib/use-submit";
 import { useTheme } from "@/theme";
@@ -43,6 +44,8 @@ export default function Help() {
   const starting = useSubmit();
   const [message, setMessage] = useState(typeof draft === "string" ? draft : "");
   const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const alive = useAlive();
   const [openFaq, setOpenFaq] = useState<string | null>(null);
   const painter = profile?.role === "PAINTER";
   const back: Href = painter ? "/painter/profile" : "/account";
@@ -55,6 +58,7 @@ export default function Help() {
       if (!text) return setError(t("help.empty"));
       if (text.length > MESSAGE_MAX) return setError(t("help.tooLong"));
       const askedAt = Date.now();
+      const known = list.data ? new Set(list.data.map((c) => c.id)) : null;
       try {
         const chat = await supportApi.start(text);
         queryClient.setQueryData(keys.supportConversation(chat.id), chat);
@@ -63,19 +67,21 @@ export default function Help() {
         router.push({ pathname: "/help/[conversationId]", params: { conversationId: chat.id } });
       } catch (err) {
         if (isApiError(err) && err.kind === "http" && err.status < 500) return setError(messageFor(err, t("help.sendFailed")));
-        // No answer: it may have started anyway. Look before saying anything.
-        try {
-          const now = await queryClient.fetchQuery({ queryKey: keys.supportList, queryFn: supportApi.conversations, staleTime: 0 });
-          const made = startedChat(now, text, askedAt);
-          if (made) {
-            setMessage("");
-            router.push({ pathname: "/help/[conversationId]", params: { conversationId: made.id } });
-            return;
-          }
-          setError(t("help.unanswered"));
-        } catch {
-          setError(t("help.unansweredUnknown"));
+        // No answer: it may have started anyway, and may still be being answered. Look
+        // until it shows or can't land any more, before saying anything.
+        setChecking(true);
+        const looked = await lookFor(
+          async () => startedChat(await queryClient.fetchQuery({ queryKey: keys.supportList, queryFn: supportApi.conversations, staleTime: 0 }), text, known, askedAt),
+          askedAt,
+          { alive: () => alive.current },
+        );
+        setChecking(false);
+        if (looked.found) {
+          setMessage("");
+          router.push({ pathname: "/help/[conversationId]", params: { conversationId: looked.found.id } });
+          return;
         }
+        setError(looked.sure ? t("help.unanswered") : t("help.unansweredUnknown"));
       }
     });
 
@@ -125,6 +131,11 @@ export default function Help() {
             editable={!starting.busy}
             testID="help-message"
           />
+          {checking ? (
+            <Text variant="small" tone="mute" accessibilityLiveRegion="polite" testID="help-checking">
+              {t("help.checking")}
+            </Text>
+          ) : null}
           {error ? <Banner tone="danger" message={error} testID="help-error" /> : null}
           <Button icon="send" label={t("help.ask")} onPress={start} loading={starting.busy} testID="help-ask" />
         </View>

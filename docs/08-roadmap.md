@@ -513,16 +513,20 @@ New:
 
 **Done:** 2026-10.
 - **Tests.** Route tests for every screen through the real route tree
-  (`src/__tests__/phase7.test.tsx`: 35, with location, the dialler, the browser and the
+  (`src/__tests__/phase7.test.tsx`: 41, with location, the dialler, the browser and the
   network faked). Unit tests for the nearby words and links, the community checks (the
-  server's trimming), the support helpers, and the App Links paths. 66 suites, 940 tests,
-  typecheck and lint clean.
+  server's trimming), the support helpers and `lookFor`, and the App Links paths. 66
+  suites, 950 tests, typecheck and lint clean.
 - **Mutation checks.** Each of these guards was broken in turn, and a test failed each
   time:
-  - a painter's number kept after the first Call;
+  - a painter's number kept after the first Call, and failing at once offline;
   - D2's owner check;
   - an unanswered copy never sent again;
-  - the review, question and support-start look-ups after a lost answer.
+  - the review, question and support look-ups after a lost answer, including looking
+    until a send can no longer land, and taking only a new chat or question;
+  - polling paused under another screen;
+  - replies read out;
+  - the outline stars.
 - **Browser walk.** Every screen in a phone-sized Chromium against a stand-in backend,
   light and dark:
   - location, the lists, Call and Directions;
@@ -548,6 +552,26 @@ As built, against the spec (details under each screen in [04](04-screens-custome
 - After signing in from a shared room, the room was left in the stack twice (sign-in
   was pushed, then replaced by the room). Sign-in now replaces it, as D1 does.
 - The review's thank-you said twice that opening the board uses nothing up.
+
+And from an adversarial pass over the code. Fixed, each with a test:
+- **Support said "send it again" too early.** After a dropped connection, S6 and S7 looked
+  once and said the message hadn't arrived. But the server answers inside the
+  transaction that saves the message, so for up to two minutes it can't be seen. Sending
+  again bought a second paid answer. They now look every 5 s until the send can no longer
+  land, and say they're checking meanwhile.
+- **A lost start matched the wrong chat.** It was matched by subject and the phone's
+  clock, so a fast clock missed it, and an earlier chat with the same words (the payment
+  result's) could be taken for it. Now only a chat that wasn't on the list before counts.
+  Questions likewise.
+- **Call offline dialled later by itself.** The press waited silently for the signal,
+  then opened the dialler once per tap. It now fails at once with the reason, and one
+  press makes one call.
+- **Unchosen stars were hard to see.** They used the hairline colour (about 1.5:1 in
+  dark). They are now outlines in the muted text colour.
+- **A message being sent was hard to read.** It was faded to 70%; it is now full strength
+  with "Sending…" under it. Replies are read out by a screen reader.
+- **The chat was read under other screens.** S7 kept reading every 5 s while a link
+  opened over it; it now stops until it's on screen again.
 
 Left for a real phone:
 - the location prompts on Android and iOS;

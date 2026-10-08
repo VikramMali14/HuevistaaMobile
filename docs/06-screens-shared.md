@@ -90,11 +90,17 @@ conversation still open or waiting for the team is offered at the top. Other scr
 open S6 with the message already written: the payment result names the payment, and
 tidying up names the walls. The assistant answers inside the request, so a start or a
 message waits up to 130 s, with a typing bubble. One that gets no answer is looked for
-before anything is said: a new conversation with the same first message, or the message
-in the conversation. It is never sent twice, because each answer costs. S7 reads the
+before anything is said, every 5 s until it shows or can no longer land (140 s from the
+send): a conversation that wasn't on the list before, with the same first message, or the
+message in the conversation. The server writes the message and its answer in one
+transaction, so a single look straight after a dropped connection would wrongly say it
+never arrived. Meanwhile the screen says it's checking and Send waits. A message is never
+sent twice, because each answer costs. S7 reads the
 conversation every 5 s while it's on screen, and stops on Resolved, on a 404, and while
-sending. Writing under a Resolved conversation starts a new one, as the server's own note
-says. **Talk to a person** shows only while the assistant is answering.
+sending, and while another screen covers it. A new reply from the assistant or the team
+is read out by a screen reader. Writing under a Resolved conversation starts a new one,
+as the server's own note says. **Talk to a person** shows only while the assistant is
+answering.
 
 ### S8 · Questions and answers
 
@@ -109,7 +115,7 @@ question** (`POST /api/community/questions { body, displayName }`) · **My quest
 name), then **Your questions** with where each stands (Waiting for an answer · Answered ·
 Not published — a taken-down question's old answer is not shown), then the answered
 questions, 20 at a time. An ask that gets no answer is looked for among the account's own
-questions before an error is shown. Painters reach S6 and S8 from their trade profile.
+questions (a new one, not an earlier ask in the same words) before an error is shown. Painters reach S6 and S8 from their trade profile.
 
 ### S9 · Delete account
 

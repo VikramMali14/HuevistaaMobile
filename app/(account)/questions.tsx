@@ -191,6 +191,9 @@ function Ask({ suggestedName }: { suggestedName: string }) {
       setProblems(found);
       if (found.body || found.name) return;
       const text = body.trim();
+      // The questions already asked: one the same words still waiting isn't this one.
+      const before = queryClient.getQueryData<MyQuestions>(keys.myQuestions);
+      const known = new Set(before?.questions.map((q) => q.id) ?? []);
       try {
         const asked = await communityApi.ask(text, shownName.trim());
         add(asked);
@@ -201,10 +204,10 @@ function Ask({ suggestedName }: { suggestedName: string }) {
           return;
         }
         if (isApiError(err) && err.kind === "http" && err.status < 500) return setError(messageFor(err, t("questions.failed")));
-        // No answer: it may have been asked. Look among the account's questions first.
+        // No answer: it may have been asked. Look among the account's questions for a new one first.
         try {
           const now = await queryClient.fetchQuery({ queryKey: keys.myQuestions, queryFn: communityApi.myQuestions, staleTime: 0 });
-          if (now.questions.some((q) => q.status === "PENDING" && q.question === cleanBody(text))) return done();
+          if (now.questions.some((q) => !known.has(q.id) && q.status === "PENDING" && q.question === cleanBody(text))) return done();
         } catch {
           // Said below.
         }

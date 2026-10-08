@@ -29,7 +29,7 @@ export function StarInput({ value, onChange, error, disabled }: { value: number;
             style={styles.star}
             testID={`star-${n}`}
           >
-            <Text style={[styles.glyph, { color: n <= value ? colors.accentText : colors.ruleStrong }]}>★</Text>
+            <Text style={[styles.glyph, { color: n <= value ? colors.accentText : colors.fgMute }]}>{n <= value ? "★" : "☆"}</Text>
           </Pressable>
         ))}
       </View>
@@ -47,7 +47,7 @@ export function Stars({ rating, size = 18 }: { rating: number; size?: number }) 
   return (
     <Text accessibilityLabel={t("review.outOfFive", { n: rating })} style={{ fontSize: size, lineHeight: size * 1.2, letterSpacing: 2 }}>
       <Text style={{ color: colors.accentText, fontSize: size }}>{"★".repeat(whole)}</Text>
-      <Text style={{ color: colors.ruleStrong, fontSize: size }}>{"★".repeat(5 - whole)}</Text>
+      <Text style={{ color: colors.fgMute, fontSize: size }}>{"☆".repeat(5 - whole)}</Text>
     </Text>
   );
 }

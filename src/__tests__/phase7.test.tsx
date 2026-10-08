@@ -5,8 +5,10 @@
  * browser are faked (and the GPU, as everywhere in Jest).
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { onlineManager } from "@tanstack/react-query";
+import { router } from "expo-router";
 import { act, fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
-import { Linking } from "react-native";
+import { AccessibilityInfo, Linking } from "react-native";
 
 import { ApiError } from "@/api/errors";
 import type { BoardReviewState, MyQuestions, OwnQuestion, QuestionPage } from "@/api/endpoints/community";
@@ -281,6 +283,31 @@ describe("C32 · Painters and shops near you", () => {
     expect(openURL).not.toHaveBeenCalled();
   });
 
+  // Offline, the ask fails at once — a paused one would dial by itself once the signal came back.
+  it("says at once that Call needs a connection, and never dials later by itself", async () => {
+    signedInAs("CUSTOMER");
+    here();
+    mockNearby.painters.mockResolvedValue([painterRow("p1")]);
+    mockNearby.shops.mockResolvedValue([]);
+    mockNearby.painterPhone.mockRejectedValue(offline());
+    renderRouter("./app", { initialUrl: "/nearby" });
+    await waitFor(() => expect(screen.getByTestId("nearby-locate")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("nearby-locate"));
+    await waitFor(() => expect(screen.getByTestId("call-p1")).toBeTruthy());
+    act(() => onlineManager.setOnline(false));
+    try {
+      fireEvent.press(screen.getByTestId("call-p1"));
+      await waitFor(() => expect(screen.getByTestId("call-error-p1")).toBeTruthy());
+      expect(mockNearby.painterPhone).toHaveBeenCalledTimes(1);
+      mockNearby.painterPhone.mockResolvedValue({ id: "p1", phone: "+919845012345" });
+      act(() => onlineManager.setOnline(true));
+      await tick(1_000);
+      expect(openURL).not.toHaveBeenCalled();
+    } finally {
+      act(() => onlineManager.setOnline(true));
+    }
+  });
+
   it("offers Settings when location was refused for good", async () => {
     signedInAs("CUSTOMER");
     mockLocation.requestForegroundPermissionsAsync.mockResolvedValue({ granted: false, canAskAgain: false });
@@ -354,6 +381,7 @@ describe("D1 · A board's QR", () => {
     await waitFor(() => expect(screen.getByText("How did it go?")).toBeTruthy());
     expect(screen.getByText(/You chose your colours with Sharma Paints\./)).toBeTruthy();
     expect(screen.getByTestId("review-name").props.value).toBe("Priya S.");
+    expect(screen.getByTestId("star-5")).toHaveTextContent("☆");
     // Nothing that would be refused is sent: every attempt counts per network.
     fireEvent.changeText(screen.getByTestId("review-body"), "a    b    c");
     fireEvent.press(screen.getByTestId("review-send"));
@@ -484,6 +512,56 @@ describe("S6 · Help and support", () => {
   });
 });
 
+// The server answers inside the transaction that saves the start: until the answer is in,
+// the chat can't be seen. One look straight after a dropped connection proves nothing.
+describe("S6 · A start whose answer was lost", () => {
+  const summary = (id: string, extra: Partial<ConversationSummary> = {}): ConversationSummary => ({
+    id,
+    channel: "IN_APP",
+    status: "OPEN",
+    subject: "Where is my board?",
+    lastMessage: "It's in Boards.",
+    updatedAt: ist(0),
+    ...extra,
+  });
+
+  it("keeps looking while it may still be answered, and opens it when it shows", async () => {
+    signedInAs("CUSTOMER");
+    // An earlier chat with the same words isn't this one.
+    mockSupport.conversations.mockResolvedValue([summary("earlier", { updatedAt: ist(-60_000) })]);
+    mockSupport.start.mockRejectedValue(offline());
+    renderRouter("./app", { initialUrl: "/help" });
+    await waitFor(() => expect(screen.getByTestId("help-ongoing")).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId("help-message"), "Where is my board?");
+    fireEvent.press(screen.getByTestId("help-ask"));
+    await waitFor(() => expect(screen.getByTestId("help-checking")).toBeTruthy());
+    await tick(5_000);
+    expect(screen).toHavePathname("/help");
+    mockSupport.conversations.mockResolvedValue([summary("c9"), summary("earlier", { updatedAt: ist(-60_000) })]);
+    mockSupport.conversation.mockResolvedValue(chat("c9", { subject: "Where is my board?" }));
+    await tick(5_000);
+    await waitFor(() => expect(screen).toHavePathname("/help/c9"));
+    expect(mockSupport.start).toHaveBeenCalledTimes(1);
+  });
+
+  it("says it didn't get through only once it can't land any more", async () => {
+    signedInAs("CUSTOMER");
+    mockSupport.conversations.mockResolvedValue([]);
+    mockSupport.start.mockRejectedValue(offline());
+    renderRouter("./app", { initialUrl: "/help" });
+    await waitFor(() => expect(screen.getByTestId("help-message")).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId("help-message"), "Where is my board?");
+    fireEvent.press(screen.getByTestId("help-ask"));
+    await waitFor(() => expect(screen.getByTestId("help-checking")).toBeTruthy());
+    await tick(60_000);
+    expect(screen.queryByTestId("help-error")).toBeNull();
+    for (let i = 0; i < 20; i++) await tick(5_000);
+    await waitFor(() => expect(screen.getByTestId("help-error")).toHaveTextContent(/didn't get through/));
+    expect(screen.getByTestId("help-message").props.value).toBe("Where is my board?");
+    expect(mockSupport.start).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("S7 · Support conversation", () => {
   it("sends a message and shows the answer; asks for a person", async () => {
     signedInAs("CUSTOMER");
@@ -509,7 +587,8 @@ describe("S7 · Support conversation", () => {
     expect(screen.queryByTestId("chat-person")).toBeNull();
   });
 
-  it("reads an open chat again every 5 seconds while it's showing", async () => {
+  it("reads an open chat again every 5 seconds while it's showing, and reads a reply out", async () => {
+    const announce = jest.spyOn(AccessibilityInfo, "announceForAccessibility").mockImplementation(() => {});
     signedInAs("CUSTOMER");
     mockSupport.conversation.mockResolvedValue(chat("c1"));
     renderRouter("./app", { initialUrl: "/help/c1" });
@@ -522,6 +601,30 @@ describe("S7 · Support conversation", () => {
     await waitFor(() => expect(screen.getByText("Hi, Anil from the team here.")).toBeTruthy());
     expect(mockSupport.conversation.mock.calls.length).toBeGreaterThan(before);
     expect(screen.getByText("Our team")).toBeTruthy();
+    expect(announce).toHaveBeenCalledWith("Our team: Hi, Anil from the team here.");
+    // What was there when it opened isn't read out again.
+    expect(announce).not.toHaveBeenCalledWith(expect.stringContaining("what's the payment reference"));
+    announce.mockRestore();
+  });
+
+  // A link opened from a chat app lands on top of it; it isn't read under there.
+  it("stops reading the chat while another screen covers it", async () => {
+    signedInAs("CUSTOMER");
+    mockSupport.conversation.mockResolvedValue(chat("c1"));
+    mockCommunity.questions.mockResolvedValue({ items: [], total: 0, page: 0, size: 20, hasMore: false });
+    mockCommunity.myQuestions.mockResolvedValue({ suggestedName: "Priya S.", questions: [] });
+    renderRouter("./app", { initialUrl: "/help/c1" });
+    await waitFor(() => expect(screen.getByTestId("chat-messages")).toBeTruthy());
+    act(() => router.push("/questions"));
+    await waitFor(() => expect(screen).toHavePathname("/questions"));
+    await tick(100);
+    const covered = mockSupport.conversation.mock.calls.length;
+    for (let i = 0; i < 4; i++) await tick(5_000);
+    expect(mockSupport.conversation.mock.calls.length).toBe(covered);
+    act(() => router.back());
+    await waitFor(() => expect(screen).toHavePathname("/help/c1"));
+    for (let i = 0; i < 2; i++) await tick(5_000);
+    expect(mockSupport.conversation.mock.calls.length).toBeGreaterThan(covered);
   });
 
   // The server's own note says a closed chat is followed by a new one.
@@ -538,7 +641,7 @@ describe("S7 · Support conversation", () => {
     expect(mockSupport.send).not.toHaveBeenCalled();
   });
 
-  it("after a send with no answer that didn't arrive, keeps the message to send again", async () => {
+  it("after a send with no answer, finds it once it's been answered", async () => {
     signedInAs("CUSTOMER");
     mockSupport.conversation.mockResolvedValue(chat("c1"));
     mockSupport.send.mockRejectedValue(offline());
@@ -546,7 +649,30 @@ describe("S7 · Support conversation", () => {
     await waitFor(() => expect(screen.getByTestId("chat-input")).toBeTruthy());
     fireEvent.changeText(screen.getByTestId("chat-input"), "pay_9");
     fireEvent.press(screen.getByTestId("chat-send"));
-    await waitFor(() => expect(screen.getByTestId("chat-error")).toHaveTextContent(/isn't there yet/));
+    await waitFor(() => expect(screen.getByTestId("chat-checking")).toBeTruthy());
+    expect(screen.getByText("Sending…")).toBeTruthy();
+    await tick(5_000);
+    mockSupport.conversation.mockResolvedValue(
+      chat("c1", { messages: [...chat("c1").messages, { id: "m3", sender: "USER", body: "pay_9", createdAt: ist(0) }, { id: "m4", sender: "AI", body: "Thanks — that one is refunded.", createdAt: ist(0) }] }),
+    );
+    await tick(5_000);
+    await waitFor(() => expect(screen.getByText("Thanks — that one is refunded.")).toBeTruthy());
+    expect(screen.queryByTestId("chat-error")).toBeNull();
+    expect(screen.getByTestId("chat-input").props.value).toBe("");
+    expect(mockSupport.send).toHaveBeenCalledTimes(1);
+  });
+
+  it("after a send with no answer that never arrived, keeps the message to send again", async () => {
+    signedInAs("CUSTOMER");
+    mockSupport.conversation.mockResolvedValue(chat("c1"));
+    mockSupport.send.mockRejectedValue(offline());
+    renderRouter("./app", { initialUrl: "/help/c1" });
+    await waitFor(() => expect(screen.getByTestId("chat-input")).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId("chat-input"), "pay_9");
+    fireEvent.press(screen.getByTestId("chat-send"));
+    await waitFor(() => expect(screen.getByTestId("chat-checking")).toBeTruthy());
+    for (let i = 0; i < 30; i++) await tick(5_000);
+    await waitFor(() => expect(screen.getByTestId("chat-error")).toHaveTextContent(/didn't get through/));
     expect(screen.getByTestId("chat-input").props.value).toBe("pay_9");
     expect(mockSupport.send).toHaveBeenCalledTimes(1);
   });
@@ -621,6 +747,24 @@ describe("S8 · Questions and answers", () => {
     await waitFor(() => expect(screen.getByText("Waiting for an answer")).toBeTruthy());
     expect(screen.queryByTestId("questions-error")).toBeNull();
     expect(mockCommunity.ask).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("S8 · A question whose answer was lost", () => {
+  // The same words already waiting are an earlier ask, not this one.
+  it("doesn't take an earlier question with the same words for this one", async () => {
+    signedInAs("CUSTOMER");
+    mockCommunity.questions.mockResolvedValue({ items: [], total: 0, page: 0, size: 20, hasMore: false });
+    const waiting: OwnQuestion = { id: "w1", displayName: "Priya S.", question: "Do points expire?", answer: null, status: "PENDING", askedAt: ist(-DAY), answeredAt: null };
+    mockCommunity.myQuestions.mockResolvedValue({ suggestedName: "Priya S.", questions: [waiting] });
+    mockCommunity.ask.mockRejectedValue(offline());
+    renderRouter("./app", { initialUrl: "/questions" });
+    await waitFor(() => expect(screen.getByText("Waiting for an answer")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("questions-open"));
+    fireEvent.changeText(screen.getByTestId("questions-body"), "Do points expire?");
+    fireEvent.press(screen.getByTestId("questions-send"));
+    await waitFor(() => expect(screen.getByTestId("questions-error")).toBeTruthy());
+    expect(screen.getByTestId("questions-body").props.value).toBe("Do points expire?");
   });
 });
 

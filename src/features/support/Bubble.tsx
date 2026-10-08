@@ -5,6 +5,8 @@ import { Text } from "@/components/ui";
 import { t } from "@/i18n";
 import { useTheme } from "@/theme";
 
+import { senderName } from "./support";
+
 /**
  * One message in a support chat (S7), as the website draws it: yours on the right in
  * brass; the assistant's and the team's on the left, each named; the system's notes small
@@ -23,12 +25,12 @@ export function Bubble({ message, pending }: { message: Pick<SupportMessage, "se
   }
 
   const mine = sender === "USER";
-  const who = mine ? t("help.you") : sender === "AGENT" ? t("help.team") : t("help.assistant");
+  const who = senderName(sender);
   return (
     <View
       style={[styles.wrap, mine ? styles.right : styles.left]}
       accessible
-      accessibilityLabel={`${who}: ${body}`}
+      accessibilityLabel={pending && mine ? `${who}: ${body}. ${t("help.sending")}` : `${who}: ${body}`}
       testID={pending ? "bubble-pending" : undefined}
     >
       {mine ? null : (
@@ -43,14 +45,18 @@ export function Bubble({ message, pending }: { message: Pick<SupportMessage, "se
             borderRadius: radius.lg,
             backgroundColor: mine ? colors.accent : colors.surface,
             borderColor: mine ? colors.accent : colors.rule,
-            opacity: pending ? 0.7 : 1,
           },
         ]}
       >
-        <Text variant="body" style={{ color: mine ? colors.accentOn : colors.fg }} selectable>
+        <Text variant="body" style={{ color: mine ? colors.accentOn : pending ? colors.fgMute : colors.fg }} selectable>
           {body}
         </Text>
       </View>
+      {pending && mine ? (
+        <Text variant="caption" tone="mute" align="right" style={{ marginTop: space.xxs }}>
+          {t("help.sending")}
+        </Text>
+      ) : null}
     </View>
   );
 }

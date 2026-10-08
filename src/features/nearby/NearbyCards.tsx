@@ -6,6 +6,8 @@ import type { NearbyPainter, NearbyShop } from "@/api/endpoints/nearby";
 import { Button, Card, Pill, Text } from "@/components/ui";
 import { displayPhone } from "@/features/painter/redeem";
 import { t } from "@/i18n";
+import { useAlive } from "@/lib/use-alive";
+import { useSubmit } from "@/lib/use-submit";
 import { useTheme } from "@/theme";
 
 import { directionsHref, distanceLabel, painterFacts, shopHours, shopPlace, telHref, trackRecord, whatsappHref } from "./nearby";
@@ -69,12 +71,17 @@ export function PainterCard({ painter }: { painter: NearbyPainter }) {
   const { space } = useTheme();
   const contact = usePainterPhone(painter.id);
   const phone = contact.data?.phone ?? null;
+  const calling = useSubmit();
+  const alive = useAlive();
 
-  const call = async () => {
-    if (phone) return open(telHref(phone));
-    const asked = await contact.refetch();
-    if (asked.data) open(telHref(asked.data.phone));
-  };
+  // One press, one call: a second tap while the number comes is dropped, and a number that
+  // comes after the card has gone dials nothing.
+  const call = () =>
+    void calling.run(async () => {
+      if (phone) return open(telHref(phone));
+      const asked = await contact.refetch();
+      if (asked.data && alive.current) open(telHref(asked.data.phone));
+    });
 
   const wa = whatsappHref(phone);
   const actions = (
@@ -91,7 +98,7 @@ export function PainterCard({ painter }: { painter: NearbyPainter }) {
             icon="phone"
             label={contact.isFetching ? t("nearby.gettingNumber") : t("nearby.call")}
             accessibilityHint={phone ? t("nearby.callNumber", { phone: displayPhone(phone) }) : t("nearby.callHint")}
-            onPress={() => void call()}
+            onPress={call}
             loading={contact.isFetching}
             testID={`call-${painter.id}`}
           />

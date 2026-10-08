@@ -463,11 +463,13 @@ The rules for every write:
 - **Never send twice.** A send with no answer is looked for before anything is said:
   - a review: the board read again (an edit must match what was sent);
   - a question: the account's own questions;
-  - a support start: a new conversation with the same first message since the ask
-    (`startedChat`);
+  - a support start: a conversation with the same first message that wasn't on the list
+    before the ask (`startedChat`);
   - a support message: the conversation.
 
-  Each counts as sent only when found. A shared room's copy is never looked for or sent
+  Each counts as sent only when found. A support send is looked for every 5 s until it
+  can no longer land (`lookFor`, 140 s from the send). The server answers inside the
+  transaction that saves the message, so a send can't be seen until its answer is in. A shared room's copy is never looked for or sent
   again; the visitor is pointed to their rooms.
 - **Refusals in the server's words.** `messageFor` shows a 4xx sentence as it came; a
   server's internal wording ("Project not found: …") is replaced where it would leak an
@@ -482,7 +484,10 @@ The rules for every write:
   again once, and only when there was no answer: the 60-an-hour allowance is shared by
   both lists.
 - A painter's number is a query that runs only on **Call**. It is never stale and never
-  dropped for the session, so it is asked for once against the 20-a-day allowance.
+  dropped for the session, so it is asked for once against the 20-a-day allowance. It
+  runs in `networkMode: "always"`, so offline it fails at once rather than pausing and
+  dialling when the signal returns. One press makes one call (`useSubmit`), and nothing
+  dials once the card has gone (`useAlive`).
 - `NearbyCards.tsx` is shared with P5's preview.
 
 **Reviews (C26, D1).**
@@ -495,8 +500,10 @@ The rules for every write:
 - The assistant answers inside the request, so a start and a message wait up to 130 s
   (the server allows 120).
 - S7 reads the conversation every 5 s while it's on screen (`refetchInterval`). It stops
-  for a send, on a 404 and once the conversation is resolved, and pauses while the app
-  is in the background (`focusManager`, wired to `AppState`).
+  for a send, on a 404, once the conversation is resolved, and while another screen
+  covers it (`useIsFocused`). It pauses while the app is in the background
+  (`focusManager`, wired to `AppState`). New replies are announced
+  (`announceForAccessibility`).
 - A send cancels any read in flight and shows the message at once, with a typing bubble
   unless the team has it.
 
