@@ -44,8 +44,9 @@ import { choicesOf, describeRender } from "@/features/ai-images/render-options";
 import { isBeingMade, LONG_AFTER_MS, refundSeen, SLOW_AFTER_MS, startedAtOf, useRender } from "@/features/ai-images/use-render";
 import { comboPdfShades } from "@/features/boards/combos";
 import { namesShown, useShadeScheme } from "@/features/catalogue/use-catalogue";
+import { AskForNotifications } from "@/features/notifications/AskForNotifications";
 import { useRoom } from "@/features/studio/use-room";
-import { t } from "@/i18n";
+import { t, tEn } from "@/i18n";
 import { announce } from "@/lib/announce";
 import { pdfPrintable } from "@/lib/pdf-core";
 import { buildAiImagePdf, isReadableJpeg } from "@/lib/pdf-export";
@@ -150,6 +151,7 @@ function Working({ render, onLeave }: { render: ProjectRender; onLeave: () => vo
       <View style={[styles.fill, { justifyContent: "center", paddingBottom: space.xl }]} testID="ai-image-working">
         <WorkingState stage={t("aiImage.working")} sentence={sentence} startedAt={startedAt} onLeave={onLeave} />
       </View>
+      <AskForNotifications reason="image" when />
     </Screen>
   );
 }
@@ -301,9 +303,10 @@ function Ready({
         // A picture the PDF can't place would leave a page with no image on it.
         if (!isReadableJpeg(jpeg)) throw new Error("Not a JPEG");
         const name = await nameNow();
-        const printedName = pdfPrintable(name) ? name : t("board.pdfTitle");
+        // Printed in English: the PDF's font has Latin letters only.
+        const printedName = pdfPrintable(name) ? name : tEn("board.pdfTitle");
         const bytes = buildAiImagePdf(
-          { jpeg, shades: option ? comboPdfShades(option, namesShown(scheme)) : [], caption },
+          { jpeg, shades: option ? comboPdfShades(option, namesShown(scheme)) : [], caption: describeRender(render, tEn) },
           printedName,
           codesAreUniversal(scheme),
         );
