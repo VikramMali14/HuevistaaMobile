@@ -421,6 +421,7 @@ export const hi: Translation = {
     canvasLabelView: "आपका कमरा, जैसा उस पर रंग लगाया गया था।",
     info: "इन रंगों के बारे में",
     recent: "हाल के",
+    suggested: "सुझाए गए",
     noWalls: "इस कमरे में अभी कोई दीवार नहीं है।",
     markWalls: "अपनी दीवारें मार्क करें",
   },

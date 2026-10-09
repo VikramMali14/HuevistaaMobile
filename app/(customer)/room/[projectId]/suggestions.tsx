@@ -7,15 +7,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { projectsApi } from "@/api/endpoints/projects";
 import { isApiError } from "@/api/errors";
 import { keys } from "@/api/query-keys";
-import type { ColourCombo, MatchedShade } from "@/api/types";
+import type { ColourCombo } from "@/api/types";
 import { BackButton, Banner, Button, Card, Disclaimer, ErrorState, Skeleton, Text, useToast } from "@/components/ui";
 import { namesShown, useCatalogue, useShadeScheme } from "@/features/catalogue/use-catalogue";
 import { applyColours, getRoomPaint, pushRecent, type WallColour } from "@/features/studio/paint-store";
-import { shadeColour } from "@/features/studio/shade-colour";
+import { comboColours } from "@/features/studio/suggested-swatches";
 import { useRoom, wallsWithMasks } from "@/features/studio/use-room";
 import { planWalls, wallLabel, wallsForTrio } from "@/features/studio/wall-plan";
 import { t, type MessageKey } from "@/i18n";
-import type { PaintShade } from "@/lib/shade-types";
 import { hairline, useTheme } from "@/theme";
 
 const ROLES: MessageKey[] = ["suggest.main", "suggest.accent", "suggest.trim"];
@@ -47,19 +46,7 @@ export default function Suggestions() {
 
   const walls = room.data ? planWalls(wallsWithMasks(room.data)) : [];
 
-  const colourOf = (matched: MatchedShade | null | undefined, hex: string): WallColour & { brandSlug?: string } => {
-    const shade: PaintShade | undefined = matched
-      ? catalogue.data?.shades.find((s) => s.code === matched.shadeCode || (matched.hvCode && s.hvCode === matched.hvCode))
-      : undefined;
-    if (shade) return { ...shadeColour(shade, scheme), brandSlug: shade.brandSlug };
-    return { hex: matched?.hexCode ?? hex, code: matched?.hvCode ?? matched?.shadeCode ?? null, lrv: null };
-  };
-
-  const trioOf = (combo: ColourCombo) => [
-    colourOf(combo.primaryShade, combo.primaryHex),
-    colourOf(combo.accentShade, combo.accentHex),
-    colourOf(combo.trimShade, combo.trimHex),
-  ];
+  const trioOf = (combo: ColourCombo) => comboColours(combo, catalogue.data?.shades, scheme);
 
   const apply = (combo: ColourCombo) => {
     const selected = getRoomPaint(projectId).selected;

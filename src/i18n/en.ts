@@ -420,6 +420,7 @@ export const en = {
     canvasLabelView: "Your room, as it was painted.",
     info: "About these colours",
     recent: "Recent",
+    suggested: "Suggested",
     noWalls: "This room has no walls yet.",
     markWalls: "Mark your walls",
   },

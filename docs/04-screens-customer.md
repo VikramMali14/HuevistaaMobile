@@ -349,7 +349,9 @@ from the engine's own one-pixel antialiasing.
   opening colours show as the nearest real shade, as on the website (07, "The studio's
   state").
 - **Dock:** horizontal row of recently used and suggested swatches · **Browse shades**
-  (→ C12) · **Suggestions** (→ C13). As built: the recent swatches, **Browse shades** full
+  (→ C12) · **Suggestions** (→ C13). As built: the recent swatches, then suggested ones (the
+  colours of C13's first palettes, mains first, none repeated from Recent; one tap paints
+  the selected wall and makes it recent), **Browse shades** full
   width, then **Suggestions**, **Save this combination** and the ⓘ on one line.
 - Top bar: back, room name, **Compare** (→ C14), **Undo**, and the board tray button
   with a count badge (→ C15).
