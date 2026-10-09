@@ -420,6 +420,7 @@ export const en = {
     info: "About these colours",
     paletteEmpty: "No shades to show yet. Try More shades.",
     recent: "Recent",
+    suggested: "Suggested",
     noWalls: "This room has no walls yet.",
     markWalls: "Mark your walls",
   },

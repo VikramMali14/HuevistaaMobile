@@ -20,10 +20,12 @@ import {
   redo,
   selectWall,
   undo,
+  useRecentShades,
   useRoomPaint,
   type WallColour,
 } from "@/features/studio/paint-store";
 import { shadeColour } from "@/features/studio/shade-colour";
+import { useDockSuggestions } from "@/features/studio/suggested-swatches";
 import { saveCombo, useTray } from "@/features/studio/tray-store";
 import { useColourReader } from "@/features/studio/use-colour-reader";
 import { markPainted, useRoom, wallsWithMasks } from "@/features/studio/use-room";
@@ -48,6 +50,7 @@ export default function Paint() {
   const id = params.projectId ?? "";
   const room = useRoom(id);
   const paint = useRoomPaint(id);
+  const recent = useRecentShades();
   const tray = useTray(id);
   const catalogue = useCatalogue();
   const scheme = useShadeScheme();
@@ -62,6 +65,8 @@ export default function Paint() {
   const walls = useMemo(() => (data ? planWalls(wallsWithMasks(data)) : []), [data]);
   const wallIds = useMemo(() => walls.map((w) => String(w.id)), [walls]);
   const editable = Boolean(data && !data.readOnly && !data.closedAt);
+  const recentCodes = useMemo(() => recent.map((r) => r.code), [recent]);
+  const suggested = useDockSuggestions(id, editable, recentCodes);
 
   useEffect(() => {
     if (data) initRoom(id, data, wallIds, readColour);
@@ -249,7 +254,7 @@ export default function Paint() {
 
           {editable ? (
             <>
-              <PaintPalette current={selectedColour} onPick={pick} disabled={!paint.selected} gutter={space.gutter} />
+              <PaintPalette current={selectedColour} suggested={suggested} onPick={pick} disabled={!paint.selected} gutter={space.gutter} />
               <View style={[styles.actions, { paddingHorizontal: space.xs }]}>
                 <Button
                   variant="ghost"

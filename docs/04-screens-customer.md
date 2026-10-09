@@ -351,7 +351,8 @@ from the engine's own one-pixel antialiasing.
 - **Dock:** horizontal row of recently used and suggested swatches · **Browse shades**
   (→ C12) · **Suggestions** (→ C13). As built: the palette is always on screen under the
   room, so the photo is never covered while colours are tried: family chips, then two
-  rows of swatches scrolling sideways (recent first, then the catalogue); a tap paints
+  rows of swatches scrolling sideways (recent first, then suggested ones: the colours of C13's first
+  palettes, mains first, none repeated from Recent; then the catalogue); a tap paints
   the selected wall. Under it, on one line: **More shades** (→ C12, for search),
   **Suggestions**, **Save** (this combination) and the ⓘ. The dock is the same height
   whatever it holds, so the room above keeps its size (a resize starts the GPU over).

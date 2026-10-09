@@ -421,6 +421,7 @@ export const hi: Translation = {
     info: "इन रंगों के बारे में",
     paletteEmpty: "अभी दिखाने को कोई शेड नहीं है। और शेड आज़माएँ।",
     recent: "हाल के",
+    suggested: "सुझाए गए",
     noWalls: "इस कमरे में अभी कोई दीवार नहीं है।",
     markWalls: "अपनी दीवारें मार्क करें",
   },

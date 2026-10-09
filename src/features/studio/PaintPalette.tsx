@@ -6,6 +6,7 @@ import { familiesPresent, filterShades, NO_FILTER } from "@/features/catalogue/f
 import { namesShown, shownName, useCatalogue, useShadeScheme } from "@/features/catalogue/use-catalogue";
 import { useRecentShades, type WallColour } from "@/features/studio/paint-store";
 import { shadeColour } from "@/features/studio/shade-colour";
+import type { SuggestedColour } from "@/features/studio/suggested-swatches";
 import { t, type MessageKey } from "@/i18n";
 import type { ParentFamily } from "@/lib/colour-families";
 import { hairline, useTheme } from "@/theme";
@@ -26,6 +27,8 @@ interface Swatch {
 export interface PaintPaletteProps {
   /** The selected wall's colour, ringed in the strip. */
   current: WallColour | null;
+  /** This room's suggested colours (C13's first palettes), shown after Recent. */
+  suggested?: readonly SuggestedColour[];
   onPick: (colour: WallColour, brandSlug?: string | null) => void;
   /** No wall chosen yet: the swatches show but can't be tapped. */
   disabled?: boolean;
@@ -34,10 +37,11 @@ export interface PaintPaletteProps {
 
 /**
  * C11's palette, on screen under the room at all times: family chips, then two rows of
- * swatches that scroll sideways — recent colours first, then the catalogue. A tap paints
+ * swatches that scroll sideways — recent colours first, then the room's suggested ones,
+ * then the catalogue. A tap paints
  * the selected wall; the full picker (C12) is still one tap away for search.
  */
-export function PaintPalette({ current, onPick, disabled, gutter }: PaintPaletteProps) {
+export function PaintPalette({ current, suggested = [], onPick, disabled, gutter }: PaintPaletteProps) {
   const { colors, radius } = useTheme();
   const recent = useRecentShades();
   const catalogue = useCatalogue();
@@ -60,6 +64,11 @@ export function PaintPalette({ current, onPick, disabled, gutter }: PaintPalette
           label: `${t("paint.recent")}: ${r.code}`,
         });
       }
+      for (const c of suggested) {
+        if (!c.code || seen.has(c.code.toUpperCase())) continue;
+        seen.add(c.code.toUpperCase());
+        items.push({ key: `s-${c.code}`, colour: { hex: c.hex, code: c.code, lrv: c.lrv }, brandSlug: c.brandSlug, label: `${t("paint.suggested")}: ${c.code}` });
+      }
     }
     const shown = filterShades(shades ?? [], { ...NO_FILTER, family }, { hideCodes: !scheme.showRealCodes, hideNames: !namesShown(scheme) });
     for (const s of shown) {
@@ -73,7 +82,7 @@ export function PaintPalette({ current, onPick, disabled, gutter }: PaintPalette
     const out: Swatch[][] = [];
     for (let i = 0; i < items.length; i += ROWS) out.push(items.slice(i, i + ROWS));
     return out;
-  }, [family, recent, shades, scheme]);
+  }, [family, recent, suggested, shades, scheme]);
 
   const isCurrent = (c: WallColour) =>
     Boolean(current && current.hex.toLowerCase() === c.hex.toLowerCase() && (current.code ?? null) === (c.code ?? null));
