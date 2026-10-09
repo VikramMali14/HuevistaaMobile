@@ -175,6 +175,20 @@ describe("A3–A4 · mobile number and code", () => {
     expect(screen.getByTestId("phone-code-input").props.value).toBe("");
   });
 
+  it("sends a number another account holds unconfirmed to that account's email sign-in", async () => {
+    mockAuth.phoneVerify.mockRejectedValue(
+      new ApiError("http", 409, "This number is already on a HueVistaa account that hasn't confirmed it yet.", undefined, "PHONE_ON_UNCONFIRMED_ACCOUNT"),
+    );
+    renderRouter("./app", { initialUrl: "/phone-code?phone=%2B919876543210&resendAfter=30" });
+    await waitFor(() => expect(screen.getByText("Enter the code")).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId("phone-code-input"), "123456");
+    await waitFor(() => expect(screen.getByTestId("phone-code-elsewhere")).toBeTruthy());
+    expect(screen.getByText(/Sign in with that account's email and password, then confirm the number from your profile\./)).toBeTruthy();
+    expect(mockAuth.profile).not.toHaveBeenCalled();
+    press("Sign in with email");
+    await waitFor(() => expect(screen).toHavePathname("/email-sign-in"));
+  });
+
   it("sends admins to the website", async () => {
     mockAuth.phoneVerify.mockResolvedValue({ twoFactorRequired: true });
     renderRouter("./app", { initialUrl: "/phone-code?phone=%2B919876543210&resendAfter=30" });

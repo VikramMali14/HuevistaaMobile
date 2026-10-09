@@ -69,6 +69,9 @@ export const en = {
       verifying: "Checking…",
       lost: "We don't know which number this code is for. Enter your number again.",
       enterNumber: "Enter your number",
+      // 409 PHONE_ON_UNCONFIRMED_ACCOUNT: the code was right, but the number is on another account.
+      unconfirmedElsewhere: "This number is already on a HueVistaa account that hasn't confirmed it yet. Sign in with that account's email and password, then confirm the number from your profile.",
+      useEmail: "Sign in with email",
     },
     email: {
       title: "Sign in with email",

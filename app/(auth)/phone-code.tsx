@@ -6,7 +6,7 @@ import { authApi } from "@/api/endpoints/auth";
 import { Banner, Button, CodeInput, Text, useToast, type CodeInputHandle } from "@/components/ui";
 import { AdminBanner } from "@/features/auth/AdminBanner";
 import { AuthScreen } from "@/features/auth/AuthScreen";
-import { authErrorMessage } from "@/features/auth/errors";
+import { authErrorMessage, isPhoneOnUnconfirmedAccount } from "@/features/auth/errors";
 import { deviceToken } from "@/features/auth/sign-in";
 import { formatCountdown, secondsParam, useCountdown } from "@/features/auth/use-countdown";
 import { useFinishSignIn } from "@/features/auth/use-finish-sign-in";
@@ -19,8 +19,9 @@ import { useTheme } from "@/theme";
  * A4 · Enter the code. Spec: docs/03-screens-auth.md — A4.
  *
  * Six boxes with SMS autofill; submits by itself on the sixth digit. A number the backend
- * has never seen becomes a new account in the same step. Resend counts down on the
- * server's own number.
+ * has never seen becomes a new account in the same step — unless an existing account holds
+ * it unconfirmed: then nothing is made, and they're sent to sign in to that account by
+ * email. Resend counts down on the server's own number.
  *
  * The number is shown in full, as typed: it is the person's own, on their own phone, and
  * seeing "+91 98765 43120" is how a typo gets noticed before the code never arrives.
@@ -61,6 +62,8 @@ function CodeForPhone({ phone, resendAfter }: { phone: string; resendAfter: numb
   const [error, setError] = useState<string | null>(null);
   const [resendError, setResendError] = useState<string | null>(null);
   const [admin, setAdmin] = useState(false);
+  // The code was right, but the number is on another account that never confirmed it.
+  const [elsewhere, setElsewhere] = useState(false);
   const countdown = useCountdown(resendAfter);
 
   const verify = (entered: string) => {
@@ -69,12 +72,19 @@ function CodeForPhone({ phone, resendAfter }: { phone: string; resendAfter: numb
       setError(null);
       setResendError(null);
       setAdmin(false);
+      setElsewhere(false);
       try {
         const response = await authApi.phoneVerify({ phone, code: entered, deviceToken: await deviceToken() });
         const outcome = await finish(response);
         if (outcome.kind === "admin") setAdmin(true);
         // signedIn: the (auth) layout moves on by itself.
       } catch (err) {
+        if (isPhoneOnUnconfirmedAccount(err)) {
+          // Not a wrong code, so not said at the boxes. The code is spent all the same.
+          setElsewhere(true);
+          setCode("");
+          return;
+        }
         setError(authErrorMessage(err));
         setCode("");
         codeRef.current?.shake();
@@ -130,6 +140,11 @@ function CodeForPhone({ phone, resendAfter }: { phone: string; resendAfter: numb
       />
 
       {admin ? <AdminBanner /> : null}
+      {elsewhere ? (
+        <Banner tone="warning" message={t("auth.code.unconfirmedElsewhere")} testID="phone-code-elsewhere">
+          <Button variant="secondary" block={false} label={t("auth.code.useEmail")} onPress={() => router.replace("/email-sign-in")} />
+        </Banner>
+      ) : null}
       {resendError ? <Banner tone="danger" message={resendError} /> : null}
 
       <View style={{ gap: space.xs }}>
