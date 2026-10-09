@@ -30,6 +30,15 @@ import { useTheme } from "@/theme";
 
 const DEFAULT_CHOICES: SegmentChoices = { maskMode: "AUTO", cleanFurnishing: "KEEP", cleanAngle: "AS_SHOT" };
 
+/** What the room was last run with, so it can be started again as it was. */
+function choicesOf(room: RoomDetail): SegmentChoices {
+  return {
+    maskMode: room.maskMode ?? DEFAULT_CHOICES.maskMode,
+    cleanFurnishing: room.cleanFurnishing ?? DEFAULT_CHOICES.cleanFurnishing,
+    cleanAngle: room.cleanAngle ?? DEFAULT_CHOICES.cleanAngle,
+  };
+}
+
 /** When the server's job began, as best the room says: its last update. */
 function startedAtOf(room: RoomDetail | undefined): number {
   const t0 = room?.updatedAt ? Date.parse(room.updatedAt.endsWith("Z") ? room.updatedAt : `${room.updatedAt}+05:30`) : NaN;
@@ -41,7 +50,9 @@ function startedAtOf(room: RoomDetail | undefined): number {
  *
  * Three plain choices, then the server clears the clutter and finds the walls while this
  * screen polls and says what is happening. It can be left: the job carries on and the
- * room card says "Working…". Done → Walls found (or Adjust, to mark them by hand).
+ * room card says "Working…". Done → Walls found (or Adjust, to mark them by hand). Past
+ * the deadline it can be started again: the server takes a restart once a run has gone
+ * quiet for 5 minutes, and still counts it as one room.
  */
 export default function TidyUp() {
   const router = useRouter();
@@ -54,6 +65,8 @@ export default function TidyUp() {
   const [choices, setChoices] = useState<SegmentChoices>(DEFAULT_CHOICES);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The room has had all the runs it gets (429): said in the server's words, never retried.
+  const [capped, setCapped] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -87,6 +100,7 @@ export default function TidyUp() {
   const start = (picked: SegmentChoices) =>
     void starting.run(async () => {
       setError(null);
+      setCapped(false);
       setNotice(null);
       try {
         const next = await projectsApi.segment(id, picked);
@@ -101,9 +115,12 @@ export default function TidyUp() {
           setChoices({ ...picked, maskMode: "MANUAL" });
           setNotice(t("tidy.autoUnavailable"));
         } else if (isApiError(err) && err.status === 409) {
-          // Already running (another device, or a double tap): just watch it.
+          // Already running (another device, a double tap, or a run the server still counts
+          // as alive): watch it, with a fresh deadline.
+          setStartedAt(Date.now());
           void room.refetch();
         } else {
+          setCapped(isApiError(err) && err.code === "SEGMENTATION_RUN_LIMIT");
           setError(messageFor(err));
         }
       }
@@ -152,11 +169,17 @@ export default function TidyUp() {
             onLeave={leave}
           />
           {slow ? (
-            <Button
-              variant="secondary"
-              label={t("tidy.slowReport")}
-              onPress={() => router.push({ pathname: "/room/[projectId]/report", params: { projectId: id } } as Href)}
-            />
+            <>
+              {error ? <Banner tone={capped ? "info" : "danger"} message={error} testID="tidy-error" /> : null}
+              {capped ? null : (
+                <Button label={t("tidy.startAgain")} onPress={() => start(choicesOf(data))} loading={starting.busy} testID="tidy-start-again" />
+              )}
+              <Button
+                variant="secondary"
+                label={t("tidy.slowReport")}
+                onPress={() => router.push({ pathname: "/room/[projectId]/report", params: { projectId: id } } as Href)}
+              />
+            </>
           ) : null}
         </View>
       </View>

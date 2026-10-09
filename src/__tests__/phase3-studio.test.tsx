@@ -503,6 +503,58 @@ describe("C8 · Tidy up", () => {
     await waitFor(() => expect(screen).toHavePathname("/room/p1/report"));
   });
 
+  describe("a run that has gone quiet", () => {
+    const stuck = () =>
+      room({
+        status: "SEGMENTING",
+        regions: [],
+        cleanedImageUrl: null,
+        updatedAt: "2026-01-01T00:00:00Z",
+        maskMode: "AUTO",
+        cleanFurnishing: "EMPTY",
+        cleanAngle: "BEST_VIEW",
+      });
+    async function openStuck() {
+      signedIn();
+      mockProjects.get.mockResolvedValue(stuck());
+      mockProjects.status.mockResolvedValue(stuck());
+      renderRouter("./app", { initialUrl: "/room/p1/tidy" });
+      await waitFor(() => expect(screen.getByText("This is taking much longer than it should")).toBeTruthy());
+    }
+
+    it("starts again with the choices it had, and watches the new run — which may end in Try again", async () => {
+      await openStuck();
+      mockProjects.segment.mockResolvedValue(room({ status: "SEGMENTING", regions: [], cleanedImageUrl: null }));
+      mockProjects.status.mockResolvedValue(room({ status: "FAILED", regions: [], failureStage: "MASK" }));
+      fireEvent.press(screen.getByTestId("tidy-start-again"));
+      await waitFor(() => expect(screen.getByText("Clearing the clutter")).toBeTruthy());
+      expect(mockProjects.segment).toHaveBeenCalledWith("p1", { maskMode: "AUTO", cleanFurnishing: "EMPTY", cleanAngle: "BEST_VIEW" });
+      expect(screen.queryByText("This is taking much longer than it should")).toBeNull();
+      // The restarted run fails: said plainly, with Try again.
+      await waitFor(() => expect(screen.getByTestId("tidy-failure")).toBeTruthy(), { timeout: 5_000 });
+      expect(screen.getByText("Try again")).toBeTruthy();
+    });
+
+    it("keeps watching when the server says the run is still going", async () => {
+      await openStuck();
+      mockProjects.segment.mockRejectedValue(new ApiError("http", 409, "Segmentation already in progress for this room."));
+      fireEvent.press(screen.getByTestId("tidy-start-again"));
+      await waitFor(() => expect(screen.getByText("Clearing the clutter")).toBeTruthy());
+      expect(screen.queryByText(/already in progress/)).toBeNull();
+      expect(screen.getByText("Leave this running")).toBeTruthy();
+    });
+
+    it("says the server's words when the room has had all its runs, and doesn't offer another", async () => {
+      await openStuck();
+      const capped = "This room's walls have already been found 5 times, which is as many as one room gets.";
+      mockProjects.segment.mockRejectedValue(new ApiError("http", 429, capped, undefined, "SEGMENTATION_RUN_LIMIT"));
+      fireEvent.press(screen.getByTestId("tidy-start-again"));
+      await waitFor(() => expect(screen.getByText(capped)).toBeTruthy());
+      expect(screen.queryByTestId("tidy-start-again")).toBeNull();
+      expect(screen.getByText("Tell us")).toBeTruthy();
+    });
+  });
+
   it("says what went wrong in plain words, and can try again", async () => {
     signedIn();
     mockProjects.get.mockResolvedValue(room({ status: "FAILED", regions: [], failureReason: "REPLICATE_API_TOKEN not configured", failureStage: "MASK" }));

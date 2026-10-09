@@ -283,7 +283,11 @@ on return.
 Elapsed time is always shown. **Leave this running** returns to the Studio tab; the job
 carries on on the server and the room card says "Working…". After 8 minutes (the
 website's deadline, the backend's worst case) it stops promising: "This is taking much
-longer than it should", with **Tell us** (→ C18); the poll carries on in case it lands.
+longer than it should", with **Start again** and **Tell us** (→ C18); the poll carries on
+in case it lands. **Start again** re-sends the room's own choices: the backend takes it
+once the run has gone quiet for 5 minutes (a 409 "already in progress" before then just
+goes back to watching), and a room that has had all its runs (429
+`SEGMENTATION_RUN_LIMIT`) gets the server's sentence and no further Start again.
 
 ### C9 · Walls found (step 3)
 
