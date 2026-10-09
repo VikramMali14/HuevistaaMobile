@@ -15,8 +15,13 @@ export const authApi = {
   phoneStart: (phone: string) =>
     api.request<PhoneCodeSent>("api/auth/phone/start", { ...open, body: { phone } }),
 
-  /** A4. A number the backend has never seen gets a new CUSTOMER account here. */
-  phoneVerify: (body: { phone: string; code: string; name?: string; deviceToken?: string }) =>
+  /**
+   * A4. A number the backend has never seen gets a new CUSTOMER account here. A number an
+   * existing account holds unconfirmed answers 409 PHONE_ON_UNCONFIRMED_ACCOUNT and leaves
+   * the code unspent; sent again with `notMyAccount: true`, the number comes off that
+   * account and a new one is made as above.
+   */
+  phoneVerify: (body: { phone: string; code: string; name?: string; deviceToken?: string; notMyAccount?: boolean }) =>
     api.request<AuthResponse>("api/auth/phone/verify", { ...open, body }),
 
   /** A5. May answer emailCodeRequired (shops) or twoFactorRequired (admins) instead of tokens. */

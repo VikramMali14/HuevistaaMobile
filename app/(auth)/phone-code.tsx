@@ -21,7 +21,9 @@ import { useTheme } from "@/theme";
  * Six boxes with SMS autofill; submits by itself on the sixth digit. A number the backend
  * has never seen becomes a new account in the same step — unless an existing account holds
  * it unconfirmed: then nothing is made, and they're sent to sign in to that account by
- * email. Resend counts down on the server's own number.
+ * email. If that account isn't theirs, "This isn't my account" sends the same code again
+ * and the backend takes the number off it, then carries on as for a new number. Resend
+ * counts down on the server's own number.
  *
  * The number is shown in full, as typed: it is the person's own, on their own phone, and
  * seeing "+91 98765 43120" is how a typo gets noticed before the code never arrives.
@@ -62,29 +64,41 @@ function CodeForPhone({ phone, resendAfter }: { phone: string; resendAfter: numb
   const [error, setError] = useState<string | null>(null);
   const [resendError, setResendError] = useState<string | null>(null);
   const [admin, setAdmin] = useState(false);
-  // The code was right, but the number is on another account that never confirmed it.
-  const [elsewhere, setElsewhere] = useState(false);
+  // The code was right, but the number is on another account that never confirmed it. The
+  // code is kept: it isn't spent, and "This isn't my account" sends it again.
+  const [elsewhere, setElsewhere] = useState<string | null>(null);
   const countdown = useCountdown(resendAfter);
 
-  const verify = (entered: string) => {
+  const verify = (entered: string, notMyAccount = false) => {
     if (entered.length !== 6) return;
     void verifying.run(async () => {
       setError(null);
       setResendError(null);
       setAdmin(false);
-      setElsewhere(false);
+      // Sent again from the banner: it stays up while that's asked, so its button can spin.
+      if (!notMyAccount) setElsewhere(null);
       try {
-        const response = await authApi.phoneVerify({ phone, code: entered, deviceToken: await deviceToken() });
+        const response = await authApi.phoneVerify({
+          phone,
+          code: entered,
+          deviceToken: await deviceToken(),
+          ...(notMyAccount ? { notMyAccount: true } : {}),
+        });
         const outcome = await finish(response);
-        if (outcome.kind === "admin") setAdmin(true);
+        if (outcome.kind === "admin") {
+          setElsewhere(null);
+          setAdmin(true);
+        }
         // signedIn: the (auth) layout moves on by itself.
       } catch (err) {
         if (isPhoneOnUnconfirmedAccount(err)) {
-          // Not a wrong code, so not said at the boxes. The code is spent all the same.
-          setElsewhere(true);
+          // Not a wrong code, so not said at the boxes. The code isn't spent: kept for
+          // "This isn't my account".
+          setElsewhere(entered);
           setCode("");
           return;
         }
+        setElsewhere(null);
         setError(authErrorMessage(err));
         setCode("");
         codeRef.current?.shake();
@@ -102,6 +116,8 @@ function CodeForPhone({ phone, resendAfter }: { phone: string; resendAfter: numb
         const sent = await authApi.phoneStart(phone);
         countdown.restart(sent.resendAfterSeconds);
         setCode("");
+        // A kept code is the old one now: the new one is typed in and asked about afresh.
+        setElsewhere(null);
         toast.show(t("auth.code.resent"), "success");
         codeRef.current?.focus();
       } catch (err) {
@@ -142,7 +158,22 @@ function CodeForPhone({ phone, resendAfter }: { phone: string; resendAfter: numb
       {admin ? <AdminBanner /> : null}
       {elsewhere ? (
         <Banner tone="warning" message={t("auth.code.unconfirmedElsewhere")} testID="phone-code-elsewhere">
-          <Button variant="secondary" block={false} label={t("auth.code.useEmail")} onPress={() => router.replace("/email-sign-in")} />
+          <Button
+            variant="secondary"
+            block={false}
+            label={t("auth.code.useEmail")}
+            onPress={() => router.replace("/email-sign-in")}
+            disabled={verifying.busy}
+          />
+          {/* Second, and quieter: it takes the number off the other account. */}
+          <Button
+            variant="ghost"
+            block={false}
+            label={t("auth.code.notMine")}
+            onPress={() => verify(elsewhere, true)}
+            loading={verifying.busy}
+            testID="phone-code-not-mine"
+          />
         </Banner>
       ) : null}
       {resendError ? <Banner tone="danger" message={resendError} /> : null}

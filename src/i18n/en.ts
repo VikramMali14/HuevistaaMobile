@@ -72,6 +72,8 @@ export const en = {
       // 409 PHONE_ON_UNCONFIRMED_ACCOUNT: the code was right, but the number is on another account.
       unconfirmedElsewhere: "This number is already on a HueVistaa account that hasn't confirmed it yet. Sign in with that account's email and password, then confirm the number from your profile.",
       useEmail: "Sign in with email",
+      // Sends the same code again with notMyAccount: the number comes off that account.
+      notMine: "This isn't my account — continue",
     },
     email: {
       title: "Sign in with email",

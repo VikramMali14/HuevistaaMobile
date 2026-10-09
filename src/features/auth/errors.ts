@@ -3,8 +3,10 @@ import { t } from "@/i18n";
 
 /**
  * Phone sign-in (A4): the texted code was right, but an existing account already holds the
- * number unconfirmed (409). Nothing was created; the code is spent. They sign in to that
- * account by email instead, and confirm the number from its profile.
+ * number unconfirmed (409). Nothing was created, and the code is not spent. They sign in to
+ * that account by email instead, and confirm the number from its profile — or, if it isn't
+ * theirs, send the same code again with `notMyAccount`, which takes the number off that
+ * account and carries on as a new one.
  */
 export function isPhoneOnUnconfirmedAccount(err: unknown): boolean {
   return isApiError(err) && err.code === "PHONE_ON_UNCONFIRMED_ACCOUNT";
