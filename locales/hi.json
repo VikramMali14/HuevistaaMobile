@@ -1,7 +1,9 @@
 {
-  "CFBundleDisplayName": "HueVistaa",
-  "NSCameraUsageDescription": "HueVistaa कैमरे से उन दीवारों की फ़ोटो लेता है जिन्हें आप रंगना चाहते हैं, और कलर बोर्ड का QR स्कैन करता है।",
-  "NSPhotoLibraryUsageDescription": "HueVistaa आपकी फ़ोटो खोलता है ताकि आप रंगने के लिए कोई कमरा चुन सकें।",
-  "NSPhotoLibraryAddUsageDescription": "HueVistaa आपकी AI इमेज आपकी फ़ोटो में सेव करता है।",
-  "NSLocationWhenInUseUsageDescription": "HueVistaa आपकी लोकेशन से आपके पास के पेंटर और दुकानें ढूँढता है। जो पेंटर लिस्ट होना चुनते हैं, वे ग्राहकों के साथ सिर्फ़ एक मोटा-मोटा इलाका साझा करते हैं।"
+  "ios": {
+    "CFBundleDisplayName": "HueVistaa",
+    "NSCameraUsageDescription": "HueVistaa कैमरे से उन दीवारों की फ़ोटो लेता है जिन्हें आप रंगना चाहते हैं, और कलर बोर्ड का QR स्कैन करता है।",
+    "NSPhotoLibraryUsageDescription": "HueVistaa आपकी फ़ोटो खोलता है ताकि आप रंगने के लिए कोई कमरा चुन सकें।",
+    "NSPhotoLibraryAddUsageDescription": "HueVistaa आपकी AI इमेज आपकी फ़ोटो में सेव करता है।",
+    "NSLocationWhenInUseUsageDescription": "HueVistaa आपकी लोकेशन से आपके पास के पेंटर और दुकानें ढूँढता है। जो पेंटर लिस्ट होना चुनते हैं, वे ग्राहकों के साथ सिर्फ़ एक मोटा-मोटा इलाका साझा करते हैं।"
+  }
 }

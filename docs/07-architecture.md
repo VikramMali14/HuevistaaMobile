@@ -611,7 +611,10 @@ by id across pages. The ask form and the account's own questions sit in its head
 - app.json carries the notifications plugin and icon (`assets/images/notification-icon.png`,
   white on transparent, from the mark's grid), Hindi permission sentences for iOS
   (`locales/hi.json`), iOS export compliance, a privacy manifest, and
-  `applinks:huevistaa.com`.
+  `applinks:huevistaa.com`. The Hindi sentences sit under `"ios"` in that file. Expo
+  writes top-level keys into Android's `strings.xml` as well, where Info.plist names
+  have no English string and fail the release build's lint (ExtraTranslation).
+  Android's permission prompts are the system's own, already in Hindi.
 
 ## Reusing the website's code
 
