@@ -1,5 +1,5 @@
 import Feather from "@expo/vector-icons/Feather";
-import { CameraView, useCameraPermissions } from "expo-camera";
+import { CameraView } from "expo-camera";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -13,6 +13,7 @@ import { NextStepCard } from "@/features/home/NextStepCard";
 import { useLibrary } from "@/features/library/use-library";
 import { clearUpload, preparePhoto, startUpload } from "@/features/studio/photo-upload";
 import { t } from "@/i18n";
+import { useCameraPermission } from "@/lib/use-camera-permission";
 import { useSubmit } from "@/lib/use-submit";
 import { useTheme } from "@/theme";
 
@@ -37,7 +38,7 @@ export default function AddPhoto() {
   const params = useLocalSearchParams<{ shade?: string; brand?: string }>();
   const balance = useBalance();
   const library = useLibrary();
-  const [permission, requestPermission] = useCameraPermissions();
+  const [permission, requestPermission] = useCameraPermission();
   const camera = useRef<CameraView>(null);
   const [flash, setFlash] = useState<"off" | "on">("off");
   const [cameraReady, setCameraReady] = useState(false);

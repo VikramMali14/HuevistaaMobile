@@ -5,7 +5,9 @@
  * (scripts/verify-board-reader.mjs) and its conversation in board-reader-protocol.test.ts.
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
 import { act, fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
+import { AppState } from "react-native";
 
 import { ApiError } from "@/api/errors";
 import type { PainterProfile } from "@/api/endpoints/painter";
@@ -28,17 +30,26 @@ jest.mock("expo-secure-store", () => ({
 }));
 jest.mock("expo-web-browser", () => ({ openAuthSessionAsync: jest.fn(), openBrowserAsync: jest.fn(async () => ({})) }));
 
-// The camera: its permission, and a view the test can hand a QR's text to.
+// The camera: its permission, and a view the test can hand a QR's text to. The permission
+// is read on mount and again when the screen asks, as expo-camera's own hook does.
 let mockPermission: { granted: boolean; canAskAgain: boolean } | null = { granted: true, canAskAgain: true };
 const mockRequestPermission = jest.fn(async () => mockPermission);
 jest.mock("expo-camera", () => {
   // jest.mock factories run before imports are set up, so they load their own.
   /* eslint-disable @typescript-eslint/no-require-imports */
+  const { useCallback, useState } = require("react");
   const { View } = require("react-native");
   /* eslint-enable @typescript-eslint/no-require-imports */
   return {
     CameraView: (props: object) => <View {...props} />,
-    useCameraPermissions: () => [mockPermission, mockRequestPermission],
+    useCameraPermissions: () => {
+      const [permission, setPermission] = useState(mockPermission);
+      const get = useCallback(async () => {
+        setPermission(mockPermission);
+        return mockPermission;
+      }, []);
+      return [permission, mockRequestPermission, get];
+    },
   };
 });
 
@@ -300,6 +311,31 @@ describe("P3 · Scan", () => {
     expect(screen.queryByTestId("scan-allow")).toBeNull();
     fireEvent.press(screen.getByTestId("scan-pdf"));
     await waitFor(() => expect(screen).toHavePathname("/painter/upload-board"));
+  });
+
+  it("turns the camera on once it's allowed in the phone's Settings", async () => {
+    const appState = AppState.addEventListener as jest.Mock;
+    const from = appState.mock.calls.length;
+    mockPermission = { granted: false, canAskAgain: false };
+    renderRouter("./app", { initialUrl: "/painter/scan" });
+    await waitFor(() => expect(screen.getByText("Camera is off for HueVistaa")).toBeTruthy());
+    mockPermission = { granted: true, canAskAgain: true };
+    await act(async () => {
+      for (const [type, listener] of appState.mock.calls.slice(from)) if (type === "change") listener("active");
+    });
+    await waitFor(() => expect(screen.getByTestId("camera")).toBeTruthy());
+  });
+
+  // Tabs stay mounted: the scan tab reads the permission again each time it is shown.
+  it("reads the permission again on coming back to the tab", async () => {
+    mockPermission = { granted: false, canAskAgain: false };
+    renderRouter("./app", { initialUrl: "/painter/scan" });
+    await waitFor(() => expect(screen.getByText("Camera is off for HueVistaa")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("scan-pdf"));
+    await waitFor(() => expect(screen).toHavePathname("/painter/upload-board"));
+    mockPermission = { granted: true, canAskAgain: true };
+    act(() => router.back());
+    await waitFor(() => expect(screen.getByTestId("camera")).toBeTruthy());
   });
 
   it("turns away someone else's QR on the spot, and takes a board's to the claim", async () => {

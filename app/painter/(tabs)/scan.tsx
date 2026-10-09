@@ -1,5 +1,5 @@
 import Feather from "@expo/vector-icons/Feather";
-import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
+import { CameraView, type BarcodeScanningResult } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Banner, Button, IconButton, QrFrame, Screen, Text } from "@/components/ui";
 import { rewardTokenFrom } from "@/features/painter/reward-token";
 import { t } from "@/i18n";
+import { useCameraPermission } from "@/lib/use-camera-permission";
 import { useTheme } from "@/theme";
 
 /**
@@ -26,7 +27,7 @@ export default function PainterScan() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, space } = useTheme();
-  const [permission, requestPermission] = useCameraPermissions();
+  const [permission, requestPermission] = useCameraPermission();
   const [focused, setFocused] = useState(false);
   const [torch, setTorch] = useState(false);
   const [notOurs, setNotOurs] = useState(false);

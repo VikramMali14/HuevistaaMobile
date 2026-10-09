@@ -7,6 +7,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { act, fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
+import { AppState } from "react-native";
 
 import { ApiError } from "@/api/errors";
 import { queryClient } from "@/api/query-client";
@@ -30,12 +31,13 @@ jest.mock("expo-secure-store", () => ({
 jest.mock("expo-web-browser", () => ({ openAuthSessionAsync: jest.fn(), openBrowserAsync: jest.fn(async () => ({})) }));
 jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn(async () => true) }));
 
+// The permission is read on mount and again when the screen asks, as expo-camera's own hook does.
 let mockPermission: { granted: boolean; canAskAgain: boolean } | null = { granted: true, canAskAgain: true };
 const mockRequestPermission = jest.fn(async () => mockPermission);
 jest.mock("expo-camera", () => {
   // jest.mock factories run before imports are set up, so they load their own.
   /* eslint-disable @typescript-eslint/no-require-imports */
-  const { forwardRef, useEffect, useImperativeHandle } = require("react");
+  const { forwardRef, useCallback, useEffect, useImperativeHandle, useState } = require("react");
   const { View } = require("react-native");
   /* eslint-enable @typescript-eslint/no-require-imports */
   return {
@@ -45,7 +47,14 @@ jest.mock("expo-camera", () => {
       useEffect(() => onCameraReady?.(), [onCameraReady]);
       return <View {...props} />;
     }),
-    useCameraPermissions: () => [mockPermission, mockRequestPermission],
+    useCameraPermissions: () => {
+      const [permission, setPermission] = useState(mockPermission);
+      const get = useCallback(async () => {
+        setPermission(mockPermission);
+        return mockPermission;
+      }, []);
+      return [permission, mockRequestPermission, get];
+    },
   };
 });
 const mockPick = jest.fn();
@@ -292,6 +301,20 @@ describe("C6–C7 · Add photo and name it", () => {
     renderRouter("./app", { initialUrl: "/room/new" });
     await waitFor(() => expect(screen.getByText("Camera is off for HueVistaa")).toBeTruthy());
     expect(screen.getByText("Open settings")).toBeTruthy();
+  });
+
+  it("opens the camera once it's allowed in the phone's Settings", async () => {
+    signedIn();
+    const appState = AppState.addEventListener as jest.Mock;
+    const from = appState.mock.calls.length;
+    mockPermission = { granted: false, canAskAgain: false };
+    renderRouter("./app", { initialUrl: "/room/new" });
+    await waitFor(() => expect(screen.getByText("Camera is off for HueVistaa")).toBeTruthy());
+    mockPermission = { granted: true, canAskAgain: true };
+    await act(async () => {
+      for (const [type, listener] of appState.mock.calls.slice(from)) if (type === "change") listener("active");
+    });
+    await waitFor(() => expect(screen.getByTestId("shutter")).toBeTruthy());
   });
 
   it("takes a photo, shrinks it, uploads while the room is named, and creates it", async () => {
