@@ -251,6 +251,12 @@ once the upload is done).
 rooms" line is left out while the balance is unknown — never "0 rooms". If the room
 can't be made, the reason shows above **Create** and the uploaded photo is kept.
 
+**As built:** Create has no request key, so a second send is a second room
+(`features/studio/create-room.ts`). An unanswered Create (no connection, a timeout, a
+5xx) reads the rooms list and goes on into the room made from this photo, if it's there.
+Pressed again, Create reads the list first and is sent only when the list shows no room
+from the photo; while the list can't be read, nothing is sent.
+
 ### C8 · Tidy up (steps 2 and 3, working)
 
 **Route** `room/[projectId]/tidy.tsx` · **Phase** 3 · **Web reference** `components/atelier/visualizer.tsx` (pipeline), `lib/segmentation-polling.ts`, `components/atelier/studio-gate-panel.tsx`
