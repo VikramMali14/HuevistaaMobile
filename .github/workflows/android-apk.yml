@@ -72,9 +72,15 @@ jobs:
 
       # The native project is generated, never committed (.gitignore). Phones only: arm64
       # and the older 32-bit ARM.
+      # The template gives Gradle a 2 GB heap and 512 MB of metaspace. The release lint of
+      # this many modules runs out of metaspace, and the build then hangs instead of
+      # exiting. So Gradle gets 6 GB and 2 GB; the runner has 16.
       - name: Build
+        timeout-minutes: 50
         run: |
           npx expo prebuild -p android --no-install --clean
+          sed -i 's/^org\.gradle\.jvmargs=.*/org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=2g -Dfile.encoding=UTF-8/' android/gradle.properties
+          grep -q '^org.gradle.jvmargs=-Xmx6g' android/gradle.properties
           cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a --no-daemon
 
       - name: Name the APK
