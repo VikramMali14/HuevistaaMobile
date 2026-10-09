@@ -28,6 +28,8 @@ export interface RoomPaint {
   selected: string | null;
   /** Earlier colourings, newest last, for Undo. */
   history: Colours[];
+  /** Colourings undone, the next one to put back last, for Redo. A new change clears them. */
+  future: Colours[];
   /** Changes not yet on the server. */
   pending: Colours;
   /** The last save failed; they are kept and sent again. */
@@ -49,7 +51,7 @@ const listeners = new Map<string, Set<() => void>>();
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 const saving = new Set<string>();
 
-const EMPTY: RoomPaint = { colours: {}, saved: {}, selected: null, history: [], pending: {}, saveFailed: false, refused: null };
+const EMPTY: RoomPaint = { colours: {}, saved: {}, selected: null, history: [], future: [], pending: {}, saveFailed: false, refused: null };
 
 function emit(id: string) {
   for (const l of listeners.get(id) ?? []) l();
@@ -89,6 +91,7 @@ export function initRoom(id: string, room: Pick<RoomDetail, "regions">, walls: r
     saved,
     selected: current?.selected && walls.includes(current.selected) ? current.selected : (walls[0] ?? null),
     history: current?.history ?? [],
+    future: current?.future ?? [],
     pending: current?.pending ?? {},
     saveFailed: current?.saveFailed ?? false,
     refused: current?.refused ?? null,
@@ -109,6 +112,7 @@ export function applyColours(id: string, changes: Colours) {
     ...s,
     colours: { ...s.colours, ...changes },
     history: [...s.history, s.colours].slice(-HISTORY_MAX),
+    future: [],
     pending: { ...s.pending, ...changes },
     refused: null,
   });
@@ -120,12 +124,38 @@ export function undo(id: string) {
   const s = rooms.get(id);
   const previous = s?.history[s.history.length - 1];
   if (!s || !previous) return;
-  const changes: Record<string, WallColour | null> = {};
-  for (const k of new Set([...Object.keys(previous), ...Object.keys(s.colours)])) {
-    if (!sameColour(previous[k] ?? null, s.colours[k] ?? null)) changes[k] = previous[k] ?? null;
-  }
-  update(id, { ...s, colours: previous, history: s.history.slice(0, -1), pending: { ...s.pending, ...changes } });
+  update(id, {
+    ...s,
+    colours: previous,
+    history: s.history.slice(0, -1),
+    future: [...s.future, s.colours].slice(-HISTORY_MAX),
+    pending: { ...s.pending, ...changed(s.colours, previous) },
+  });
   scheduleSave(id, SAVE_DEBOUNCE_MS);
+}
+
+/** Put back the colouring the last Undo took away (and save that). */
+export function redo(id: string) {
+  const s = rooms.get(id);
+  const next = s?.future[s.future.length - 1];
+  if (!s || !next) return;
+  update(id, {
+    ...s,
+    colours: next,
+    history: [...s.history, s.colours].slice(-HISTORY_MAX),
+    future: s.future.slice(0, -1),
+    pending: { ...s.pending, ...changed(s.colours, next) },
+  });
+  scheduleSave(id, SAVE_DEBOUNCE_MS);
+}
+
+/** The walls whose colour differs between two colourings, with their colour in `to`. */
+function changed(from: Colours, to: Colours): Record<string, WallColour | null> {
+  const out: Record<string, WallColour | null> = {};
+  for (const k of new Set([...Object.keys(from), ...Object.keys(to)])) {
+    if (!sameColour(from[k] ?? null, to[k] ?? null)) out[k] = to[k] ?? null;
+  }
+  return out;
 }
 
 function sameColour(a: WallColour | null, b: WallColour | null): boolean {
@@ -181,7 +211,8 @@ export async function flush(id: string): Promise<void> {
       // The walls show what is really saved again.
       const colours = { ...now.colours };
       for (const k of Object.keys(sent)) if (!(k in left)) colours[k] = now.saved[k] ?? null;
-      update(id, { ...now, colours, pending: left, saveFailed: false, refused: messageFor(err) });
+      // Redo would only send the refused colours again.
+      update(id, { ...now, colours, future: [], pending: left, saveFailed: false, refused: messageFor(err) });
       void queryClient.invalidateQueries({ queryKey: keys.room(id), exact: true });
     } else {
       update(id, { ...now, saveFailed: true });
