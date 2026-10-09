@@ -32,7 +32,7 @@ export default function Settings() {
   const router = useRouter();
   const toast = useToast();
   const { space } = useTheme();
-  const { profile, signOut } = useSession();
+  const { state, profile, signOut } = useSession();
   const leaving = useSubmit();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [picking, setPicking] = useState(false);
@@ -55,7 +55,7 @@ export default function Settings() {
     if (push === "ask") {
       const granted = await askForPush();
       setPush(granted ? "granted" : await pushPermission());
-      if (granted && profile) void registerPush(profile.id);
+      if (granted && state.status === "signedIn" && !state.preview) void registerPush(state.profile.id);
       return;
     }
     // On, or only the phone's settings can turn them on: that's where they're changed.

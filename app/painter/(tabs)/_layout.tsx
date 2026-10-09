@@ -50,7 +50,7 @@ function ScanTabButton({
         <Feather name="maximize" color={colors.accentOn} size={20} />
       </View>
       <Text
-        style={[styles.scanLabel, { color: selected ? colors.accentText : colors.fgMute }]}
+        style={[tabLabelStyle(), { color: selected ? colors.accentText : colors.fgMute }]}
         maxFontSizeMultiplier={1.4}
       >
         {t("tabs.scan")}
@@ -88,5 +88,4 @@ const styles = StyleSheet.create({
   // labels share one baseline.
   scanItem: { flex: 1, alignItems: "center", justifyContent: "flex-start", paddingTop: 7 },
   scanDisc: { width: 48, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  scanLabel: tabLabelStyle,
 });

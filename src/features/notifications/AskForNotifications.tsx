@@ -40,7 +40,9 @@ async function markAsked(reason: AskReason): Promise<void> {
  * or can only be turned on in Settings (S1 offers that).
  */
 export function AskForNotifications({ reason, when }: { reason: AskReason; when: boolean }) {
-  const { profile } = useSession();
+  const { state } = useSession();
+  // A real account only — never the developer's preview profile.
+  const userId = state.status === "signedIn" && !state.preview ? state.profile.id : null;
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -69,7 +71,7 @@ export function AskForNotifications({ reason, when }: { reason: AskReason; when:
       onConfirm={() => {
         close();
         void askForPush().then((granted) => {
-          if (granted && profile) void registerPush(profile.id);
+          if (granted && userId) void registerPush(userId);
         });
       }}
       onCancel={close}
