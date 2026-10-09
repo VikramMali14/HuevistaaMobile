@@ -1,9 +1,9 @@
 import {
-  CLEAN_FAILED_MESSAGE,
-  MASK_FAILED_MESSAGE,
-  RUN_FAILED_MESSAGE,
+  cleanFailedMessage,
   isPresentable,
+  maskFailedMessage,
   presentableFailure,
+  runFailedMessage,
 } from "../failure-message";
 
 describe("presentableFailure", () => {
@@ -26,19 +26,19 @@ describe("presentableFailure", () => {
       '{"error":"bad gateway"}',
     ]) {
       expect({ raw, presentable: isPresentable(raw) }).toEqual({ raw, presentable: false });
-      expect(presentableFailure(raw)).toBe(RUN_FAILED_MESSAGE);
+      expect(presentableFailure(raw)).toBe(runFailedMessage());
     }
   });
 
   it("falls back by the stage that failed", () => {
-    expect(presentableFailure("REPLICATE_API_TOKEN not configured", "CLEAN")).toBe(CLEAN_FAILED_MESSAGE);
-    expect(presentableFailure(null, "MASK")).toBe(MASK_FAILED_MESSAGE);
-    expect(presentableFailure(undefined, null)).toBe(RUN_FAILED_MESSAGE);
-    expect(presentableFailure("   ", "UNKNOWN")).toBe(RUN_FAILED_MESSAGE);
+    expect(presentableFailure("REPLICATE_API_TOKEN not configured", "CLEAN")).toBe(cleanFailedMessage());
+    expect(presentableFailure(null, "MASK")).toBe(maskFailedMessage());
+    expect(presentableFailure(undefined, null)).toBe(runFailedMessage());
+    expect(presentableFailure("   ", "UNKNOWN")).toBe(runFailedMessage());
   });
 
   it("tells the customer a retry does not cost another room", () => {
-    for (const m of [RUN_FAILED_MESSAGE, CLEAN_FAILED_MESSAGE, MASK_FAILED_MESSAGE]) {
+    for (const m of [runFailedMessage(), cleanFailedMessage(), maskFailedMessage()]) {
       expect(m).toMatch(/won't use another room/);
     }
   });

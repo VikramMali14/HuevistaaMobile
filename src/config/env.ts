@@ -26,6 +26,11 @@ export const env = {
    * (huevista://pay/callback).
    */
   scheme: "huevista",
+  /**
+   * Crash reports (Sentry). Unset — as in development and tests — means none are sent.
+   * A DSN only lets the app send reports, so it's safe to build in.
+   */
+  sentryDsn: process.env.EXPO_PUBLIC_SENTRY_DSN?.trim() || undefined,
 } as const;
 
 export const deepLinks = {

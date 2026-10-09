@@ -2,7 +2,7 @@ import { projectsApi } from "@/api/endpoints/projects";
 import { boardChanges } from "@/api/query-keys";
 import { queryClient } from "@/api/query-client";
 import type { RoomDetail } from "@/api/types";
-import { t } from "@/i18n";
+import { tEn } from "@/i18n";
 import { pdfPrintable } from "@/lib/pdf-core";
 import { buildColourBoardPdf } from "@/lib/pdf-export";
 
@@ -48,9 +48,9 @@ async function photograph(input: MakeBoardInput, option: BoardOption): Promise<U
  */
 export async function makeBoard(input: MakeBoardInput): Promise<BoardRunOutcome> {
   const { room, options } = input;
-  const name = room.name?.trim() || t("rooms.untitled");
+  const name = room.name?.trim() || tEn("rooms.untitled");
   // The board's fonts print Latin letters only; a name in another script would print as "????".
-  const printedName = pdfPrintable(name) ? name : t("board.pdfTitle");
+  const printedName = pdfPrintable(name) ? name : tEn("board.pdfTitle");
   return runColourBoard<{ written: WrittenBoard; pages: number; rewardMissing: boolean }>({
     build: async () => {
       input.onStep?.({ kind: "start" });

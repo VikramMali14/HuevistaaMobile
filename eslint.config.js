@@ -5,7 +5,8 @@ const expoConfig = require("eslint-config-expo/flat");
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ["dist/*", ".expo/*", "node_modules/*", "android/*", "ios/*"],
+    // The board reader's page is generated (scripts/build-board-reader.mjs) and mostly pdf.js.
+    ignores: ["dist/*", ".expo/*", "node_modules/*", "android/*", "ios/*", "**/*.generated.ts"],
   },
   {
     // Ported from HueVistaFrontEnd/src/lib as they are, so the two can be diffed and kept

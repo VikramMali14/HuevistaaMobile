@@ -148,7 +148,7 @@ export default function Welcome() {
               loading={google.busy}
               onPress={continueWithGoogle}
             />
-            <Button variant="ghost" label={t("auth.welcome.email")} onPress={() => router.push("/email-sign-in")} />
+            <Button variant="ghost" label={t("auth.welcome.email")} onPress={() => router.push("/email-sign-in")} testID="welcome-email" />
           </View>
 
           <Text variant="caption" tone="mute" align="center" style={{ marginTop: space.md }}>
@@ -172,7 +172,7 @@ export default function Welcome() {
             >
               {t("auth.welcome.privacy")}
             </Text>
-            .
+            {t("auth.welcome.legalEnd")}
           </Text>
 
           <View style={[styles.rule, { backgroundColor: colors.rule, marginVertical: space.md }]} />

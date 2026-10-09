@@ -1,5 +1,5 @@
 import type { ProjectCombo, ProjectRender } from "@/api/types";
-import { t } from "@/i18n";
+import { t, tEn } from "@/i18n";
 import type { PdfShade } from "@/lib/pdf-export";
 
 /**
@@ -36,14 +36,14 @@ export function comboWords(combo: Pick<ProjectCombo, "shades">): string {
   return combo.shades.map((s) => [s.regionLabel?.trim() || t("aiImage.wall"), s.shadeName, comboCode(s)].filter(Boolean).join(" ")).join(", ");
 }
 
-/** An option's shades as a PDF prints them (the AI image's page). */
+/** An option's shades as a PDF prints them (the AI image's page) — in English: the PDF's font has Latin letters only. */
 export function comboPdfShades(combo: Pick<ProjectCombo, "shades">, namesShown: boolean): PdfShade[] {
   return combo.shades.map((s) => {
     const code = comboCode(s) ?? undefined;
     return {
-      label: s.regionLabel?.trim() || t("aiImage.wall"),
+      label: s.regionLabel?.trim() || tEn("aiImage.wall"),
       regionId: s.regionId ?? undefined,
-      name: s.shadeName?.trim() || (namesShown && !code ? t("board.customColour") : ""),
+      name: s.shadeName?.trim() || (namesShown && !code ? tEn("board.customColour") : ""),
       code,
       hex: s.hex,
     };

@@ -1,0 +1,99 @@
+name: Android APK
+
+# An APK to install on a phone and try: a release build (the JavaScript built in, no
+# developer menu), signed with the Expo template's debug key. Fine for side-loading, never
+# for the Play Store, which takes a bundle signed with the upload key (docs/09-release.md).
+# Every build is signed with that same key, so a newer APK installs over an older one.
+#
+# Built for each pull request and each push to main, and on demand (Actions → Android
+# APK → Run workflow) against another server. The APK is the run's "huevistaa-apk"
+# artifact. Push stays off until the app has an Expo project id (docs/09-release.md).
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_origin:
+        description: The backend the app talks to (https)
+        default: https://api.huevista.org
+      site_origin:
+        description: The website it opens for payments, legal pages and shared links (https)
+        default: https://huevistaa.com
+  pull_request:
+    branches: [main, master]
+    paths-ignore: ['docs/**', '**/*.md']
+  push:
+    branches: [main, master]
+    paths-ignore: ['docs/**', '**/*.md']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    name: Build the APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      # Built into the app. Repository variables APK_API_ORIGIN / APK_SITE_ORIGIN change
+      # the default for the automatic builds.
+      EXPO_PUBLIC_API_ORIGIN: ${{ inputs.api_origin || vars.APK_API_ORIGIN || 'https://api.huevista.org' }}
+      EXPO_PUBLIC_SITE_ORIGIN: ${{ inputs.site_origin || vars.APK_SITE_ORIGIN || 'https://huevistaa.com' }}
+      # No Sentry account yet: don't upload source maps (the build fails trying).
+      SENTRY_DISABLE_AUTO_UPLOAD: 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install
+        run: npm ci
+
+      - name: Check the server addresses
+        run: |
+          for origin in "$EXPO_PUBLIC_API_ORIGIN" "$EXPO_PUBLIC_SITE_ORIGIN"; do
+            [[ "$origin" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?$ ]] || { echo "::error::Not an https origin: $origin"; exit 1; }
+          done
+          echo "API: $EXPO_PUBLIC_API_ORIGIN · website: $EXPO_PUBLIC_SITE_ORIGIN" >> "$GITHUB_STEP_SUMMARY"
+
+      # The native project is generated, never committed (.gitignore). Phones only: arm64
+      # and the older 32-bit ARM.
+      # The template gives Gradle a 2 GB heap and 512 MB of metaspace. The release lint of
+      # this many modules runs out of metaspace, and the build then hangs instead of
+      # exiting. So Gradle gets 6 GB and 2 GB; the runner has 16.
+      - name: Build
+        timeout-minutes: 50
+        run: |
+          npx expo prebuild -p android --no-install --clean
+          sed -i 's/^org\.gradle\.jvmargs=.*/org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=2g -Dfile.encoding=UTF-8/' android/gradle.properties
+          grep -q '^org.gradle.jvmargs=-Xmx6g' android/gradle.properties
+          cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a --no-daemon
+
+      - name: Name the APK
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/release/app-release.apk "out/huevistaa-${GITHUB_SHA::7}.apk"
+          ls -l out
+          echo "APK: huevistaa-${GITHUB_SHA::7}.apk ($(du -h out/*.apk | cut -f1))" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: huevistaa-apk
+          path: out/*.apk
+          retention-days: 30
+          if-no-files-found: error

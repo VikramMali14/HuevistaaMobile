@@ -41,8 +41,9 @@ export function rowLabel(key: ChoiceKey, outdoor = false): string {
 }
 
 /** A choice's name, or the server's own word for one this version doesn't know. */
-export function choiceLabel(value: string): string {
-  return value in CHOICE_NAMES ? t(`aiImage.choice.${value}` as MessageKey) : value;
+/** `tr`: tEn for what is printed (the PDF's font has Latin letters only). */
+export function choiceLabel(value: string, tr: typeof t = t): string {
+  return value in CHOICE_NAMES ? tr(`aiImage.choice.${value}` as MessageKey) : value;
 }
 
 /** What a choice does, in a line — worded for the outside of a building where that differs. */
@@ -97,11 +98,14 @@ export function creditWords(n: number): string {
  * An image in a line — "Modern · Day · Natural light", with "· Luxury" when it wasn't the
  * standard quality (the website's describeRender).
  */
-export function describeRender(render: Partial<Pick<ProjectRender, "style" | "timeOfDay" | "lighting" | "quality">>): string {
+export function describeRender(
+  render: Partial<Pick<ProjectRender, "style" | "timeOfDay" | "lighting" | "quality">>,
+  tr: typeof t = t,
+): string {
   const parts: string[] = [];
-  if (render.style) parts.push(choiceLabel(render.style));
-  if (render.timeOfDay) parts.push(choiceLabel(render.timeOfDay));
-  if (render.lighting) parts.push(t("aiImage.light", { light: choiceLabel(render.lighting) }));
-  if (render.quality && render.quality !== "PREMIUM") parts.push(choiceLabel(render.quality));
+  if (render.style) parts.push(choiceLabel(render.style, tr));
+  if (render.timeOfDay) parts.push(choiceLabel(render.timeOfDay, tr));
+  if (render.lighting) parts.push(tr("aiImage.light", { light: choiceLabel(render.lighting, tr) }));
+  if (render.quality && render.quality !== "PREMIUM") parts.push(choiceLabel(render.quality, tr));
   return parts.join(" · ");
 }

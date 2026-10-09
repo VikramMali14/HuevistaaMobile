@@ -11,7 +11,11 @@ These live in `app/(account)/` and need a signed-in session of any role.
 - **Appearance:** "Follows your phone's light or dark setting" (no switch, like the
   website).
 - **Show me around** (customers) → replays A11.
-- **Language:** English. (Hindi in Phase 8 — every string is already in `src/i18n`.)
+- **Language:** the phone's language (Hindi when the phone is in Hindi, else English),
+  English, or हिन्दी — each language named in its own script. Kept on the phone. A new
+  language reopens S1 in it (Phase 8).
+- **Notifications** (Phase 8, where the phone can have them): On or Off. Off and still
+  askable → asks; otherwise → the phone's settings.
 - **Legal:** Terms · Privacy · Refunds · About · Contact — the website's `/legal/…`
   pages in the in-app browser, so they are always current.
 - **App version** and build number (tap 7 times → copy diagnostics for support: version,
@@ -84,6 +88,24 @@ Chat bubbles (You · HueVistaa assistant · Our team). Composer at the bottom.
 `POST /api/support/conversations/{id}/messages { body }`. **Talk to a person** →
 `POST …/request-human`. While open, refresh every 5 s (until push arrives in Phase 8).
 
+**As built (S6, S7):** S6 opens with the message box, then the common answers (separate
+sets for customers and painters), the past conversations, and Call or Email. A
+conversation still open or waiting for the team is offered at the top. Other screens can
+open S6 with the message already written: the payment result names the payment, and
+tidying up names the walls. The assistant answers inside the request, so a start or a
+message waits up to 130 s, with a typing bubble. One that gets no answer is looked for
+before anything is said, every 5 s until it shows or can no longer land (140 s from the
+send): a conversation that wasn't on the list before, with the same first message, or the
+message in the conversation. The server writes the message and its answer in one
+transaction, so a single look straight after a dropped connection would wrongly say it
+never arrived. Meanwhile the screen says it's checking and Send waits. A message is never
+sent twice, because each answer costs. S7 reads the
+conversation every 5 s while it's on screen, and stops on Resolved, on a 404, and while
+sending, and while another screen covers it. A new reply from the assistant or the team
+is read out by a screen reader. Writing under a Resolved conversation starts a new one,
+as the server's own note says. **Talk to a person** shows only while the assistant is
+answering.
+
 ### S8 · Questions and answers
 
 **Route** `(account)/questions.tsx` · **Phase** 7 · **Web reference** `app/community/questions/`
@@ -91,6 +113,13 @@ Chat bubbles (You · HueVistaa assistant · Our team). Composer at the bottom.
 Answered questions from the community (`GET /api/community/questions`, paged) · **Ask a
 question** (`POST /api/community/questions { body, displayName }`) · **My questions**
 (`GET /api/community/questions/mine`).
+
+**As built:** one scrolling list: **Ask a question** (inline, the name prefilled with
+`suggestedName`, checked as the server checks it — 10–500 characters, a 2–60 character
+name), then **Your questions** with where each stands (Waiting for an answer · Answered ·
+Not published — a taken-down question's old answer is not shown), then the answered
+questions, 20 at a time. An ask that gets no answer is looked for among the account's own
+questions (a new one, not an earlier ask in the same words) before an error is shown. Painters reach S6 and S8 from their trade profile.
 
 ### S9 · Delete account
 
@@ -145,6 +174,12 @@ Opened by `https://huevistaa.com/r/{token}` (once App Links are set up) or from 
 | Customer | The review flow (`GET /api/community/reviews/board/{token}`): review the job, or the plain `reason` when they can't |
 | Shop | "Shops collect their half on the website" + link |
 
+**As built:** a link that isn't a board code says "That link doesn't carry one of our
+codes." without asking the server. Signed out → **Sign in** replaces this screen with A2, and the
+link is remembered even after a sign-out by choice, because it was asked for. Painter →
+P6 (replaced, so Back doesn't land on this screen). Customer → the review screen shared
+with C26. Any other account → the website's page for the board.
+
 ### D2 · A shared room
 
 **Route** `share/[token].tsx` · **Phase** 7 · **Web reference** `HueVistaFrontEnd/src/app/share/[token]/`
@@ -158,6 +193,35 @@ room; 402 none left → C27; 409 it's your own room) → C11.
 
 Expired or withdrawn → "This link has stopped working. Ask the person who sent it for a
 new one."
+
+**As built:** the photo is repainted on the phone with the link's own masks: wall chips,
+**Colour for {wall}** (a sheet with the link's companies, one company read at a time,
+searched by code or colour, 60 tiles at once), and a reset to the shared colours.
+Only codes are shown, never names, as the link's scheme sets. Without GPU drawing the
+photo shows unpainted.
+- **Signed out:** **Sign in to save a copy** → A2, then back here. It is never saved by
+  itself, because a copy spends a room.
+- **A customer's own room:** **Open your room** → that room. Their own room answers
+  `GET /api/projects/{id}`; anyone else's is a 404.
+- **Another customer:** **Save as my room** → a confirm that it uses one room → claim →
+  C11 on the new copy. The visitor's own repaint isn't copied: the server copies the
+  owner's colours, each wall taking the nearest shade the new owner can use.
+  - 402 → the server's sentence + **Rooms and credits**.
+  - 404 → stopped working.
+  - No answer → "Look in your rooms before trying again" + **Your rooms**. The claim has
+    no key, so it is never sent again by itself.
+- **Painters and shops** can look, but not save.
+- A link that stopped (404) is told apart from a server that didn't answer (**Try
+  again**).
+
+**App Links (D1, D2):**
+- `https://huevistaa.com/r/{code}` and `/share/{token}` open these screens. The intent
+  filter in `app.json` uses `autoVerify` and covers those two paths only.
+- `+native-intent` drops a campaign tag or a fragment. Links from other hosts, and other
+  paths on the site, go on as they came.
+- The website serves `/.well-known/assetlinks.json` from `ANDROID_APP_CERT_SHA256`, and
+  answers 404 until that is set.
+- iOS universal links wait for the Apple Team ID (see docs/08).
 
 ### D3 · Payment return
 
@@ -197,5 +261,33 @@ These are components and behaviours, not pages. Every screen uses them.
 | **X2** | Error | `ErrorState`: plain reason, **Try again**, **Get help** (→ S6). Server codes are mapped to sentences in `src/api/errors.ts`; a raw message or status code is never shown. |
 | **X3** | Permission | Before the system prompt: a sheet with why (camera / photos / location). After a "don't ask again": **Open settings**. |
 | **X4** | Session ended | Refresh token rejected → clear the session → A2 with "Please sign in again", then return to where they were. |
-| **X5** | Update needed | Phase 8: a minimum-version check (needs a small backend endpoint). Small fixes ship over the air with EAS Update. |
+| **X5** | Update needed | Built (Phase 8): `UpdateNeeded` in place of every screen when the installed version is below the server's minimum for its store (`GET /api/mobile/version`), with **Update** to the store. Decided from the last answer kept on the phone, so it never waits on the network or blocks mid-task; fails open. A newer, not-required version shows **Update available** in S1. Small fixes ship over the air with EAS Update. |
 | **X6** | Not found | `app/+not-found.tsx`: "That link doesn't open anything in the app." + **Go home**. |
+
+**As built (Phase 8):**
+- **X2:** a screen that throws while drawing shows "Something went wrong on this
+  screen. Anything you saved is safe — try again." with **Try again** (the root
+  `ErrorBoundary`), and the fault goes to the crash reports.
+- **X3** for notifications: a sheet that says what will be told, before the phone's
+  own question, at most once per reason, and only at a moment that waits:
+  - walls being found (C8);
+  - an AI image being made (C24);
+  - a voucher just redeemed (P11);
+  - a chat the team has taken (S7).
+  
+  Never at first launch or sign-in.
+
+**Push notifications (Phase 8):**
+
+| Sent when | Opens |
+|---|---|
+| Walls are ready, or couldn't be found | The room (CR, at its step) |
+| An AI image is ready, or couldn't be made | C24 |
+| A voucher is delivered, or declined (the points come back) | P11 |
+| The team replies in a support chat | S7 |
+
+- The text is generic: never a chat's words, a reason, or anything personal.
+- Notifications come in the phone's chosen language.
+- A tap opens the screen only for the account it was sent to.
+- With the app open, a notification refreshes the screen it concerns. A reply to the
+  chat on screen shows no banner, and S7 then reads the chat every 30 s rather than 5.

@@ -3,18 +3,19 @@ import { Tabs, type BottomTabBarButtonProps } from "expo-router/js-tabs";
 import type { ComponentProps } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { t } from "@/i18n";
+import { t, type MessageKey } from "@/i18n";
 import { tabLabelStyle, useTabBarOptions } from "@/navigation/tab-bar";
 import { useTheme } from "@/theme";
 
 type IconName = ComponentProps<typeof Feather>["name"];
 
-const tabs: { name: string; label: string; icon: IconName; primary?: boolean }[] = [
-  { name: "index", label: t("tabs.home"), icon: "home" },
-  { name: "points", label: t("tabs.points"), icon: "star" },
-  { name: "scan", label: t("tabs.scan"), icon: "maximize", primary: true },
-  { name: "rewards", label: t("tabs.rewards"), icon: "gift" },
-  { name: "nearby", label: t("tabs.nearby"), icon: "map-pin" },
+// Labels are read as the tab bar draws (not when this file loads), so they follow the language.
+const tabs: { name: string; label: MessageKey; icon: IconName; primary?: boolean }[] = [
+  { name: "index", label: "tabs.home", icon: "home" },
+  { name: "points", label: "tabs.points", icon: "star" },
+  { name: "scan", label: "tabs.scan", icon: "maximize", primary: true },
+  { name: "rewards", label: "tabs.rewards", icon: "gift" },
+  { name: "nearby", label: "tabs.nearby", icon: "map-pin" },
 ];
 
 /**
@@ -49,7 +50,7 @@ function ScanTabButton({
         <Feather name="maximize" color={colors.accentOn} size={20} />
       </View>
       <Text
-        style={[styles.scanLabel, { color: selected ? colors.accentText : colors.fgMute }]}
+        style={[tabLabelStyle(), { color: selected ? colors.accentText : colors.fgMute }]}
         maxFontSizeMultiplier={1.4}
       >
         {t("tabs.scan")}
@@ -71,7 +72,8 @@ export default function PainterTabs() {
           key={tab.name}
           name={tab.name}
           options={{
-            title: tab.label,
+            title: t(tab.label),
+            tabBarButtonTestID: `tab-${tab.name}`,
             tabBarIcon: ({ color, size }) => <Feather name={tab.icon} color={color} size={size} />,
             ...(tab.primary ? { tabBarButton: (props) => <ScanTabButton {...props} /> } : null),
           }}
@@ -86,5 +88,4 @@ const styles = StyleSheet.create({
   // labels share one baseline.
   scanItem: { flex: 1, alignItems: "center", justifyContent: "flex-start", paddingTop: 7 },
   scanDisc: { width: 48, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  scanLabel: tabLabelStyle,
 });

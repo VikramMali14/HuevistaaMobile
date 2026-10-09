@@ -39,7 +39,12 @@ export function isRememberablePath(path: unknown): path is string {
 }
 
 export function rememberRoute(path: string): void {
-  if (isRememberablePath(path)) remembered = path;
+  if (!isRememberablePath(path)) return;
+  // While a guard's redirect is on its way, the router can report only the guarded
+  // layout's own segment, with the page's params as a query ("/painter?token=…" for
+  // "/painter/claim/…"). That's the same visit, not a new page: the deeper path stays.
+  if (remembered && remembered.split("?")[0]!.startsWith(`${path.split("?")[0]}/`)) return;
+  remembered = path;
 }
 
 /** Read without clearing — safe to call during render. */

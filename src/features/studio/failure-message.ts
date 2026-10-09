@@ -1,3 +1,5 @@
+import { t } from "@/i18n";
+
 /**
  * The sentence a customer is shown when a run on their photo fails.
  *
@@ -14,16 +16,13 @@
  */
 
 /** What a run that failed at an unknown point says. */
-export const RUN_FAILED_MESSAGE =
-  "Something went wrong while we were preparing your photo. It's saved — press Try again. Trying again won't use another room.";
+export const runFailedMessage = () => t("studio.runFailed");
 
 /** What a run whose photo clean-up failed says. */
-export const CLEAN_FAILED_MESSAGE =
-  "We couldn't prepare this photo just now. It's saved — try again in a few minutes, or mark the walls yourself. Trying again won't use another room.";
+export const cleanFailedMessage = () => t("studio.cleanFailed");
 
 /** What a run whose wall detection failed says. */
-export const MASK_FAILED_MESSAGE =
-  "We couldn't find the walls in this photo. Press Try again, or mark the walls yourself. Trying again won't use another room.";
+export const maskFailedMessage = () => t("studio.maskFailed");
 
 /**
  * Text that was written for a log rather than a person: a setting's name
@@ -55,7 +54,7 @@ export function isPresentable(reason: string): boolean {
  */
 export function presentableFailure(reason?: string | null, stage?: string | null): string {
   if (reason && isPresentable(reason)) return reason.trim();
-  if (stage === "CLEAN") return CLEAN_FAILED_MESSAGE;
-  if (stage === "MASK") return MASK_FAILED_MESSAGE;
-  return RUN_FAILED_MESSAGE;
+  if (stage === "CLEAN") return cleanFailedMessage();
+  if (stage === "MASK") return maskFailedMessage();
+  return runFailedMessage();
 }

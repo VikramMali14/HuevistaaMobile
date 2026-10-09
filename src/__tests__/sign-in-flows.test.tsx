@@ -48,7 +48,13 @@ const mockAuth = {
 jest.mock("@/api/endpoints/auth", () => ({ authApi: mockAuth }));
 
 const mockBecomePainter = jest.fn();
-jest.mock("@/api/endpoints/painter", () => ({ painterApi: { becomePainter: () => mockBecomePainter() } }));
+// The painter's home reads points, rewards and the profile as it opens; here those answers
+// never come (it stays loading), so nothing reaches the network.
+const mockNoAnswer = () => new Promise<never>(() => {});
+jest.mock("@/api/endpoints/painter", () => ({ painterApi: { becomePainter: () => mockBecomePainter(), profile: mockNoAnswer } }));
+jest.mock("@/api/endpoints/rewards", () => ({
+  rewardsApi: { wallet: mockNoAnswer, catalogue: mockNoAnswer, redemptions: mockNoAnswer, redeem: mockNoAnswer, scan: mockNoAnswer, claim: mockNoAnswer },
+}));
 
 const openAuthSession = WebBrowser.openAuthSessionAsync as jest.Mock;
 
@@ -505,6 +511,21 @@ describe("A1 · back to the page opened before sign-in", () => {
     type("Password", "secret123");
     press("Sign in");
     await waitFor(() => expect(screen).toHavePathname("/room/abc123/paint"));
+  });
+
+  // A painter opens a board's link from WhatsApp while signed out (P6).
+  it("opens a board's claim after a painter signs in", async () => {
+    const token = "0VkTlzUw5CGJ-bTtxixeiS0nVfg";
+    renderRouter("./app", { initialUrl: `/painter/claim/${token}` });
+    await waitFor(() => expect(screen).toHavePathname("/welcome"));
+    mockAuth.login.mockResolvedValue(tokensFor());
+    willSignInAs(person({ role: "PAINTER" }));
+    press("Use email instead");
+    await waitFor(() => expect(screen.getByText("Sign in with email")).toBeTruthy());
+    type("Email", "ravi@example.com");
+    type("Password", "secret123");
+    press("Sign in");
+    await waitFor(() => expect(screen).toHavePathname(`/painter/claim/${token}`));
   });
 
   it("keeps the link through a brand-new account's first run", async () => {

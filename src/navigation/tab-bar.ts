@@ -1,5 +1,6 @@
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { getLanguage } from "@/i18n";
 import { fonts, hairline, useTheme } from "@/theme";
 
 /**
@@ -12,8 +13,14 @@ import { fonts, hairline, useTheme } from "@/theme";
  */
 export const TAB_BAR_CONTENT_HEIGHT = 60;
 
-/** The tab label: Inter 600 11/14 — an explicit line height so nothing is clipped. */
-export const tabLabelStyle = { fontFamily: fonts.semibold, fontSize: 11, lineHeight: 14 } as const;
+/**
+ * The tab label: Inter 600 11/14 — an explicit line height so nothing is clipped. In
+ * Hindi 11/17: Devanagari's vowel signs reach further above and below. Read as the bar
+ * draws (a new language remounts it).
+ */
+export function tabLabelStyle() {
+  return { fontFamily: fonts.semibold, fontSize: 11, lineHeight: getLanguage() === "hi" ? 17 : 14 } as const;
+}
 
 /**
  * Screen options both tab bars share (customer and painter), so the two can never
@@ -33,7 +40,7 @@ export function useTabBarOptions() {
       borderTopWidth: hairline,
       height: TAB_BAR_CONTENT_HEIGHT + insets.bottom,
     },
-    tabBarLabelStyle: tabLabelStyle,
+    tabBarLabelStyle: tabLabelStyle(),
     tabBarItemStyle: { paddingTop: 7 },
   };
 }

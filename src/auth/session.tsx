@@ -18,6 +18,7 @@ import { queryClient } from "@/api/query-client";
 import { resetInFlight } from "@/features/ai-images/in-flight";
 import { clearRenderFiles } from "@/features/ai-images/render-files";
 import { resetMadeBoards } from "@/features/boards/made-boards";
+import { forgetPush, unregisterPush } from "@/features/notifications/notifications";
 import { resetPayments } from "@/features/payments/payments";
 import { resetPending } from "@/features/payments/pending-payment";
 import { clearStudioCache } from "@/features/studio/engine/texture-loader";
@@ -52,6 +53,8 @@ const CATALOGUE_CACHE_KEY = "hv.catalogue";
  */
 async function forgetAccountData(): Promise<void> {
   queryClient.clear();
+  // The account's notifications go with it, and the phone registers again for whoever is next.
+  await forgetPush();
   resetPaintStore();
   resetTrays();
   resetPayments();
@@ -290,8 +293,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         if (tokens.hasSession() && !options?.serverAlreadyKnows) {
           // Best effort: tell the server, but never keep someone waiting on a dead
           // connection — signing out locally is what they asked for.
+          // The phone's push token is dropped first, while the session still works (the
+          // server drops it on logout too — this is for a logout that never arrives).
           await Promise.race([
-            authApi.logout().catch(() => {}),
+            unregisterPush().then(() => authApi.logout().catch(() => {})),
             new Promise((resolve) => setTimeout(resolve, LOGOUT_WAIT_MS)),
           ]);
         }

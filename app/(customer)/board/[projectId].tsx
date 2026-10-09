@@ -70,10 +70,12 @@ export default function BoardDetail() {
         <Skeleton height={140} radius={16} />
       </View>
     );
-  } else if (room.isError || combos.isError) {
+  } else if ((room.isError && !room.data) || (combos.isError && !combos.data)) {
+    // Only when there is nothing to show: a read again that fails (each AI image's end reads
+    // the options again) leaves the board as it was.
     body = (
       <ErrorState
-        error={room.error ?? combos.error}
+        error={room.isError && !room.data ? room.error : combos.error}
         onRetry={() => void Promise.all([room.refetch(), combos.refetch()])}
       />
     );

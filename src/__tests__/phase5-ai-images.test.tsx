@@ -198,6 +198,19 @@ const ready = (extra: Partial<ProjectRender> = {}) =>
   image({ status: "READY", imageUrl: "https://bucket.s3/r1.jpg?sig=1", completedAt: "2026-10-06T10:01:00", ...extra });
 
 const press = (text: string | RegExp) => fireEvent.press(screen.getByText(text));
+/** How many screens of this name are on the stack, at any depth. */
+function routesNamed(app: ReturnType<typeof renderRouter>, name: string): number {
+  type State = { routes?: { name: string; state?: State }[] } | undefined;
+  let n = 0;
+  const walk = (state: State) => {
+    for (const r of state?.routes ?? []) {
+      if (r.name === name) n += 1;
+      walk(r.state);
+    }
+  };
+  walk(app.getRouterState() as State);
+  return n;
+}
 const pressLast = (text: string | RegExp) => {
   const all = screen.getAllByText(text);
   fireEvent.press(all[all.length - 1]!);
@@ -353,7 +366,7 @@ describe("C23 · AI image — options", () => {
     open();
     await waitFor(() => expect(screen.getByTestId("ai-make")).toBeTruthy());
     fireEvent.press(screen.getByTestId("ai-choice-LUXURY"));
-    expect(screen.getByTestId("ai-cost")).toHaveTextContent("You need 1 more AI credit for this image, at ₹70 each.");
+    expect(screen.getByTestId("ai-cost")).toHaveTextContent("You need 1 more AI credit for this image, at ₹70.");
     expect(screen.queryByTestId("ai-make")).toBeNull();
     fireEvent.press(screen.getByTestId("ai-buy"));
     await waitFor(() => expect(screen).toHavePathname("/checkout"));
@@ -539,6 +552,41 @@ describe("C23 · AI image — options", () => {
     await waitFor(() => expect(screen.getByText("Which option shall we photograph?")).toBeTruthy());
   });
 
+  it("Change option from the room's options goes back to them — never a second copy under it", async () => {
+    signedIn();
+    const app = renderRouter("./app", { initialUrl: "/ai-image/new?projectId=p1" });
+    await waitFor(() => expect(screen.getByLabelText("Option 2: Main wall HV0124")).toBeTruthy());
+    fireEvent.press(screen.getByLabelText("Option 2: Main wall HV0124"));
+    await waitFor(() => expect(screen.getByText("Change option")).toBeTruthy());
+    expect(routesNamed(app, "ai-image/new")).toBe(1);
+    press("Change option");
+    await waitFor(() => expect(screen).toHavePathname("/ai-image/new"));
+    expect(screen).toHaveSearchParams({ projectId: "p1" });
+    expect(routesNamed(app, "ai-image/new")).toBe(1);
+    expect(routesNamed(app, "ai-image/options")).toBe(0);
+  });
+
+  it("follows an image of the room being made to its end — the wallet read again — without being left", async () => {
+    signedIn();
+    let done = false;
+    const making = () => image({ id: "r5", status: "RUNNING", createdAt: ist(Date.now() - 5_000) });
+    mockProjects.renders.mockImplementation(async () => (done ? [ready({ id: "r5" })] : [making()]));
+    mockProjects.render.mockImplementation(async () => (done ? ready({ id: "r5" }) : making()));
+    open();
+    await waitFor(() => expect(screen.getByTestId("ai-in-flight")).toBeTruthy());
+    // It was paid for when it was asked: the balance shown is read again.
+    await waitFor(() => expect(mockMe.aiCredits.mock.calls.length).toBeGreaterThanOrEqual(2));
+    // RenderWatcher follows it, though no one opened it.
+    await waitFor(() => expect(mockProjects.render).toHaveBeenCalledWith("p1", "r5"));
+    done = true;
+    for (let step = 0; step < 6; step++) {
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+      });
+    }
+    await waitFor(() => expect(screen.queryByTestId("ai-in-flight")).toBeNull());
+  });
+
   it("an option no longer on the board says so", async () => {
     signedIn();
     renderRouter("./app", { initialUrl: "/ai-image/options?projectId=p1&comboId=gone" });
@@ -590,6 +638,30 @@ describe("C24 · AI image — working and result", () => {
     const pdf = mockFiles.sharePdf.mock.calls[0]![0];
     expect(String.fromCharCode(...pdf.slice(0, 8))).toBe("%PDF-1.4");
     expect(String.fromCharCode(...pdf)).toContain("HV0118");
+  });
+
+  it("Make another asks of the same option with its choices and note — without waiting on the room's options", async () => {
+    signedIn();
+    mockProjects.render.mockResolvedValue(ready({ style: "LUXE", note: "curtains open" }));
+    mockProjects.combos.mockImplementation(() => new Promise(() => {}));
+    renderRouter("./app", { initialUrl: "/ai-image/r1?projectId=p1" });
+    await waitFor(() => expect(screen.getByTestId("ai-another")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("ai-another"));
+    await waitFor(() => expect(screen).toHavePathname("/ai-image/options"));
+    expect(screen).toHaveSearchParams(
+      expect.objectContaining({
+        projectId: "p1",
+        comboId: "c1",
+        quality: "PREMIUM",
+        sourceImage: "CLEANED",
+        timeOfDay: "DAY",
+        borderMode: "KEEP_ORIGINAL",
+        lighting: "NATURAL",
+        furnishing: "KEEP",
+        style: "LUXE",
+        note: "curtains open",
+      }),
+    );
   });
 
   it("asks for a fresh picture address when the old one has expired, once", async () => {
@@ -668,6 +740,24 @@ describe("C24 · AI image — working and result", () => {
     await waitFor(() => expect(screen).toHavePathname("/boards"));
     expect(screen.queryByTestId("ai-image-working")).toBeNull();
     await waitFor(() => expect(screen.getByLabelText("AI image of Living room")).toBeTruthy(), { timeout: 8_000 });
+  }, 15_000);
+
+  it("an image left while being made shows on the AI images as being made, then as finished", async () => {
+    signedIn();
+    let finished = false;
+    mockMe.renderableProjects.mockResolvedValue([{ id: "p1", name: "Living room", imageUrl: "/a.jpg", closedAt: null, comboCount: 2 }]);
+    mockProjects.render.mockImplementation(async () => (finished ? ready() : image({ status: "RUNNING", createdAt: ist(Date.now() - 5_000) })));
+    mockMe.renders.mockImplementation(async () =>
+      finished ? [{ id: "r1", projectId: "p1", projectName: "Living room", status: "READY", imageUrl: "https://x/r1.jpg" }] : [],
+    );
+    renderRouter("./app", { initialUrl: "/ai-image/r1?projectId=p1" });
+    await waitFor(() => expect(screen.getByText("Leave this running")).toBeTruthy());
+    press("Leave this running");
+    await waitFor(() => expect(screen.getByLabelText("AI image of Living room, being made")).toBeTruthy());
+    expect(screen.queryByText("No AI images yet")).toBeNull();
+    finished = true;
+    await waitFor(() => expect(screen.getByLabelText("AI image of Living room")).toBeTruthy(), { timeout: 8_000 });
+    expect(screen.queryByLabelText("AI image of Living room, being made")).toBeNull();
   }, 15_000);
 
   it("an image that leaves the account while being made says so", async () => {
@@ -780,6 +870,40 @@ describe("AI images, from elsewhere", () => {
     mockMe.renders.mockResolvedValue([{ id: "r1", projectId: "p1", projectName: "Living room", status: "READY", imageUrl: "https://x/r1.jpg" }]);
     renderRouter("./app", { initialUrl: "/boards?tab=ai" });
     await waitFor(() => expect(screen.getByLabelText("AI image of Living room")).toBeTruthy());
+  });
+
+  it("the AI images stay when reading them again fails", async () => {
+    signedIn();
+    mockMe.renders
+      .mockResolvedValueOnce([{ id: "r1", projectId: "p1", projectName: "Living room", status: "READY", imageUrl: "https://x/r1.jpg" }])
+      .mockRejectedValue(new ApiError("http", 503, ""));
+    renderRouter("./app", { initialUrl: "/boards?tab=ai" });
+    await waitFor(() => expect(screen.getByLabelText("AI image of Living room")).toBeTruthy());
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: keys.renders });
+    });
+    await waitFor(() => expect(queryClient.getQueryState(keys.renders)?.status).toBe("error"));
+    await act(async () => {
+      jest.advanceTimersByTime(100);
+    });
+    expect(screen.getByLabelText("AI image of Living room")).toBeTruthy();
+    expect(screen.queryByText("Try again")).toBeNull();
+  });
+
+  it("C25 keeps the board when reading its options again fails (as each AI image's end does)", async () => {
+    signedIn();
+    mockProjects.combos.mockResolvedValueOnce([combo("c1", 1, 0, ["HV0118"])]).mockRejectedValue(new ApiError("http", 503, ""));
+    renderRouter("./app", { initialUrl: "/board/p1" });
+    await waitFor(() => expect(screen.getByTestId("board-combo-c1")).toBeTruthy());
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: keys.combos("p1"), exact: true });
+    });
+    await waitFor(() => expect(queryClient.getQueryState(keys.combos("p1"))?.status).toBe("error"));
+    await act(async () => {
+      jest.advanceTimersByTime(100);
+    });
+    expect(screen.getByTestId("board-combo-c1")).toBeTruthy();
+    expect(screen.queryByText("Try again")).toBeNull();
   });
 
   it("after buying credits from C23, C29 leads back to the image", async () => {

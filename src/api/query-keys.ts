@@ -31,7 +31,39 @@ export const keys = {
   /** Every AI image of one room (C23, C25); one of them below it (C24). */
   roomRenders: (id: string) => ["me", "projects", id, "renders"] as const,
   render: (id: string, renderId: string) => ["me", "projects", id, "renders", renderId] as const,
+  /** The painter's side (P1–P12). */
+  painterWallet: ["painter", "wallet"] as const,
+  painterCatalogue: ["painter", "catalogue"] as const,
+  painterRedemptions: ["painter", "redemptions"] as const,
+  painterProfile: ["painter", "profile"] as const,
+  /** P6: a board's preview, by its token. */
+  boardScan: (token: string) => ["painter", "board", token] as const,
+  /** S6, S7: the account's support conversations, and one of them with its messages. */
+  supportList: ["me", "support"] as const,
+  supportConversation: (id: string) => ["me", "support", id] as const,
+  /** S8: the answered questions (paged), and the account's own. */
+  questions: ["community", "questions"] as const,
+  myQuestions: ["me", "questions"] as const,
+  /** C26, D1: what a board allows the caller (review it, or why not), by its token. */
+  boardReview: (token: string) => ["community", "board", token] as const,
+  /** C26: the room's board code. Under the room, so a new board there reaches it. */
+  reviewBoardFor: (projectId: string) => ["me", "projects", projectId, "review-board"] as const,
+  /** D2: a shared room, its companies and one company's shades — public, by the link's token. */
+  sharedRoom: (token: string) => ["share", token] as const,
+  sharedBrands: (token: string) => ["share", token, "brands"] as const,
+  sharedShades: (token: string, brandSlug: string) => ["share", token, "shades", brandSlug] as const,
+  /** C32: a search, by its point and distance (memory only — nothing here is written down). */
+  nearbyPainters: (lat: number, lon: number, radiusKm: number) => ["nearby", "painters", lat, lon, radiusKm] as const,
+  nearbyShops: (lat: number, lon: number, radiusKm: number) => ["nearby", "shops", lat, lon, radiusKm] as const,
+  /** C32: a painter's number once asked for — kept for the session so it's never asked twice. */
+  nearbyPhone: (painterId: string) => ["nearby", "phone", painterId] as const,
 };
+
+/** What a claimed board changes: the balance, its batches and statement — and what it buys. */
+export const claimChanges = [keys.painterWallet, keys.painterCatalogue] as const;
+
+/** What a redemption changes: the balance, what's affordable, and the vouchers. */
+export const redeemChanges = [keys.painterWallet, keys.painterCatalogue, keys.painterRedemptions] as const;
 
 /**
  * What a redeemed shop code changes. The rooms are read again as well: whether a room is

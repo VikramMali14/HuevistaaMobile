@@ -1,10 +1,19 @@
 import NetInfo from "@react-native-community/netinfo";
-import { QueryClient, focusManager, onlineManager } from "@tanstack/react-query";
+import { MutationCache, QueryCache, QueryClient, focusManager, onlineManager } from "@tanstack/react-query";
 import { AppState, Platform } from "react-native";
 
-import { isRetryable } from "./errors";
+import { reportError } from "@/lib/crash-reports";
+
+import { isApiError, isRetryable } from "./errors";
+
+/** A failure that isn't the server's answer or a dropped connection is a fault in the app. */
+const reportFault = (where: string) => (error: unknown) => {
+  if (!isApiError(error)) reportError(error, where);
+};
 
 export const queryClient = new QueryClient({
+  queryCache: new QueryCache({ onError: reportFault("query") }),
+  mutationCache: new MutationCache({ onError: reportFault("mutation") }),
   defaultOptions: {
     queries: {
       // Patchy 4G: try twice more, but only when trying again could help.

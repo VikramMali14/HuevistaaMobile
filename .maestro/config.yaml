@@ -1,0 +1,7 @@
+# Maestro (https://maestro.mobile.dev): the app end to end, on a phone or emulator,
+# against a staging backend. See docs/07-architecture.md (Testing) for the accounts and
+# data each flow needs. Locally:
+#   maestro test .maestro/flows -e CUSTOMER_EMAIL=… -e CUSTOMER_PASSWORD=… \
+#     -e PAINTER_EMAIL=… -e PAINTER_PASSWORD=… -e BOARD_TOKEN=…
+flows:
+  - flows/*

@@ -78,7 +78,7 @@ HuevistaaMobile/
 │   │   ├── boards/                   #   making, keeping and sending colour boards (Phase 4)
 │   │   ├── payments/                 #   checkout, verification, the payment kept (Phase 4)
 │   │   ├── ai-images/                #   the one ask, images being made, the picture kept (Phase 5)
-│   │   └── painter/                  #   scanner, claim (Phase 6)
+│   │   └── painter/                  #   points, rewards, listing, board reader (Phase 6)
 │   ├── config/env.ts                 # API origin, site origin, app scheme
 │   ├── i18n/                         # every user-facing string
 │   ├── lib/                          # pure helpers (money, validation, ported web logic)
@@ -399,6 +399,223 @@ idempotency key: every request is a new charge.
   `requestPermissionsAsync(true)` (write only). The browser preview downloads instead
   (`render-files.web.ts`).
 
+## The painter (Phase 6)
+
+Points, rewards and the painter's profile are read with React Query (`use-painter.ts`;
+keys in `query-keys.ts`). What a claim changes (`claimChanges`: wallet, catalogue) and what
+a redemption changes (`redeemChanges`: also the vouchers) are invalidated whatever the
+answer. Server times carry no zone and are India's wall clock (`serverMoment` in
+`lib/dates.ts`). Days left are counted as the website counts them (rounded up); "today"
+and "tomorrow" go by the date in India.
+
+Money and points:
+- **Claim** (`POST /api/rewards/{token}/claim`) has no key. A refusal re-reads the board
+  and shows how it stands. Silence is reconciled, never retried: the points and the board
+  are read again, and it counts as landed only when the board no longer reads claimable
+  and a board credit for that much has appeared since the ask (`claimLanded`).
+- **Redeem** carries a `requestKey`. `RequestKey` keeps one across retries of the same
+  press and makes a new one once a redemption comes back, so a lost answer is retried
+  safely: the server answers a repeated key with the redemption it already made.
+
+**The board reader (P7).** A board's PDF is read on the phone, never uploaded.
+- `scripts/board-reader/reader.js` runs in a page beside pdf.js 4.10.38 (legacy build, its
+  worker run in the page) and jsQR 1.4.0 (both pinned exactly, devDependencies).
+  `scripts/build-board-reader.mjs` puts them in one ASCII page under 2 MiB:
+  `src/features/painter/board-reader/reader-html.generated.ts`, committed, with the
+  sha-256 of everything it was built from. `board-reader-generated.test.ts` fails when the
+  committed page is out of step with them.
+- The page's content security policy shuts the network off (`connect-src 'none'`). Native:
+  a hidden `react-native-webview` (no files, no storage, no other page; every URL passes
+  the allowlist so none is handed to the browser, and all but `about:` are refused). Web: a
+  sandboxed `srcdoc` iframe (`allow-scripts` only). The page is a lazy import, its own
+  chunk on the web.
+- `board-reader/protocol.ts` is the conversation: the file goes in 256 KiB base64 chunks,
+  each acknowledged; the page reports each page it starts and offers every QR text it
+  reads; the app answers whether it's ours (`rewardTokenFrom`) and the page reads on after
+  a no. Pages are read last first, then the first, then backwards, at 1400 and 2200 px
+  wide; the first two looked at are also cut into four overlapping tiles at 3200 px. No
+  canvas goes over 16 MP (iOS). Drawn with pdf.js's print intent, which doesn't wait on
+  animation frames a hidden WebView may never give. 60 s without a word from the page is
+  a failure.
+- `scripts/verify-board-reader.mjs` proves the page in Chromium: a real colour board
+  (`scripts/board-reader/fixtures/colour-board.pdf`, from the studio's own builder) gives
+  its token from its last page with nothing fetched; a photo of that page does too; another
+  QR is refused and the reading carries on; no QR, not a PDF, and a broken image each end
+  as they should.
+- **Open with HueVistaa.** Android: a `VIEW` intent filter for `application/pdf` on
+  `content://`. iOS: the PDF document type (`LSHandlerRank` Alternate, copied into the
+  app). `app/+native-intent.tsx` holds the file (`shared-board.ts`, memory only) and opens
+  P7, which reads it at once. A board link or file opened while signed out is remembered
+  through sign-in (`pending-route.ts` keeps the deeper path when a guard reports only its
+  own segment on the way out).
+
+## Nearby, community, help and links (Phase 7)
+
+Each area has an endpoint file (`nearby.ts`, `community.ts`, `support.ts`, `share.ts` in
+`src/api/endpoints`) and a feature folder. Keys live in `query-keys.ts`. Anything read
+under `me` goes with the account on sign-out, as all of the cache does.
+
+The rules for every write:
+- **Check first.** What the server would refuse is refused on the phone, with the
+  server's own trimming and space folding (`cleanBody`, `cleanName` mirror
+  `CommunityText.clean`; Java's `\s` is ASCII only). Most of these limits count per
+  network, and one refused send still counts.
+- **Never send twice.** A send with no answer is looked for before anything is said:
+  - a review: the board read again (an edit must match what was sent);
+  - a question: the account's own questions;
+  - a support start: a conversation with the same first message that wasn't on the list
+    before the ask (`startedChat`);
+  - a support message: the conversation.
+
+  Each counts as sent only when found. A support send is looked for every 5 s until it
+  can no longer land (`lookFor`, 140 s from the send). The server answers inside the
+  transaction that saves the message, so a send can't be seen until its answer is in. A shared room's copy is never looked for or sent
+  again; the visitor is pointed to their rooms.
+- **Refusals in the server's words.** `messageFor` shows a 4xx sentence as it came; a
+  server's internal wording ("Project not found: …") is replaced where it would leak an
+  id.
+
+**Nearby (C32).**
+- `locate.ts` returns one of four outcomes: a fix, refused (and whether Settings is the
+  only way), location off, or failed. It asks once, takes a fix up to 60 s old, then a
+  fresh one raced against 15 s.
+- `searchPoint` rounds to 3 decimals before anything is sent.
+- The lists keep for 5 minutes and don't reload on focus or reconnect. They are tried
+  again once, and only when there was no answer: the 60-an-hour allowance is shared by
+  both lists.
+- A painter's number is a query that runs only on **Call**. It is never stale and never
+  dropped for the session, so it is asked for once against the 20-a-day allowance. It
+  runs in `networkMode: "always"`, so offline it fails at once rather than pausing and
+  dialling when the signal returns. One press makes one call (`useSubmit`), and nothing
+  dials once the card has gone (`useAlive`).
+- `NearbyCards.tsx` is shared with P5's preview.
+
+**Reviews (C26, D1).**
+- `BoardReviewScreen` is one screen for both routes. C26 first asks for the room's
+  board code (`GET /api/community/reviews/project/{id}`).
+- D1 works out the role and hands over: P6 for a painter, the review for a customer, the
+  website for a shop.
+
+**Support (S6, S7).**
+- The assistant answers inside the request, so a start and a message wait up to 130 s
+  (the server allows 120).
+- S7 reads the conversation every 5 s while it's on screen (`refetchInterval`). It stops
+  for a send, on a 404, once the conversation is resolved, and while another screen
+  covers it (`useIsFocused`). It pauses while the app is in the background
+  (`focusManager`, wired to `AppState`). New replies are announced
+  (`announceForAccessibility`).
+- A send cancels any read in flight and shows the message at once, with a typing bubble
+  unless the team has it.
+
+**Questions (S8).** One `FlashList` over an infinite query of 20 a page, de-duplicated
+by id across pages. The ask form and the account's own questions sit in its header.
+
+**A shared room (D2).**
+- `shareApi` reads without a token, so a signed-out phone can open it. The masks come
+  from the link's own route (`maskPath`).
+- `canvasWalls` takes the mask route and a cache scope (`share:{token}`), so a shared
+  room's textures never mix with the owner's own room if both are opened on one phone.
+- Colours come only from the link's companies (`/brands`, then `/shades?brand=` one at a
+  time), coded as the link's scheme says.
+- Whether the room is the viewer's own: `GET /api/projects/{id}` answers for the owner and
+  is a 404 for anyone else.
+
+**App Links.**
+- `app.json` has an `autoVerify` intent filter for `https://huevistaa.com` paths `/r/`
+  and `/share/`.
+- `app/+native-intent.tsx` matches only those two shapes (a code of 16–64 URL-safe
+  characters) and drops a query or fragment. Anything else goes on as it came.
+- The website (HueVistaFrontEnd, `src/app/api/app-links/android/route.ts`, rewritten
+  from `/.well-known/assetlinks.json`) answers with the statement for
+  `com.gridstore.huevistaa`. The fingerprints come from `ANDROID_APP_CERT_SHA256`
+  (comma-separated: the upload key and Play's signing key), and it answers 404 until they
+  are set.
+- iOS (`associatedDomains`, `apple-app-site-association`) waits for the Apple Team ID.
+
+## Polish and release (Phase 8)
+
+**Language.**
+- `src/i18n`: `t()` reads the current language and falls back to English key by key.
+  `tEn()` is for anything printed: the board's and the AI image's PDF font has Latin
+  letters only. `plural()` follows Hindi's rule, where nought takes the singular.
+- `hi.ts` is typed `Translation`: every English key except `pdf` and `dev`, so a missing
+  one fails the build. A test checks every placeholder matches.
+- `language.ts` keeps the choice on the phone (`hv.language`; absent means follow the
+  phone, through expo-localization). It is read before the splash hides.
+- Screens read their strings as they draw, and React Navigation's `StaticContainer`
+  keeps them from drawing again on their own. So a new language remounts the root
+  navigator (`key={language}` in `app/_layout.tsx`), with the session, cached data and
+  toasts above it carrying on. `landNextOn("/settings")` brings S1 back once,
+  through `app/index.tsx`.
+- Hindi uses `hindiTypeScale`: no tracking, and line heights of at least 1.5× for
+  Devanagari's vowel signs. The glyphs come from the phone's own Devanagari font,
+  because Inter has none.
+- What stays English: the server's own sentences (some code matches them), the PDFs,
+  shade codes, and names.
+
+**Push notifications** (`src/features/notifications`, through Expo's push service):
+- `registerPush(userId)` gets the Expo token only when notifications are already
+  allowed, on a real device with an EAS project. It never asks. It sends
+  `POST /api/me/push-tokens {token, platform, locale, appVersion}` once per start, and
+  again on a change of account, token or language. `usePushRegistration` runs it
+  from the root, keyed on the signed-in id.
+- Signing out by choice calls `unregisterPush()` before `logout`, inside the same 3 s
+  race. `forgetPush()` runs with the rest of an account's data on sign-out and on a
+  switch: it dismisses the account's notifications and resets the registration.
+- `push-routes.ts` is pure. `readPayload` accepts only known kinds with well-formed ids,
+  and `pathFor` builds the screen from those ids: a notification never carries a path.
+  `invalidationsFor` lists what each kind makes stale.
+- `usePushObserver`, from the root:
+  - With the app open, a notification refreshes what it made stale, for the signed-in
+    account only.
+  - Taps (warm, or the last response on a cold start) wait in a small external store
+    until the session is known and the screens are up. They open with `router.push`
+    for the account they were sent to; others are dropped. Each is handled once, by
+    its notification id.
+- `setNotificationHandler`: no banner for a reply to the support chat already on
+  screen (`setQuietConversation`).
+- Android channels: `rooms`, `points` and `support`, named in the current language and
+  made before any ask (Android 13 shows no prompt without one).
+- `AskForNotifications` (X3) shows a sheet before the phone's prompt, at most once per
+  reason, at the four moments that wait: C8 finding walls, C24 making an AI image, P11
+  a voucher just redeemed, and S7 once the team has the chat. S1's Notifications row
+  asks there, or opens the phone's settings.
+
+**X5 · update needed** (`src/features/app-update`):
+- `loadVersionGate()` decides at start-up from the last answer kept on the phone
+  (`hv.minVersion`), so it never waits on the network. It fetches
+  `GET /api/mobile/version` (public, 4 s) behind that and keeps the answer for the
+  NEXT start, so a raised minimum never stops someone mid-task.
+- `gateFor` blocks only when the installed version (expo-application, never
+  app.json) is below the minimum and there's an https store link. It fails open on
+  anything it can't read.
+- Root renders `UpdateNeeded` in place of the navigator.
+
+**Crash reports** (`src/lib/crash-reports.ts`, Sentry):
+- Off without `EXPO_PUBLIC_SENTRY_DSN`, on the web and in development.
+- `sendDefaultPii: false`, no screenshots or view hierarchy, no tracing. Session
+  tracking gives crash-free sessions per version.
+- `scrubEvent` and `scrubBreadcrumb` take out emails, phone numbers, bearer and push
+  tokens, query strings and long path segments (board and share codes, ids). They
+  drop typed input and request bodies, and keep only the user's id.
+- The root `ErrorBoundary` reports a screen that throws while drawing and offers Try
+  again. The query and mutation caches report failures that aren't the server's answer.
+- `metro.config.js` adds Sentry's debug ids. The Expo plugin uploads source maps at
+  build time with `SENTRY_ORG`, `SENTRY_PROJECT` and `SENTRY_AUTH_TOKEN`.
+
+**Builds:**
+- `expo-updates` with `runtimeVersion: {policy: "appVersion"}`, and a channel per EAS
+  profile. `eas update:configure` adds the update URL once there is an EAS project.
+- A `development` profile builds a dev client, because Expo Go can't receive remote
+  notifications.
+- app.json carries the notifications plugin and icon (`assets/images/notification-icon.png`,
+  white on transparent, from the mark's grid), Hindi permission sentences for iOS
+  (`locales/hi.json`), iOS export compliance, a privacy manifest, and
+  `applinks:huevistaa.com`. The Hindi sentences sit under `"ios"` in that file. Expo
+  writes top-level keys into Android's `strings.xml` as well, where Info.plist names
+  have no English string and fail the release build's lint (ExtraTranslation).
+  Android's permission prompts are the system's own, already in Hindi.
+
 ## Reusing the website's code
 
 Copy plain TypeScript files from `HueVistaFrontEnd/src/lib/` into `src/lib/` when a
@@ -455,8 +672,11 @@ If the copies start drifting, move them into a shared npm package later. Not bef
 - `eas build -p android --profile preview` → an APK to install directly, and the link
   for the website's `NEXT_PUBLIC_APK_URL` "HueVistaa for Android" bar.
 - `eas build -p android --profile production` → an AAB for Google Play.
-- `eas update` → JavaScript-only fixes without a store release.
-- iOS follows once Android is stable (needs an Apple developer account).
+- `eas update --channel production` → JavaScript-only fixes for the same native version
+  (runtimeVersion follows the app version).
+- `eas build --profile development` → a dev client, needed to try notifications.
+- iOS follows once Android is stable (needs an Apple developer account). The whole
+  release, in order, is in [09-release.md](09-release.md).
 
 ## Testing
 
@@ -468,7 +688,16 @@ If the copies start drifting, move them into a shared npm package later. Not bef
   open, deep links, offline start-up — and **every planned screen opens without
   breaking**. It uses Testing Library **13.3**: Expo Router 57's test helper renders
   synchronously and breaks with 14's async `render`. Keep them in step.
-- **End-to-end (Phase 8):** Maestro flows — sign in with a test number, make a room
-  from a ready-made room, take a board; painter scans a test board.
+- **End-to-end:** Maestro flows in `.maestro/`: a customer from a ready-made room to a
+  colour board; a painter typing a board's code to its claim; Settings to Hindi and
+  back. They sign in with email and a password, because a texted code can't be read
+  by a test, and run against a staging backend, never production, from
+  `.github/workflows/e2e-android.yml` (manual and nightly). The data and secrets they
+  need are in [09-release.md](09-release.md).
+- **CI:** `.github/workflows/ci.yml` runs typecheck, lint and the tests on every push
+  and pull request. The route tests render the whole `app/` tree, and on a busy runner
+  a file's first one takes over Jest's default 5 s while that tree loads, so the
+  per-test limit is 30 s (`package.json`). `.github/workflows/android-apk.yml` builds an
+  installable test APK ([09-release.md](09-release.md)).
 - **Real devices:** one low-end Android (3–4 GB RAM) is part of "done" for every
   studio screen.

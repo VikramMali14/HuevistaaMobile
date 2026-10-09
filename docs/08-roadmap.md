@@ -375,6 +375,34 @@ UI:
 - Outdoor wording didn't follow the server's rule.
 - C25 said nothing when the room's images didn't load.
 
+**Second review (2026-10-07):** a read-through against the backend's contract and a walk of
+every Phase 5 screen in a phone-sized Chromium, light and dark. Fixed, each with a test that
+fails without it:
+- **Change option** replaced C23 with a new C22 for the room, so Back from it landed on an
+  identical C22. It now goes back when that C22 is underneath.
+- An image seen being made on C23 (an unanswered ask that turned up, or one asked for
+  elsewhere) wasn't followed: nothing brought its end to the shelf, and the wallet kept the
+  balance from before it was paid for. C23 now hands it to `RenderWatcher` and reads the
+  wallet again.
+- **Leave this running** landed on a shelf that lists finished images only — for a first
+  image, "No AI images yet". Images being followed now show there as "Being made…".
+- **Make another** dropped the note (the spec carries it, as Try again does), and, tapped
+  before the room's options loaded, went to C22 instead of C23.
+- The Boards tab and C25 swapped their lists for an error screen when a read again failed
+  — and `RenderWatcher` reads them again each time an image ends. They now stay.
+- "You need 1 more AI credit for this image, at ₹70 each" — "each" dropped for one.
+
+Checked and sound: one charge per ask (the client never resends a POST; a 401 retry is
+refused before the handler); a blocked POST (the server's AI pool full, `CallerRunsPolicy`)
+times out at 45 s and is matched to its QUEUED row; choices and note are stored as sent,
+so the exact-ask match holds (`CLEANED` is kept as sent even with no cleaned photo);
+404 messages tell the room from the option; the sweeper's 12–22 minutes sits inside the
+clock's 25-minute clamp.
+
+Left as they are (small): an account that can't hold credits still sees the choices above
+its banner; a failed image doesn't name its room; C24's working state shows no picture of
+the room it is photographing.
+
 **Still to do on a real phone:**
 - Make a real image end to end:
   - the share sheet with the JPEG and the PDF (WhatsApp in it);
@@ -387,47 +415,224 @@ UI:
 
 | | Screen | Spec |
 |---|---|---|
-| ☐ | P1 Home | [05](05-screens-painter.md#p1--home) |
-| ☐ | P3 Scan | [05](05-screens-painter.md#p3--scan) |
-| ☐ | P6 Claim a board | [05](05-screens-painter.md#p6--claim-a-board) |
-| ☐ | P8 Type the code | [05](05-screens-painter.md#p8--type-the-code) |
-| ☐ | P2 Points | [05](05-screens-painter.md#p2--points) |
-| ☐ | P4 Rewards | [05](05-screens-painter.md#p4--rewards) |
-| ☐ | P9 Reward detail | [05](05-screens-painter.md#p9--reward-detail) |
-| ☐ | P10 My vouchers | [05](05-screens-painter.md#p10--my-vouchers) |
-| ☐ | P11 Voucher | [05](05-screens-painter.md#p11--voucher) |
-| ☐ | P5 Nearby — be found | [05](05-screens-painter.md#p5--nearby--be-found-by-customers) |
-| ☐ | P12 Trade profile | [05](05-screens-painter.md#p12--trade-profile) |
-| ☐ | P7 Board came as a PDF | [05](05-screens-painter.md#p7--board-came-as-a-pdf) |
-| ☐ | C33 Work as a painter | [04](04-screens-customer.md#c33--work-as-a-painter) |
+| ☑ | P1 Home | [05](05-screens-painter.md#p1--home) |
+| ☑ | P3 Scan | [05](05-screens-painter.md#p3--scan) |
+| ☑ | P6 Claim a board | [05](05-screens-painter.md#p6--claim-a-board) |
+| ☑ | P8 Type the code | [05](05-screens-painter.md#p8--type-the-code) |
+| ☑ | P2 Points | [05](05-screens-painter.md#p2--points) |
+| ☑ | P4 Rewards | [05](05-screens-painter.md#p4--rewards) |
+| ☑ | P9 Reward detail | [05](05-screens-painter.md#p9--reward-detail) |
+| ☑ | P10 My vouchers | [05](05-screens-painter.md#p10--my-vouchers) |
+| ☑ | P11 Voucher | [05](05-screens-painter.md#p11--voucher) |
+| ☑ | P5 Nearby — be found | [05](05-screens-painter.md#p5--nearby--be-found-by-customers) |
+| ☑ | P12 Trade profile | [05](05-screens-painter.md#p12--trade-profile) |
+| ☑ | P7 Board came as a PDF | [05](05-screens-painter.md#p7--board-came-as-a-pdf) |
+| ☑ | C33 Work as a painter | [04](04-screens-customer.md#c33--work-as-a-painter) |
 
-Packages: `npx expo install expo-camera expo-location expo-document-picker react-native-webview`.
-Port: `HueVistaaPainter/src/lib/reward-token.ts`, `board-file.ts` (in a WebView).
+Packages: `expo-location`, `expo-document-picker`, `expo-crypto` and
+`react-native-webview` 13.16.1 (versions from Expo's own list; `expo-camera` and
+`expo-clipboard` were already in). devDependencies, pinned exactly, for the board reader's page only: `pdfjs-dist`
+4.10.38 and `jsqr` 1.4.0. `app.json`: the location plugin (when in use only, no
+background), the camera's purpose now names the QR, a `VIEW` intent filter for PDFs
+(Android) and the PDF document type (iOS).
+
+Ported: `reward-token.ts` as it is, and `board-file.ts`'s reading, run in a WebView (see
+[07](07-architecture.md#the-painter-phase-6)). UI kit added: `Switch`, `QrFrame`,
+`CountUp`, `Pill`; `ConfirmSheet` takes a `testID`.
+
+New in `src/features/painter`:
+- `points.ts` (the words for points, batches, rewards and their status, and
+  `claimLanded`), `listing.ts` (P5, P12), `redeem.ts` (`RequestKey`) and `use-painter.ts`.
+- `board-reader/` (the page, its protocol and the WebView), `board-file.ts`, `read-file.ts`
+  and `shared-board.ts`, with `app/+native-intent.tsx`.
+
+**Done:** 2026-10.
+- **Tests.** Route tests for every screen through the real route tree
+  (`src/__tests__/phase6-painter.test.tsx`: 35, with the camera, location, files and the
+  reader's WebView faked). Unit tests for the points words and `claimLanded`, the listing
+  and trade bodies, the request key, server times, the reader's conversation, the
+  generated page being up to date, and the file and share-in rules. The reader itself in
+  Chromium (`scripts/verify-board-reader.mjs`, 9 checks on a real board).
+- **Browser walk.** Every screen in a phone-sized Chromium against a stand-in backend,
+  light and dark: claim, redeem, listing, trade profile and becoming a painter end to end,
+  and a real board's PDF picked and read by the iframe reader to its claim.
+
+As built, against the spec (details under each screen in [05](05-screens-painter.md)):
+- A board pays what the server says: 25 points today, not 50. A refunded voucher is the
+  server's `REJECTED`. The record is `jobsCompleted`.
+- The ledger is the newest 20 movements, all the server gives.
+- P7 reads PDFs and photos; **Open with HueVistaa** works, **Share to** is left for later
+  (a native share-intent module).
+- P12 never sends the phone; P5 always sends `about` and a position rounded to ~1 km.
+
+**Review (2026-10)**, from the walk and a pass over the money paths. Fixed, each with a test:
+- A painter who opened a board's link (or a shared PDF) while signed out landed on Home
+  after signing in: the guard reported only `/painter?token=…` on its way out, which
+  replaced the page asked for. The deeper path is now kept.
+- After an unanswered claim, another board's 25 points from a minute before looked like
+  this one's. Landed now also needs the board to read as claimed.
+- "Expires tomorrow" for a batch lapsing in an hour tonight: the day is now worded by the
+  date in India; the warning still counts as the website does.
+- The request key: `expo-crypto` answering nothing meant a new key on every retry. A key
+  is always made.
+- The older route tests opened painter screens that read the real network; they're faked.
+- On screen: a phone number no longer breaks across lines; P12's **Add** sits level with
+  its field; shorter labels where a button wrapped (P2, P5).
+
+Left for a real phone: the camera on a printed board, the WebView reader on Android and
+iOS (memory on a 25 MB board), and "Open with" from WhatsApp.
 
 ## Phase 7 — Nearby, community, help and links
 
 | | Screen | Spec |
 |---|---|---|
-| ☐ | C32 Painters and shops near you | [04](04-screens-customer.md#c32--painters-and-shops-near-you) |
-| ☐ | C26 Review the job | [04](04-screens-customer.md#c26--review-the-job) |
-| ☐ | S6 Help and support | [06](06-screens-shared.md#s6--help-and-support) |
-| ☐ | S7 Support conversation | [06](06-screens-shared.md#s7--support-conversation) |
-| ☐ | S8 Questions and answers | [06](06-screens-shared.md#s8--questions-and-answers) |
-| ☐ | D1 A board's QR | [06](06-screens-shared.md#d1--a-boards-qr) |
-| ☐ | D2 A shared room | [06](06-screens-shared.md#d2--a-shared-room) |
-| ☐ | App Links for `huevistaa.com/r/*` and `/share/*` | cross-repo task 1 |
+| ☑ | C32 Painters and shops near you | [04](04-screens-customer.md#c32--painters-and-shops-near-you) |
+| ☑ | C26 Review the job | [04](04-screens-customer.md#c26--review-the-job) |
+| ☑ | S6 Help and support | [06](06-screens-shared.md#s6--help-and-support) |
+| ☑ | S7 Support conversation | [06](06-screens-shared.md#s7--support-conversation) |
+| ☑ | S8 Questions and answers | [06](06-screens-shared.md#s8--questions-and-answers) |
+| ☑ | D1 A board's QR | [06](06-screens-shared.md#d1--a-boards-qr) |
+| ☑ | D2 A shared room | [06](06-screens-shared.md#d2--a-shared-room) |
+| ☑ | App Links for `huevistaa.com/r/*` and `/share/*` | cross-repo task 1 |
+
+No new packages. `app.json`: an `autoVerify` intent filter for `huevistaa.com/r/` and
+`/share/` (Android App Links), and the location purpose now names the search.
+
+New:
+- `src/api/endpoints`: `nearby.ts`, `community.ts`, `support.ts`, `share.ts`.
+- `src/features/nearby`: `nearby.ts` (the words, distances, links), `locate.ts`,
+  `use-nearby.ts` and `NearbyCards.tsx`, which P5's preview now uses.
+- `src/features/community`: `review.ts`, `questions.ts`, `Stars.tsx` and
+  `BoardReviewScreen.tsx`, shared by C26 and D1.
+- `src/features/support`: `support.ts` and `Bubble.tsx`.
+- `src/features/share`: `shared-room.ts` and `SharedPalette.tsx`.
+- `canvasWalls` takes a mask route and a cache scope.
+- `formatServerMonth` in `lib/dates.ts`.
+- Painters reach S6 and S8 from P12. The payment result and tidying up open S6 with
+  the message written.
+
+**Done:** 2026-10.
+- **Tests.** Route tests for every screen through the real route tree
+  (`src/__tests__/phase7.test.tsx`: 41, with location, the dialler, the browser and the
+  network faked). Unit tests for the nearby words and links, the community checks (the
+  server's trimming), the support helpers and `lookFor`, and the App Links paths. 66
+  suites, 950 tests, typecheck and lint clean.
+- **Mutation checks.** Each of these guards was broken in turn, and a test failed each
+  time:
+  - a painter's number kept after the first Call, and failing at once offline;
+  - D2's owner check;
+  - an unanswered copy never sent again;
+  - the review, question and support look-ups after a lost answer, including looking
+    until a send can no longer land, and taking only a new chat or question;
+  - polling paused under another screen;
+  - replies read out;
+  - the outline stars.
+- **Browser walk.** Every screen in a phone-sized Chromium against a stand-in backend,
+  light and dark:
+  - location, the lists, Call and Directions;
+  - a review sent, and the board link both ways through sign-in;
+  - a support chat to a person;
+  - a question asked;
+  - a shared room repainted on the GPU, then copied once and opened in the studio.
+
+As built, against the spec (details under each screen in [04](04-screens-customer.md) and
+[06](06-screens-shared.md)):
+- C32 searches by location only. There is still no search by area (outside-repo item 7).
+  A painter under 1 km shows "Under 1 km away".
+- S7 refreshes every 5 s while open, as specified; push replaces this in Phase 8. When
+  the account's assistant allowance runs out, the server hands the chat to the team, and
+  S7 says so.
+- D2 checks ownership before offering a copy, so its 409 doesn't come up in practice; it
+  is shown in the server's words if it does. The copy opens on C11.
+- App Links are Android only. iOS needs the Apple Team ID (item 1).
+
+**Review (2026-10)**, from the walk. Fixed:
+- A painter's number, once shown, was cut off inside the Call button beside WhatsApp on
+  a phone's width. It now has its own line (selectable), and Call reads "Call".
+- After signing in from a shared room, the room was left in the stack twice (sign-in
+  was pushed, then replaced by the room). Sign-in now replaces it, as D1 does.
+- The review's thank-you said twice that opening the board uses nothing up.
+
+And from an adversarial pass over the code. Fixed, each with a test:
+- **Support said "send it again" too early.** After a dropped connection, S6 and S7 looked
+  once and said the message hadn't arrived. But the server answers inside the
+  transaction that saves the message, so for up to two minutes it can't be seen. Sending
+  again bought a second paid answer. They now look every 5 s until the send can no longer
+  land, and say they're checking meanwhile.
+- **A lost start matched the wrong chat.** It was matched by subject and the phone's
+  clock, so a fast clock missed it, and an earlier chat with the same words (the payment
+  result's) could be taken for it. Now only a chat that wasn't on the list before counts.
+  Questions likewise.
+- **Call offline dialled later by itself.** The press waited silently for the signal,
+  then opened the dialler once per tap. It now fails at once with the reason, and one
+  press makes one call.
+- **Unchosen stars were hard to see.** They used the hairline colour (about 1.5:1 in
+  dark). They are now outlines in the muted text colour.
+- **A message being sent was hard to read.** It was faded to 70%; it is now full strength
+  with "Sending…" under it. Replies are read out by a screen reader.
+- **The chat was read under other screens.** S7 kept reading every 5 s while a link
+  opened over it; it now stops until it's on screen again.
+
+Left for a real phone:
+- the location prompts on Android and iOS;
+- App Links verified on a signed build, once the site has the fingerprints;
+- the dialler, WhatsApp and Maps handing over.
 
 ## Phase 8 — Polish and release
 
-- [ ] Push notifications (needs the backend work below): walls ready, AI image ready,
-      points credited, voucher delivered, support reply.
-- [ ] Hindi (`src/i18n/hi.ts`) and a language choice in S1.
-- [ ] Crash reporting and analytics (Sentry recommended) — and the privacy policy
-      updated to say so.
-- [ ] Maestro end-to-end flows in CI.
-- [ ] X5 minimum-version check.
-- [ ] Play Store listing: screenshots, description, data-safety form, content rating.
-- [ ] iOS build and App Store review.
+- [x] Push notifications, with the backend work (items 5 and 15):
+  - walls ready or not found;
+  - AI image ready or not made;
+  - voucher delivered or declined ("points credited": a declined voucher's points come
+    back; every other credit is the painter's own scan);
+  - support reply.
+- [x] Hindi (`src/i18n/hi.ts`) and a language choice in S1. A native speaker still reads
+      it through before release (09-release.md).
+- [x] Crash reporting (Sentry, off without a DSN), and the privacy policy updated.
+      Product analytics waits on a decision (09-release.md, 7).
+- [x] Maestro end-to-end flows, with a CI job for them (on a staging backend that is
+      still to be set up) and CI for the app itself.
+- [x] X5 minimum-version check (item 6).
+- [~] Play Store listing: description, data safety, content rating, permissions and
+      review access are written (09-release.md). Still to do: the screenshots from a
+      real phone, and the feature graphic.
+- [~] iOS: app.json is ready (export compliance, privacy manifest, universal links,
+      Hindi permission sentences), and the website serves the universal-links file.
+      Still needed: an Apple account, a build, and review (09-release.md).
+
+New:
+- `src/i18n`: `hi.ts`, `language.ts`, `types.ts`.
+- `src/features/notifications`, `src/features/app-update`, `src/lib/crash-reports.ts`,
+  `src/lib/use-alive.ts`, `src/navigation/landing.ts`.
+- `src/api/endpoints/push.ts` and `mobile-version.ts`.
+- `.maestro/`, `.github/workflows/`, `docs/09-release.md`, `locales/hi.json`,
+  `metro.config.js`, `assets/images/notification-icon.png`.
+
+Packages (SDK-pinned): `expo-localization`, `expo-notifications`, `expo-application`,
+`expo-device`, `expo-dev-client`, `expo-updates`, `@sentry/react-native`.
+
+**Done:** 2026-10.
+- **Tests.**
+  - Route tests through the real route tree (`src/__tests__/phase8.test.tsx`: 14).
+    They cover the phone's language, switching in S1 and coming back to S1 in it, the
+    remembered choice, and X5 blocking from the kept answer while never blocking mid-use.
+  - Push: registration only once allowed, again on a language change, taps for the
+    right account only (warm and cold), refreshing with the app open, the token
+    dropped before logout, and the ask once and only where push works.
+  - Unit tests for Hindi (every key, placeholders, plurals, print staying English),
+    push routes, the version gate and the crash-report scrubbers.
+  - Every guard was mutation-checked; one redundant guard survived.
+  - 70 suites, 980+ tests; typecheck and lint clean.
+- **Browser walk.** Key customer and painter screens in Hindi, light and dark, at
+  360 px: no clipped vowel signs, no text out of its box. One painter button that
+  wrapped got a shorter label.
+
+As built, against the spec:
+- "Points credited" is the voucher declined: the server credits a painter's points
+  without them acting in no other case, and shops use the website.
+- The language remounts the navigator, so a back stack doesn't survive a change of
+  language; S1 opens again.
+- X5 compares the store version, not the build number: an operator sets it by hand.
 
 ---
 
@@ -435,14 +640,23 @@ Port: `HueVistaaPainter/src/lib/reward-token.ts`, `board-file.ts` (in a WebView)
 
 | # | Repo | Change | Needed by |
 |---|---|---|---|
-| 1 | HueVistaFrontEnd | Serve `/.well-known/assetlinks.json` with the app's signing-certificate SHA-256, so `huevistaa.com/r/*` and `/share/*` open the app (App Links). Later `apple-app-site-association` for iOS. | Phase 7 |
+| 1 | HueVistaFrontEnd | App Links. Done on branch `claude/stoic-knuth-d9829w` (6d83a2a): `/.well-known/assetlinks.json` is served for `com.gridstore.huevistaa` from `ANDROID_APP_CERT_SHA256`, and is a 404 until that is set. To do: set it to both SHA-256 fingerprints, comma-separated (the upload key's, and Play App Signing's from the Play Console), then merge. iOS later: `apple-app-site-association` and `associatedDomains` in `app.json`, once there's an Apple Team ID. | Phase 7 (env + merge) · iOS Phase 8 |
 | 2 | HueVistaFrontEnd | Confirm `/pay/mobile` is deployed and `NEXT_PUBLIC_MOBILE_PAY_REDIRECT` is unset (defaults to `huevista://pay/callback`). The app opens `{SITE}/pay/mobile?order&key&amount&currency&desc&name&email&contact` — the page reads exactly these. | Phase 4 (now) |
 | 3 | HueVistaFrontEnd | Set `NEXT_PUBLIC_APK_URL` to the preview APK once one exists. | Phase 1+ |
 | 4 | HueVista | Confirm `MOBILE_OAUTH_REDIRECT_URI` is `huevista://sign-in/callback` in production. | Phase 1 |
-| 5 | HueVista | Push notifications: an endpoint to register a phone's push token (the existing `deviceToken` is the shop trusted-device token — a different thing), and sends on the events in Phase 8. | Phase 8 |
-| 6 | HueVista | A tiny public endpoint returning the minimum supported app version (X5). | Phase 8 |
+| 5 | HueVista | ~~Push notifications.~~ Done on branch `claude/stoic-knuth-d9829w`: `POST/DELETE /api/me/push-tokens` and sends through Expo after commit on the seven events. Tokens are dropped wherever every session ends, and the text comes in the token's language. Deploy with `PUSH_ENABLED=true` and `EXPO_ACCESS_TOKEN`. Later: a receipts sweep for tokens that die silently. | Phase 8 (merge, set env) |
+| 6 | HueVista | ~~Minimum app version.~~ Done on the same branch: public `GET /api/mobile/version` from `MOBILE_{ANDROID,IOS}_{MIN,LATEST}_VERSION` and `_STORE_URL`. | Phase 8 (merge) |
 | 7 | HueVista | Optional: nearby search by area name, for people who won't share location (C32). | Phase 7 |
 | 8 | HueVista | `docs/HueVista_Mobile_API_Guide.pdf` only covers sign-in and images — update it or point it at Swagger. | Any time |
+| 9 | HueVista | ~~`POST /api/projects/*/renders` limited per IP only.~~ Fixed on branch `claude/stoic-knuth-d9829w`: 12 an hour per account, checked first, and a network cap of 120 for many accounts behind one address. Merge it. | Phase 5 (merge) |
+| 10 | HueVista | ~~Deleting a room while its AI image is being made loses the credits.~~ Fixed on branch `claude/stoic-knuth-d9829w`: `deleteProject` locks the room and refunds every image still being made, in the same transaction. Merge it. | Phase 5 (merge) |
+| 11 | HueVista | `POST /api/rewards/{token}/claim` takes no request key. The app reconciles an unanswered claim by reading the points and the board, but a key (as redeem has) would make a retry simply safe. | Any time |
+| 12 | HueVista | There's no read of one redemption, so P11 reads the whole list. `GET /api/painter/redemptions/{id}` would do. | Any time |
+| 13 | HueVista | Community writes (reviews and questions, 10 an hour together) and support messages (40 an hour) are limited per IP only. Many phones in India share a carrier's address (CGNAT), so strangers on one network can use up each other's allowance. A per-account cap with a wider network backstop would fix it, as renders now have. Support's spend is already capped per account in `SupportService`. | Any time |
+| 14 | HueVista | `POST /api/share/{token}/claim` spends a room and takes no request key. The app never sends an unanswered one again and points the visitor to their rooms; a key would make a retry safe. | Any time |
+| 15 | HueVista | ~~Account deletion kept rooms, photos and chats while S9 said they went.~~ Done on the same branch: deleting an account removes what S9 lists (rooms with their photos, boards and AI images, unused rooms and credits, points, undelivered vouchers, the listing) plus support chats and push tokens. Payment records stay. | Phase 8 (merge) |
+| 16 | HueVista | A staging backend for the end-to-end tests: its own host and database, with the accounts and data listed in 09-release.md. | Before release |
+| 17 | HueVista | Selling rooms and AI credits in store builds: Play Billing on Android (verify the purchase, grant it idempotently); none on iOS v1 (09-release.md, 1). | Before release |
 
 ## Decisions to confirm
 
@@ -452,5 +666,9 @@ Port: `HueVistaaPainter/src/lib/reward-token.ts`, `board-file.ts` (in a WebView)
 | Android package / iOS bundle id | `com.gridstore.huevistaa` | **Cannot be changed after the first Play Store upload** — confirm before Phase 8 |
 | Link scheme | `huevista` | Must match the backend and website defaults |
 | Platforms | Android first, iOS after | |
-| Languages | English, then Hindi | |
-| Crash/analytics vendor | Sentry (suggested) | |
+| Languages | English and Hindi | Hindi needs a native speaker's read before release |
+| Crash reports | Sentry (built; off until `EXPO_PUBLIC_SENTRY_DSN` is set) | EU region and 90-day retention suggested, as the privacy policy says |
+| Product analytics | None yet | A tool and an S1 consent switch first; then the privacy policy and data safety |
+| Payments in store builds | Undecided | Play Billing on Android, none on iOS v1 suggested (09-release.md, 1) — blocks a store release |
+| Sign in with Apple | Undecided | Hide Google on iOS v1 suggested (09-release.md, 2) |
+| First store version | 0.1.0 in app.json | 1.0.0 suggested; it's X5's baseline |

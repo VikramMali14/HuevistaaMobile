@@ -112,12 +112,13 @@ export default function LibraryRoom() {
               icon="droplet"
               onPress={() => router.push({ pathname: "/room/[projectId]", params: { projectId: copy.id } } as Href)}
               disabled={starting.busy}
+              testID="library-open-copy"
             />
-            <Button variant="ghost" label={t("library.freshCopy")} onPress={paint} loading={starting.busy} />
+            <Button variant="ghost" label={t("library.freshCopy")} onPress={paint} loading={starting.busy} testID="library-fresh" />
           </View>
         ) : (
           <View style={{ gap: space.xs }}>
-            <Button label={t("library.paint")} icon="droplet" onPress={paint} loading={starting.busy} />
+            <Button label={t("library.paint")} icon="droplet" onPress={paint} loading={starting.busy} testID="library-paint" />
             <Text variant="small" tone="mute" align="center">
               {t("library.free")}
             </Text>

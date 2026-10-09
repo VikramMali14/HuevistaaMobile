@@ -1,0 +1,27 @@
+# Settings switches the app to Hindi and back (S1).
+appId: com.gridstore.huevistaa
+name: Settings — Hindi and back
+tags:
+  - customer
+---
+- runFlow:
+    file: ../subflows/sign-in.yaml
+    env:
+      EMAIL: ${CUSTOMER_EMAIL}
+      PASSWORD: ${CUSTOMER_PASSWORD}
+- openLink: huevista://settings
+- tapOn:
+    id: "settings-language"
+- tapOn:
+    id: "language-hi"
+- extendedWaitUntil:
+    visible: "सेटिंग्स"
+    timeout: 15000
+- takeScreenshot: settings-hindi
+- tapOn:
+    id: "settings-language"
+- tapOn:
+    id: "language-en"
+- extendedWaitUntil:
+    visible: "Settings"
+    timeout: 15000

@@ -390,6 +390,7 @@ export default function ColourBoard() {
         confirmLabel={t("board.confirmGo")}
         onConfirm={make}
         onCancel={() => setConfirming(false)}
+        testID="board-confirm"
       />
 
       {startedAt > 0 ? (

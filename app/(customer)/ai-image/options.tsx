@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { usePreventRemove } from "expo-router/react-navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
@@ -35,7 +35,9 @@ import {
   rowLabel,
   type ChoiceKey,
 } from "@/features/ai-images/render-options";
+import { trackRender } from "@/features/ai-images/in-flight";
 import { startRender, type StartOutcome } from "@/features/ai-images/start-render";
+import { isBeingMade } from "@/features/ai-images/use-render";
 import { imageInProgress } from "@/features/boards/combos";
 import { useRoom } from "@/features/studio/use-room";
 import { t } from "@/i18n";
@@ -71,6 +73,7 @@ type Problem = { kind: StartOutcome["kind"]; message: string; balance?: number }
  */
 export default function AiImageOptions() {
   const router = useRouter();
+  const navigation = useNavigation();
   const toast = useToast();
   const { space } = useTheme();
   const params = useLocalSearchParams<Params>();
@@ -121,13 +124,31 @@ export default function AiImageOptions() {
   const outdoor = Boolean(room.data) && room.data?.imageType !== "INDOOR";
   const hasCleaned = Boolean(room.data?.cleanedImageUrl);
   const inProgress = imageInProgress(renders.data);
-  const sameInProgress = renders.data?.some((r) => r.comboId === comboId && (r.status === "QUEUED" || r.status === "RUNNING")) ?? false;
+  const sameInProgress = renders.data?.some((r) => r.comboId === comboId && isBeingMade(r)) ?? false;
+  // Every image of the room seen being made is followed to its end (RenderWatcher), so the
+  // shelf, the wallet and this banner catch up — one asked for elsewhere, or an unanswered
+  // ask that turned up, included. Each was paid for when it was asked: the balance is read
+  // again, never offered from before.
+  const makingIds = renders.data?.filter(isBeingMade).map((r) => r.id).join(",") ?? "";
+  useEffect(() => {
+    if (!makingIds) return;
+    for (const id of makingIds.split(",")) trackRender(projectId, id);
+    void refetchWallet();
+  }, [projectId, makingIds, refetchWallet]);
   // The unanswered ask has turned up, being made: the banner above points to it now.
   if (problem?.kind === "unknown" && sameInProgress) setProblem(null);
   // A second charge would be possible: this option is being made, or an ask may have started.
   const askFirst = sameInProgress || problem?.kind === "unknown";
 
-  const chooseAnother = () => router.replace({ pathname: "/ai-image/new", params: projectId && !roomGone ? { projectId } : {} });
+  // Back to the room's options. When they are the screen underneath (C22 pushed this one),
+  // go back to them, rather than stacking a second copy that Back would land on.
+  const chooseAnother = () => {
+    const state = navigation.getState();
+    const below = state?.routes[state.index - 1];
+    const belowRoom = (below?.params as { projectId?: string } | undefined)?.projectId;
+    if (projectId && !roomGone && below?.name === "ai-image/new" && belowRoom === projectId) router.back();
+    else router.replace({ pathname: "/ai-image/new", params: projectId && !roomGone ? { projectId } : {} });
+  };
 
   if (!projectId || !comboId || roomGone || (combos.isSuccess && !combo)) {
     return (

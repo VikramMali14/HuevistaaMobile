@@ -62,7 +62,52 @@ payment including the cold start.
 Left for a real phone: a real image end to end, with the share sheet and saving to the
 photos.
 
-**Next: Phase 6 — the painter.** The order is in [docs/08-roadmap.md](docs/08-roadmap.md).
+**Phase 6 — the painter — is built.**
+- Home, points with each batch's expiry, and the newest movements.
+- Scan a board's QR, type its code, or open its PDF: the PDF is read on the phone (pdf.js
+  and jsQR in a hidden WebView, no network) and only the code is sent. PDFs open with
+  HueVistaa from other apps.
+- Claim a board: an unanswered claim is checked against the points, never repeated.
+- Rewards priced against the balance, redeemed with a key that makes a retry safe, and
+  vouchers with their codes.
+- Be found nearby (a rough location and a line about you), the trade profile, and C33 for
+  a customer becoming a painter.
+
+Left for a real phone: the camera on a printed board, the reader on Android and iOS, and
+"Open with" from WhatsApp.
+
+**Phase 7 — nearby, community, help and links — is built.**
+- Painters and shops near you, found from the phone's location rounded to ~100 m. A
+  painter's number is asked for once, on Call, and kept. Directions open the phone's
+  maps.
+- Review the job from a room or a board's QR, checked as the server checks it. A board's
+  link sends a painter to claim, a customer to review, and a shop to the website.
+- Help: an assistant that answers at once, a person on request, and common answers.
+  Questions and answers, with your own questions and where each stands.
+- A shared room repainted on the phone with the link's own colours, and copied into your
+  rooms once, after a confirm.
+- Android App Links for `huevistaa.com/r/*` and `/share/*`. The website serves the
+  statement once the signing fingerprints are set.
+
+Left for a real phone: the location prompts, App Links on a signed build, and handing
+over to the dialler, WhatsApp and Maps.
+
+**Phase 8 — polish and release — is built.**
+- Hindi throughout, chosen in Settings or following the phone; print stays English.
+- Push notifications: walls ready, an AI image ready, a voucher settled, a support
+  reply. Asked for only at the moments that wait, and opening the right screen for the
+  right account.
+- An update-needed screen when a version is retired, deciding from the last answer
+  kept on the phone and never blocking mid-task.
+- Crash reports through Sentry, with everything personal taken out first. Off until a
+  DSN is set.
+- Over-the-air updates (expo-updates), a development build profile, iOS
+  configuration, CI, and Maestro end-to-end flows for a staging backend.
+
+What's left before the stores is decisions and accounts, not code in this repo. That
+covers how rooms are sold in store builds, Sign in with Apple, the Expo, Firebase,
+Sentry, Apple and Play accounts, a staging backend, and a native Hindi read. All of it
+is in [docs/09-release.md](docs/09-release.md).
 
 ## The plan
 
@@ -78,6 +123,7 @@ Everything is planned page by page in [`docs/`](docs/README.md):
 | [06 · Shared, links, states](docs/06-screens-shared.md) | S1–S10, D1–D3, X1–X6 |
 | [07 · Architecture](docs/07-architecture.md) | Code layout, API, sign-in, payments, colour engine, security |
 | [08 · Roadmap](docs/08-roadmap.md) | Build order, checklist, changes needed in the other repos |
+| [09 · Release](docs/09-release.md) | The owner's decisions, store listing, data safety, review access, end-to-end tests |
 
 ## Run it
 
@@ -92,6 +138,10 @@ npm start                 # then press "a" for Android, or scan the QR with Expo
 
 - Android emulator → backend on this computer: `http://10.0.2.2:8080`
 - A real phone on the same Wi-Fi: `http://<this computer's LAN IP>:8080`
+
+Expo Go can't receive push notifications and lacks Sentry's native module. To try those,
+build a development client once (`eas build --profile development -p android`), install
+it, and run `npm start` against it.
 
 ### Preview in a browser (no phone needed)
 

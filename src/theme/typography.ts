@@ -22,6 +22,8 @@ export type TextVariant =
   | "lead"
   | "body"
   | "bodyStrong"
+  | "painterBody"
+  | "painterStrong"
   | "small"
   | "caption"
   | "label"
@@ -59,6 +61,9 @@ export const typeScale: Record<TextVariant, TextStyle> = {
   lead: { fontFamily: fonts.regular, fontSize: 17, lineHeight: 26 },
   body: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 24 },
   bodyStrong: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 24 },
+  // The painter's screens (docs/05): one hand, bright sun or a dim room — body set at 18.
+  painterBody: { fontFamily: fonts.regular, fontSize: 18, lineHeight: 27 },
+  painterStrong: { fontFamily: fonts.semibold, fontSize: 18, lineHeight: 27 },
   small: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
   caption: { fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 17 },
   // The label treatment (uppercase + tracking) is what makes a label — never use it for
@@ -86,3 +91,17 @@ export const typeScale: Record<TextVariant, TextStyle> = {
     fontVariant: ["tabular-nums"],
   },
 };
+
+/**
+ * The same scale for Hindi. Inter has no Devanagari, so the phone's own Devanagari face
+ * fills in; its vowel signs reach well above and below Latin letters, and are clipped at
+ * Latin line heights — so every role gets at least 1.5× its size. Tracking is dropped: it
+ * pulls Devanagari's joined letters apart.
+ */
+export const hindiTypeScale: Record<TextVariant, TextStyle> = Object.fromEntries(
+  Object.entries(typeScale).map(([role, style]) => {
+    const size = style.fontSize ?? 16;
+    return [role, { ...style, letterSpacing: 0, lineHeight: Math.max(style.lineHeight ?? 0, Math.round(size * 1.5)) }];
+  }),
+) as Record<TextVariant, TextStyle>;
+

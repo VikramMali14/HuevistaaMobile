@@ -52,4 +52,17 @@ describe("remembering", () => {
     forgetRememberedRoute();
     expect(peekRememberedRoute()).toBeNull();
   });
+
+  // On a cold start a guard can report its own segment while its redirect is on the way.
+  it("keeps the page asked for when only its section is reported after it", () => {
+    rememberRoute("/painter/claim/0VkTlzUw5CGJ-bTtxixeiS0nVfg");
+    rememberRoute("/painter?token=0VkTlzUw5CGJ-bTtxixeiS0nVfg");
+    expect(peekRememberedRoute()).toBe("/painter/claim/0VkTlzUw5CGJ-bTtxixeiS0nVfg");
+    rememberRoute("/painter/upload-board?shared=1");
+    expect(peekRememberedRoute()).toBe("/painter/upload-board?shared=1");
+    // A sibling that merely starts the same way is a new page.
+    rememberRoute("/painter/upload-board-guide");
+    expect(peekRememberedRoute()).toBe("/painter/upload-board-guide");
+    forgetRememberedRoute();
+  });
 });
