@@ -192,6 +192,7 @@ beforeEach(async () => {
   mockProjects.latestReport.mockResolvedValue(null);
   mockProjects.saveColours.mockResolvedValue(undefined);
   mockProjects.savePlan.mockResolvedValue(undefined);
+  mockProjects.suggestions.mockResolvedValue({ projectId: "p1", combinations: [] });
   resetPaintStore();
   resetTrays();
   await resetRecentShades();
@@ -567,6 +568,37 @@ describe("C11 · Paint", () => {
       timeout: 2000,
     });
     expect(screen.getByLabelText("Accent wall, HV0118")).toBeTruthy();
+  });
+
+  it("offers suggested colours on a first visit, and paints one with a tap", async () => {
+    signedIn();
+    mockProjects.suggestions.mockResolvedValue({
+      projectId: "p1",
+      combinations: [
+        {
+          name: "Garden morning",
+          primaryHex: "#e8d5b0",
+          primaryShade: { shadeCode: "HV0101", hvCode: "HV0101", hexCode: "#e8d5b0" },
+          accentHex: "#7b8a72",
+          accentShade: { shadeCode: "HV0118", hvCode: "HV0118", hexCode: "#7b8a72" },
+          trimHex: "#3e4a52",
+          trimShade: { shadeCode: "HV0124", hvCode: "HV0124", hexCode: "#3e4a52" },
+        },
+      ],
+    });
+    renderRouter("./app", { initialUrl: "/room/p1/paint" });
+    await waitFor(() => expect(screen.getByLabelText("Suggested: HV0118")).toBeTruthy());
+    expect(screen.queryByText("Press and hold the photo to see it before.")).toBeNull();
+    expect(mockProjects.suggestions).toHaveBeenCalledWith("p1", 0);
+    fireEvent.press(screen.getByLabelText("Suggested: HV0118"));
+    await waitFor(() => expect(screen.getByLabelText("Main wall, HV0118")).toBeTruthy());
+    // Used once, it is a recent colour, not a suggestion twice over.
+    await waitFor(() => expect(screen.getByLabelText("Recent: HV0118")).toBeTruthy());
+    expect(screen.queryByLabelText("Suggested: HV0118")).toBeNull();
+    expect(screen.getByLabelText("Suggested: HV0101")).toBeTruthy();
+    await waitFor(() => expect(mockProjects.saveColours).toHaveBeenCalledWith("p1", [{ regionId: 11, shadeCode: "HV0118", hexCode: "#7b8a72" }]), {
+      timeout: 2000,
+    });
   });
 
   it("undoes the last colour, and redoes it", async () => {

@@ -24,6 +24,7 @@ import {
   type WallColour,
 } from "@/features/studio/paint-store";
 import { shadeColour } from "@/features/studio/shade-colour";
+import { useDockSuggestions } from "@/features/studio/suggested-swatches";
 import { saveCombo, useTray } from "@/features/studio/tray-store";
 import { useColourReader } from "@/features/studio/use-colour-reader";
 import { markPainted, useRoom, wallsWithMasks } from "@/features/studio/use-room";
@@ -63,6 +64,8 @@ export default function Paint() {
   const walls = useMemo(() => (data ? planWalls(wallsWithMasks(data)) : []), [data]);
   const wallIds = useMemo(() => walls.map((w) => String(w.id)), [walls]);
   const editable = Boolean(data && !data.readOnly && !data.closedAt);
+  const recentCodes = useMemo(() => recent.map((r) => r.code), [recent]);
+  const suggested = useDockSuggestions(id, editable, recentCodes);
 
   useEffect(() => {
     if (data) initRoom(id, data, wallIds, readColour);
@@ -249,7 +252,7 @@ export default function Paint() {
 
           {editable ? (
             <>
-              {recent.length ? (
+              {recent.length || suggested.length ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.xs, paddingHorizontal: space.gutter }}>
                   {recent.map((r) => (
                     <Pressable
@@ -258,6 +261,21 @@ export default function Paint() {
                       accessibilityRole="button"
                       accessibilityLabel={`${t("paint.recent")}: ${r.code}`}
                       style={[styles.swatch, { backgroundColor: r.hex, borderColor: colors.ruleStrong }]}
+                    />
+                  ))}
+                  {recent.length && suggested.length ? <View style={[styles.divider, { backgroundColor: colors.rule }]} /> : null}
+                  {suggested.map((c) => (
+                    <Pressable
+                      key={c.code}
+                      onPress={() => {
+                        if (!paint.selected) return;
+                        put({ hex: c.hex, code: c.code, lrv: c.lrv });
+                        pushRecent({ hex: c.hex, code: c.code, lrv: c.lrv, brandSlug: c.brandSlug });
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${t("paint.suggested")}: ${c.code}`}
+                      style={[styles.swatch, { backgroundColor: c.hex, borderColor: colors.ruleStrong }]}
+                      testID={`suggested-${c.code}`}
                     />
                   ))}
                 </ScrollView>
@@ -313,6 +331,7 @@ const styles = StyleSheet.create({
   wallChip: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, minHeight: 40 },
   wallDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 1 },
   swatch: { width: 40, height: 40, borderRadius: 20, borderWidth: hairline },
+  divider: { width: hairline, height: 28, alignSelf: "center" },
   hint: { minHeight: 40, justifyContent: "center" },
   actions: { flexDirection: "row", alignItems: "center" },
 });
