@@ -177,6 +177,7 @@ export default function Paint() {
             walls={shown}
             cleaned={Boolean(data.cleanedImageUrl)}
             showOriginal={holding}
+            selected={paint.selected}
             onState={setCanvas}
             onTapWall={(wall) => wall && wallIds.includes(wall) && selectWall(id, wall)}
             onHold={setHolding}
