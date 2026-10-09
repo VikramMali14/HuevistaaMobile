@@ -279,6 +279,9 @@ These are components and behaviours, not pages. Every screen uses them.
   - a chat the team has taken (S7).
   
   Never at first launch or sign-in.
+- **X3** for the camera (C6, P3): the permission is read again on every return to the
+  app and to the screen (`lib/use-camera-permission.ts`), so turning it on in the
+  phone's Settings works at once, even on the scan tab, which stays mounted.
 
 **Push notifications (Phase 8):**
 
