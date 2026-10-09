@@ -1347,6 +1347,7 @@ export const en = {
     seeAll: "See all reviews",
     change: "Change my review",
     notYours: "This one isn't yours to review.",
+    imPainter: "I'm the painter: open in the painter app",
     shopAndPainter: "Your shop and your painter scan this same board for their reward points, so show it to them too. Opening it on your phone doesn't use anything up.",
     whoPainted: "Who painted it?",
     whoPaintedBody: "Show this board to your painter. They scan it with a painter account in HueVistaa to collect their points.",

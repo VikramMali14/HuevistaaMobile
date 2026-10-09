@@ -171,14 +171,17 @@ Opened by `https://huevistaa.com/r/{token}` (once App Links are set up) or from 
 |---|---|
 | Signed out | "Sign in to collect points or review the job" → A2, then back here |
 | Painter | → P6 |
-| Customer | The review flow (`GET /api/community/reviews/board/{token}`): review the job, or the plain `reason` when they can't |
+| Customer | The review flow (`GET /api/community/reviews/board/{token}`): review the job, or the plain `reason` when they can't, with "I'm the painter: open in the painter app" (`{painterOrigin}/r/{token}`) |
 | Shop | "Shops collect their half on the website" + link |
 
 **As built:** a link that isn't a board code says "That link doesn't carry one of our
 codes." without asking the server. Signed out → **Sign in** replaces this screen with A2, and the
 link is remembered even after a sign-out by choice, because it was asked for. Painter →
 P6 (replaced, so Back doesn't land on this screen). Customer → the review screen shared
-with C26. Any other account → the website's page for the board.
+with C26. When the board isn't theirs to review, it may be their painter signed in as a
+homeowner (App Links send every board's QR here), so D1 alone adds a link to the same board
+in the painter web app (`EXPO_PUBLIC_PAINTER_ORIGIN`, as the website's `painterBoardUrl`).
+The owner never sees it. Any other account → the website's page for the board.
 
 ### D2 · A shared room
 

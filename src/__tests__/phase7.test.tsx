@@ -412,12 +412,23 @@ describe("D1 · A board's QR", () => {
     expect(mockCommunity.submitReview).toHaveBeenCalledTimes(1);
   });
 
-  it("says why when it isn't this customer's to review", async () => {
+  it("says why when it isn't this customer's to review, and offers the painter's way in", async () => {
     signedInAs("CUSTOMER");
     mockCommunity.boardReview.mockResolvedValue(boardState({ canReview: false, reason: "Only the person this room was made for can review it." }));
     renderRouter("./app", { initialUrl: `/r/${BOARD}` });
     await waitFor(() => expect(screen.getByText("This one isn't yours to review.")).toBeTruthy());
     expect(screen.getByTestId("review-status")).toHaveTextContent("Only the person this room was made for can review it.");
+    // A painter signed in here as a homeowner: the same board, in the painter web app.
+    fireEvent.press(screen.getByText("I'm the painter: open in the painter app"));
+    expect(mockBrowser.openBrowserAsync).toHaveBeenCalledWith(`https://painter.huevistaa.com/r/${BOARD}`, expect.anything());
+  });
+
+  it("never offers the painter's way in to the room's owner", async () => {
+    signedInAs("CUSTOMER");
+    mockCommunity.boardReview.mockResolvedValue(boardState({ canReview: false, canEdit: true, review: { rating: 5, body: "Lovely finish, thank you.", displayName: "Priya S.", status: "PENDING", createdAt: ist(0) } }));
+    renderRouter("./app", { initialUrl: `/r/${BOARD}` });
+    await waitFor(() => expect(screen.getByText("Thank you for your review.")).toBeTruthy());
+    expect(screen.queryByTestId("review-painter-door")).toBeNull();
   });
 
   it("warns that changing a published review takes it off the page until it's read", async () => {

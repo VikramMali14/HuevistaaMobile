@@ -16,7 +16,9 @@ import { useTheme } from "@/theme";
  * HueVistaFrontEnd app/r/[token]/page.tsx.
  *
  * One code on a colour board, three people: the customer reviews the job, the painter
- * claims their points (P6), the shop collects its half on the website. Outside the guards,
+ * claims their points (P6), the shop collects its half on the website. A customer whose
+ * board it isn't may be its painter, signed in here as a homeowner: they're offered the
+ * board in the painter web app. Outside the guards,
  * so it says for itself who is here: nothing while the session is still being read (never
  * a flash of "Sign in" for someone signed in), a way to try again when it can't be read,
  * and sign-in that comes straight back here. The code is never shown or logged.
@@ -43,7 +45,7 @@ export default function BoardLink() {
   if (state.status === "signedIn") {
     const role = state.profile.role;
     if (role === "PAINTER") return <Redirect href={{ pathname: "/painter/claim/[token]", params: { token } }} />;
-    if (role === "CUSTOMER") return <BoardReviewScreen token={token} backFallback={home} />;
+    if (role === "CUSTOMER") return <BoardReviewScreen token={token} backFallback={home} painterDoor />;
     // A shop (and anyone else): the website is where a shop collects its half.
     return (
       <Screen footer={<Button label={t("boardLink.openWebsite")} icon="external-link" onPress={() => void openWebPage(`/r/${encodeURIComponent(token)}`)} testID="board-link-web" />}>
