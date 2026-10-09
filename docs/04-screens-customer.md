@@ -349,8 +349,12 @@ from the engine's own one-pixel antialiasing.
   opening colours show as the nearest real shade, as on the website (07, "The studio's
   state").
 - **Dock:** horizontal row of recently used and suggested swatches · **Browse shades**
-  (→ C12) · **Suggestions** (→ C13). As built: the recent swatches, **Browse shades** full
-  width, then **Suggestions**, **Save this combination** and the ⓘ on one line.
+  (→ C12) · **Suggestions** (→ C13). As built: the palette is always on screen under the
+  room, so the photo is never covered while colours are tried: family chips, then two
+  rows of swatches scrolling sideways (recent first, then the catalogue); a tap paints
+  the selected wall. Under it, on one line: **More shades** (→ C12, for search),
+  **Suggestions**, **Save** (this combination) and the ⓘ. The dock is the same height
+  whatever it holds, so the room above keeps its size (a resize starts the GPU over).
 - Top bar: back, room name, **Compare** (→ C14), **Undo**, and the board tray button
   with a count badge (→ C15).
 - **Press and hold** anywhere on the photo to see the original underneath.

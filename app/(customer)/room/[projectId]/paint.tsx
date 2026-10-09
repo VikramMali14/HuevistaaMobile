@@ -8,6 +8,7 @@ import { BackButton, Banner, Button, Disclaimer, ErrorState, IconButton, Screen,
 import { useCatalogue, useShadeScheme } from "@/features/catalogue/use-catalogue";
 import { daysLeft } from "@/features/rooms/room-status";
 import { CanvasTrouble } from "@/features/studio/CanvasTrouble";
+import { PaintPalette } from "@/features/studio/PaintPalette";
 import { canvasWalls, roomPhoto } from "@/features/studio/canvas-walls";
 import { RoomCanvas, type CanvasState, type RoomCanvasHandle } from "@/features/studio/engine/RoomCanvas";
 import {
@@ -18,7 +19,6 @@ import {
   pushRecent,
   selectWall,
   undo,
-  useRecentShades,
   useRoomPaint,
   type WallColour,
 } from "@/features/studio/paint-store";
@@ -47,7 +47,6 @@ export default function Paint() {
   const id = params.projectId ?? "";
   const room = useRoom(id);
   const paint = useRoomPaint(id);
-  const recent = useRecentShades();
   const tray = useTray(id);
   const catalogue = useCatalogue();
   const scheme = useShadeScheme();
@@ -96,9 +95,10 @@ export default function Paint() {
     pushRecent({ hex: colour.hex, code: colour.code ?? "", lrv: colour.lrv, brandSlug: shade.brandSlug });
   }, [params.shade, editable, catalogue.data, paint.selected, id, scheme]);
 
-  const put = (colour: WallColour) => {
+  const pick = (colour: WallColour, brandSlug?: string | null) => {
     if (!editable || !paint.selected) return;
     applyColours(id, { [paint.selected]: colour });
+    if (colour.code) pushRecent({ hex: colour.hex, code: colour.code, lrv: colour.lrv, brandSlug });
   };
 
   if (room.isError) {
@@ -122,7 +122,7 @@ export default function Paint() {
     const c = r.inPlan === false ? null : paint.colours[String(r.id)];
     return { hex: c?.hex ?? null, lrv: c?.lrv };
   });
-  const selectedWall = walls.find((w) => String(w.id) === paint.selected) ?? null;
+  const selectedColour = paint.selected ? (paint.colours[paint.selected] ?? null) : null;
   const left = data.fromLibrary ? null : daysLeft(data);
   const name = data.name?.trim() || t("rooms.untitled");
 
@@ -165,7 +165,6 @@ export default function Paint() {
             message={left === 0 ? t("paint.closesToday") : left === 1 ? t("paint.oneDayLeft") : t("paint.daysLeft", { n: left })}
           />
         ) : null}
-        {canvas.kind === "noGl" ? <Banner tone="warning" message={t("paint.noGl")} /> : null}
       </View>
 
       <View style={styles.fill}>
@@ -188,6 +187,7 @@ export default function Paint() {
             (which would start the GPU over each time). */}
         <View pointerEvents="box-none" style={[styles.overlay, { padding: space.gutter, gap: space.xs }]}>
           {paint.refused ? <Banner tone="danger" message={t("paint.refused", { reason: paint.refused })} testID="paint-refused" /> : null}
+          {canvas.kind === "noGl" ? <Banner tone="warning" message={t("paint.noGl")} /> : null}
           <CanvasTrouble state={canvas} onRetry={() => canvasRef.current?.retry()} />
           {paint.saveFailed ? <Banner tone="warning" message={t("paint.savingFailed")} testID="paint-save-failed" /> : null}
         </View>
@@ -246,37 +246,17 @@ export default function Paint() {
 
           {editable ? (
             <>
-              {recent.length ? (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.xs, paddingHorizontal: space.gutter }}>
-                  {recent.map((r) => (
-                    <Pressable
-                      key={r.code}
-                      onPress={() => put({ hex: r.hex, code: r.code, lrv: r.lrv })}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${t("paint.recent")}: ${r.code}`}
-                      style={[styles.swatch, { backgroundColor: r.hex, borderColor: colors.ruleStrong }]}
-                    />
-                  ))}
-                </ScrollView>
-              ) : (
-                // As tall as the swatches it gives way to: the first colour picked must not
-                // resize the canvas (which would start the GPU over).
-                <View style={[styles.hint, { paddingHorizontal: space.gutter }]}>
-                  <Text variant="small" tone="mute">
-                    {selectedWall ? t("paint.holdHint") : t("paint.pickWall")}
-                  </Text>
-                </View>
-              )}
-              <View style={{ paddingHorizontal: space.gutter }}>
+              <PaintPalette current={selectedColour} onPick={pick} disabled={!paint.selected} gutter={space.gutter} />
+              <View style={[styles.actions, { paddingHorizontal: space.xs }]}>
                 <Button
-                  label={t("paint.browse")}
+                  variant="ghost"
+                  block={false}
                   icon="droplet"
+                  label={t("paint.browse")}
                   onPress={() => router.push({ pathname: "/shade-picker", params: { projectId: id, regionId: paint.selected ?? "" } })}
                   disabled={!paint.selected}
                   testID="paint-browse"
                 />
-              </View>
-              <View style={[styles.actions, { paddingHorizontal: space.xs }]}>
                 <Button
                   variant="ghost"
                   block={false}
@@ -309,7 +289,5 @@ const styles = StyleSheet.create({
   dock: { paddingTop: 10, gap: 10, borderTopWidth: hairline },
   wallChip: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, minHeight: 40 },
   wallDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 1 },
-  swatch: { width: 40, height: 40, borderRadius: 20, borderWidth: hairline },
-  hint: { minHeight: 40, justifyContent: "center" },
   actions: { flexDirection: "row", alignItems: "center" },
 });

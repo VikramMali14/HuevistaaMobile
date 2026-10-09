@@ -569,6 +569,21 @@ describe("C11 · Paint", () => {
     expect(screen.getByLabelText("Accent wall, HV0118")).toBeTruthy();
   });
 
+  it("keeps the palette on screen and paints the selected wall from it", async () => {
+    signedIn();
+    renderRouter("./app", { initialUrl: "/room/p1/paint" });
+    await waitFor(() => expect(screen.getByTestId("paint-palette")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("wall-12"));
+    await waitFor(() => expect(screen.getByLabelText("HV0101")).toBeTruthy());
+    fireEvent.press(screen.getByLabelText("HV0101"));
+    await waitFor(() => expect(screen.getByLabelText("Accent wall, HV0101")).toBeTruthy());
+    await waitFor(() => expect(mockProjects.saveColours).toHaveBeenCalledWith("p1", [{ regionId: 12, shadeCode: "HV0101", hexCode: "#e8d5b0" }]), {
+      timeout: 2000,
+    });
+    // Picked from the palette, it is a recent colour now, first in the strip.
+    await waitFor(() => expect(screen.getByLabelText("Recent: HV0101")).toBeTruthy());
+  });
+
   it("undoes the last colour", async () => {
     signedIn();
     pushRecent({ hex: "#7b8a72", code: "HV0118", lrv: 30 });
@@ -602,7 +617,8 @@ describe("C11 · Paint", () => {
     mockProjects.get.mockResolvedValue(room({ readOnly: true, readOnlyReason: "This room's time has run out." }));
     renderRouter("./app", { initialUrl: "/room/p1/paint" });
     await waitFor(() => expect(screen.getByText("This room's time has run out.")).toBeTruthy());
-    expect(screen.queryByText("Browse shades")).toBeNull();
+    expect(screen.queryByText("More shades")).toBeNull();
+    expect(screen.queryByTestId("paint-palette")).toBeNull();
   });
 
   it("warns when the room closes in a few days", async () => {
@@ -632,8 +648,8 @@ describe("C11 · Paint", () => {
   it("asks for a painted wall before saving a combination", async () => {
     signedIn();
     renderRouter("./app", { initialUrl: "/room/p1/paint" });
-    await waitFor(() => expect(screen.getByText("Save this combination")).toBeTruthy());
-    press("Save this combination");
+    await waitFor(() => expect(screen.getByText("Save")).toBeTruthy());
+    press("Save");
     await waitFor(() => expect(screen.getByText("Paint a wall first, then save the combination.")).toBeTruthy());
     expect(screen.queryByText("That combination is already saved.")).toBeNull();
   });
@@ -652,7 +668,7 @@ describe("C11 · Paint", () => {
     act(() => router.push("/room/p1/compare"));
     await waitFor(() => expect(screen).toHavePathname("/room/p1/compare"));
     act(() => router.back());
-    await waitFor(() => expect(screen.getByText("Browse shades")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("More shades")).toBeTruthy());
     expect(screen.queryByText(/couldn't be saved/)).toBeNull();
   });
 
@@ -668,10 +684,10 @@ describe("C11 · Paint", () => {
     signedIn();
     renderRouter("./app", { initialUrl: "/room/p1/paint?shade=HV0124" });
     await waitFor(() => expect(screen.getByLabelText("Main wall, HV0124")).toBeTruthy());
-    press("Save this combination");
+    press("Save");
     await waitFor(() => expect(screen.getByText("Combination saved.")).toBeTruthy());
     expect(screen.getByLabelText("Saved combinations, 1")).toBeTruthy();
-    press("Save this combination");
+    press("Save");
     await waitFor(() => expect(screen.getByText("That combination is already saved.")).toBeTruthy());
   });
 });
