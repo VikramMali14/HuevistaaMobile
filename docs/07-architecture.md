@@ -692,6 +692,9 @@ If the copies start drifting, move them into a shared npm package later. Not bef
   `.github/workflows/e2e-android.yml` (manual and nightly). The data and secrets they
   need are in [09-release.md](09-release.md).
 - **CI:** `.github/workflows/ci.yml` runs typecheck, lint and the tests on every push
-  and pull request.
+  and pull request. The route tests render the whole `app/` tree, and on a busy runner
+  a file's first one takes over Jest's default 5 s while that tree loads, so the
+  per-test limit is 30 s (`package.json`). `.github/workflows/android-apk.yml` builds an
+  installable test APK ([09-release.md](09-release.md)).
 - **Real devices:** one low-end Android (3–4 GB RAM) is part of "done" for every
   studio screen.

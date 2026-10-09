@@ -156,6 +156,25 @@ Confirm the merged list on the first AAB: `bundletool dump manifest`.
 - **First device pass** before review: the studio (expo-gl), the PDF "Open with",
   Google sign-in (if kept) and payment sessions (if kept), notifications, and Hindi.
 
+## A test APK, without any accounts
+
+`.github/workflows/android-apk.yml` builds an APK for each pull request and each push
+to main. It is a release build, with the JavaScript built in, so it runs without a
+computer. Get it from the run's **huevistaa-apk** artifact (a zip with the APK inside);
+install it on the phone and allow "install unknown apps" when asked.
+
+- **Servers.** It talks to `https://api.huevista.org` and opens `https://huevistaa.com`
+  for payments, legal pages and shared links. To build against other servers, use
+  **Actions → Android APK → Run workflow**, or set the repository variables
+  `APK_API_ORIGIN` / `APK_SITE_ORIGIN`.
+- **Signing.** It is signed with the Expo template's debug key, the same on every
+  build, so a newer APK installs over an older one. It is never for the Play Store.
+  To install a Play build, uninstall this one first: the keys differ.
+- **What doesn't work yet.** Push stays off until `eas init` gives the app a project id
+  and Firebase is added. App Links to huevistaa.com open the browser, not the app,
+  until the website lists this key's fingerprint. Crash reports need
+  `EXPO_PUBLIC_SENTRY_DSN`.
+
 ## Steps, in order
 
 1. Merge the backend and website branches, then deploy both. The app's X5 check
