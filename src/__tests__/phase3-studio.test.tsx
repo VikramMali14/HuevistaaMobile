@@ -320,6 +320,45 @@ describe("C6–C7 · Add photo and name it", () => {
     expect(mockProjects.create).toHaveBeenCalledWith({ imageId: "img-1", name: "Bedroom", roomType: "Bedroom" });
   });
 
+  // No request key on Create: a second send would spend a second room.
+  it("goes on into the room an unanswered Create made, rather than spending another", async () => {
+    signedIn();
+    mockUpload.mockResolvedValue({ imageId: "img-1", imageUrl: "/api/images/files/img-1.jpg" });
+    mockProjects.create.mockRejectedValue(new ApiError("timeout", 0, "Request timed out"));
+    mockMe.projects.mockResolvedValue([summary(), summary({ id: "p9", imageId: "img-1", status: "CREATED" })]);
+    mockProjects.get.mockResolvedValue(room({ id: "p9", status: "CREATED", regions: [] }));
+    renderRouter("./app", { initialUrl: "/room/new" });
+    await waitFor(() => expect(screen.getByTestId("shutter")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("shutter"));
+    await waitFor(() => expect(screen.getByText("Use this photo")).toBeTruthy());
+    press("Use this photo");
+    await waitFor(() => expect(screen.getByText("Photo uploaded")).toBeTruthy());
+    press("Create");
+    await waitFor(() => expect(screen).toHavePathname("/room/p9/tidy"));
+    expect(mockProjects.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("looks for the room again before a second Create, and sends it only when there's none", async () => {
+    signedIn();
+    mockUpload.mockResolvedValue({ imageId: "img-1", imageUrl: "/api/images/files/img-1.jpg" });
+    mockProjects.create.mockRejectedValue(new ApiError("network", 0, "Network request failed"));
+    renderRouter("./app", { initialUrl: "/room/new" });
+    await waitFor(() => expect(screen.getByTestId("shutter")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("shutter"));
+    await waitFor(() => expect(screen.getByText("Use this photo")).toBeTruthy());
+    press("Use this photo");
+    await waitFor(() => expect(screen.getByText("Photo uploaded")).toBeTruthy());
+    press("Create");
+    await waitFor(() => expect(screen.getByText("No connection. Check your internet and try again.")).toBeTruthy());
+    expect(mockProjects.create).toHaveBeenCalledTimes(1);
+    // It landed after all, and shows up by the time Create is pressed again.
+    mockMe.projects.mockResolvedValue([summary({ id: "p9", imageId: "img-1", status: "CREATED" })]);
+    mockProjects.get.mockResolvedValue(room({ id: "p9", status: "CREATED", regions: [] }));
+    press("Create");
+    await waitFor(() => expect(screen).toHavePathname("/room/p9/tidy"));
+    expect(mockProjects.create).toHaveBeenCalledTimes(1);
+  });
+
   it("says plainly when the photo isn't a room, and offers a retake", async () => {
     signedIn();
     mockPick.mockResolvedValue({ canceled: false, assets: [{ uri: "file://dog.jpg", width: 1200, height: 900 }] });

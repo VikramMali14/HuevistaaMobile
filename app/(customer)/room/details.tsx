@@ -1,15 +1,15 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 
-import { projectsApi } from "@/api/endpoints/projects";
 import { messageFor } from "@/api/errors";
 import { keys } from "@/api/query-keys";
 import { FormScreen } from "@/components/FormScreen";
 import { Banner, Button, Chip, EmptyState, Screen, Text, TextField } from "@/components/ui";
 import { useBalance } from "@/features/account/use-balance";
+import { createRoom } from "@/features/studio/create-room";
 import { clearUpload, retryUpload, useUpload } from "@/features/studio/photo-upload";
 import { defaultRoomName, ROOM_TYPES } from "@/features/studio/room-names";
 import { t, type MessageKey } from "@/i18n";
@@ -20,7 +20,8 @@ import { useTheme } from "@/theme";
  * C7 · Name it (still step 1). Spec: docs/04-screens-customer.md — C7.
  *
  * The photo is uploading while this is filled in; Create waits for it, then spends one
- * room (`POST /api/projects`) and opens Tidy up.
+ * room (`POST /api/projects`) and opens Tidy up. Pressed again, it looks for a room made
+ * from this photo first (see create-room.ts), so a slow network never spends two.
  */
 export default function NameIt() {
   const router = useRouter();
@@ -32,6 +33,8 @@ export default function NameIt() {
   const [roomType, setRoomType] = useState<string | null>(null);
   const [name, setName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The photo Create was last sent for: once sent, it may have landed even unanswered.
+  const sentFor = useRef<string | null>(null);
   const { busy, run } = useSubmit();
 
   if (upload.status === "idle") {
@@ -55,11 +58,13 @@ export default function NameIt() {
     void run(async () => {
       setError(null);
       try {
-        const room = await projectsApi.create({
-          imageId: upload.image.imageId,
-          name: shownName.trim() || defaultRoomName(roomType),
-          roomType: roomType ?? undefined,
-        });
+        const imageId = upload.image.imageId;
+        const sentBefore = sentFor.current === imageId;
+        sentFor.current = imageId;
+        const roomId = await createRoom(
+          { imageId, name: shownName.trim() || defaultRoomName(roomType), roomType: roomType ?? undefined },
+          sentBefore,
+        );
         // A room was spent and a new one is in the list.
         void queryClient.invalidateQueries({ queryKey: keys.projects });
         void queryClient.invalidateQueries({ queryKey: keys.entitlement });
@@ -67,7 +72,7 @@ export default function NameIt() {
         clearUpload();
         // The camera and this screen are done with: back from Tidy up goes to wherever the
         // room was started from, not to the camera again.
-        const tidy = { pathname: "/room/[projectId]/tidy", params: { projectId: room.id, shade: params.shade, brand: params.brand } } as Href;
+        const tidy = { pathname: "/room/[projectId]/tidy", params: { projectId: roomId, shade: params.shade, brand: params.brand } } as Href;
         if (router.canDismiss()) {
           router.dismissAll();
           router.push(tidy);
