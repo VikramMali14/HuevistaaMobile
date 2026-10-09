@@ -11,7 +11,11 @@ These live in `app/(account)/` and need a signed-in session of any role.
 - **Appearance:** "Follows your phone's light or dark setting" (no switch, like the
   website).
 - **Show me around** (customers) → replays A11.
-- **Language:** English. (Hindi in Phase 8 — every string is already in `src/i18n`.)
+- **Language:** the phone's language (Hindi when the phone is in Hindi, else English),
+  English, or हिन्दी — each language named in its own script. Kept on the phone. A new
+  language reopens S1 in it (Phase 8).
+- **Notifications** (Phase 8, where the phone can have them): On or Off. Off and still
+  askable → asks; otherwise → the phone's settings.
 - **Legal:** Terms · Privacy · Refunds · About · Contact — the website's `/legal/…`
   pages in the in-app browser, so they are always current.
 - **App version** and build number (tap 7 times → copy diagnostics for support: version,
@@ -257,5 +261,33 @@ These are components and behaviours, not pages. Every screen uses them.
 | **X2** | Error | `ErrorState`: plain reason, **Try again**, **Get help** (→ S6). Server codes are mapped to sentences in `src/api/errors.ts`; a raw message or status code is never shown. |
 | **X3** | Permission | Before the system prompt: a sheet with why (camera / photos / location). After a "don't ask again": **Open settings**. |
 | **X4** | Session ended | Refresh token rejected → clear the session → A2 with "Please sign in again", then return to where they were. |
-| **X5** | Update needed | Phase 8: a minimum-version check (needs a small backend endpoint). Small fixes ship over the air with EAS Update. |
+| **X5** | Update needed | Built (Phase 8): `UpdateNeeded` in place of every screen when the installed version is below the server's minimum for its store (`GET /api/mobile/version`), with **Update** to the store. Decided from the last answer kept on the phone, so it never waits on the network or blocks mid-task; fails open. A newer, not-required version shows **Update available** in S1. Small fixes ship over the air with EAS Update. |
 | **X6** | Not found | `app/+not-found.tsx`: "That link doesn't open anything in the app." + **Go home**. |
+
+**As built (Phase 8):**
+- **X2:** a screen that throws while drawing shows "Something went wrong on this
+  screen. Anything you saved is safe — try again." with **Try again** (the root
+  `ErrorBoundary`), and the fault goes to the crash reports.
+- **X3** for notifications: a sheet that says what will be told, before the phone's
+  own question, at most once per reason, and only at a moment that waits:
+  - walls being found (C8);
+  - an AI image being made (C24);
+  - a voucher just redeemed (P11);
+  - a chat the team has taken (S7).
+  
+  Never at first launch or sign-in.
+
+**Push notifications (Phase 8):**
+
+| Sent when | Opens |
+|---|---|
+| Walls are ready, or couldn't be found | The room (CR, at its step) |
+| An AI image is ready, or couldn't be made | C24 |
+| A voucher is delivered, or declined (the points come back) | P11 |
+| The team replies in a support chat | S7 |
+
+- The text is generic: never a chat's words, a reason, or anything personal.
+- Notifications come in the phone's chosen language.
+- A tap opens the screen only for the account it was sent to.
+- With the app open, a notification refreshes the screen it concerns. A reply to the
+  chat on screen shows no banner, and S7 then reads the chat every 30 s rather than 5.

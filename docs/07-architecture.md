@@ -532,6 +532,87 @@ by id across pages. The ask form and the account's own questions sit in its head
   are set.
 - iOS (`associatedDomains`, `apple-app-site-association`) waits for the Apple Team ID.
 
+## Polish and release (Phase 8)
+
+**Language.**
+- `src/i18n`: `t()` reads the current language and falls back to English key by key.
+  `tEn()` is for anything printed: the board's and the AI image's PDF font has Latin
+  letters only. `plural()` follows Hindi's rule, where nought takes the singular.
+- `hi.ts` is typed `Translation`: every English key except `pdf` and `dev`, so a missing
+  one fails the build. A test checks every placeholder matches.
+- `language.ts` keeps the choice on the phone (`hv.language`; absent means follow the
+  phone, through expo-localization). It is read before the splash hides.
+- Screens read their strings as they draw, and React Navigation's `StaticContainer`
+  keeps them from drawing again on their own. So a new language remounts the root
+  navigator (`key={language}` in `app/_layout.tsx`), with the session, cached data and
+  toasts above it carrying on. `landNextOn("/settings")` brings S1 back once,
+  through `app/index.tsx`.
+- Hindi uses `hindiTypeScale`: no tracking, and line heights of at least 1.5× for
+  Devanagari's vowel signs. The glyphs come from the phone's own Devanagari font,
+  because Inter has none.
+- What stays English: the server's own sentences (some code matches them), the PDFs,
+  shade codes, and names.
+
+**Push notifications** (`src/features/notifications`, through Expo's push service):
+- `registerPush(userId)` gets the Expo token only when notifications are already
+  allowed, on a real device with an EAS project. It never asks. It sends
+  `POST /api/me/push-tokens {token, platform, locale, appVersion}` once per start, and
+  again on a change of account, token or language. `usePushRegistration` runs it
+  from the root, keyed on the signed-in id.
+- Signing out by choice calls `unregisterPush()` before `logout`, inside the same 3 s
+  race. `forgetPush()` runs with the rest of an account's data on sign-out and on a
+  switch: it dismisses the account's notifications and resets the registration.
+- `push-routes.ts` is pure. `readPayload` accepts only known kinds with well-formed ids,
+  and `pathFor` builds the screen from those ids: a notification never carries a path.
+  `invalidationsFor` lists what each kind makes stale.
+- `usePushObserver`, from the root:
+  - With the app open, a notification refreshes what it made stale, for the signed-in
+    account only.
+  - Taps (warm, or the last response on a cold start) wait in a small external store
+    until the session is known and the screens are up. They open with `router.push`
+    for the account they were sent to; others are dropped. Each is handled once, by
+    its notification id.
+- `setNotificationHandler`: no banner for a reply to the support chat already on
+  screen (`setQuietConversation`).
+- Android channels: `rooms`, `points` and `support`, named in the current language and
+  made before any ask (Android 13 shows no prompt without one).
+- `AskForNotifications` (X3) shows a sheet before the phone's prompt, at most once per
+  reason, at the four moments that wait: C8 finding walls, C24 making an AI image, P11
+  a voucher just redeemed, and S7 once the team has the chat. S1's Notifications row
+  asks there, or opens the phone's settings.
+
+**X5 · update needed** (`src/features/app-update`):
+- `loadVersionGate()` decides at start-up from the last answer kept on the phone
+  (`hv.minVersion`), so it never waits on the network. It fetches
+  `GET /api/mobile/version` (public, 4 s) behind that and keeps the answer for the
+  NEXT start, so a raised minimum never stops someone mid-task.
+- `gateFor` blocks only when the installed version (expo-application, never
+  app.json) is below the minimum and there's an https store link. It fails open on
+  anything it can't read.
+- Root renders `UpdateNeeded` in place of the navigator.
+
+**Crash reports** (`src/lib/crash-reports.ts`, Sentry):
+- Off without `EXPO_PUBLIC_SENTRY_DSN`, on the web and in development.
+- `sendDefaultPii: false`, no screenshots or view hierarchy, no tracing. Session
+  tracking gives crash-free sessions per version.
+- `scrubEvent` and `scrubBreadcrumb` take out emails, phone numbers, bearer and push
+  tokens, query strings and long path segments (board and share codes, ids). They
+  drop typed input and request bodies, and keep only the user's id.
+- The root `ErrorBoundary` reports a screen that throws while drawing and offers Try
+  again. The query and mutation caches report failures that aren't the server's answer.
+- `metro.config.js` adds Sentry's debug ids. The Expo plugin uploads source maps at
+  build time with `SENTRY_ORG`, `SENTRY_PROJECT` and `SENTRY_AUTH_TOKEN`.
+
+**Builds:**
+- `expo-updates` with `runtimeVersion: {policy: "appVersion"}`, and a channel per EAS
+  profile. `eas update:configure` adds the update URL once there is an EAS project.
+- A `development` profile builds a dev client, because Expo Go can't receive remote
+  notifications.
+- app.json carries the notifications plugin and icon (`assets/images/notification-icon.png`,
+  white on transparent, from the mark's grid), Hindi permission sentences for iOS
+  (`locales/hi.json`), iOS export compliance, a privacy manifest, and
+  `applinks:huevistaa.com`.
+
 ## Reusing the website's code
 
 Copy plain TypeScript files from `HueVistaFrontEnd/src/lib/` into `src/lib/` when a
@@ -588,8 +669,11 @@ If the copies start drifting, move them into a shared npm package later. Not bef
 - `eas build -p android --profile preview` → an APK to install directly, and the link
   for the website's `NEXT_PUBLIC_APK_URL` "HueVistaa for Android" bar.
 - `eas build -p android --profile production` → an AAB for Google Play.
-- `eas update` → JavaScript-only fixes without a store release.
-- iOS follows once Android is stable (needs an Apple developer account).
+- `eas update --channel production` → JavaScript-only fixes for the same native version
+  (runtimeVersion follows the app version).
+- `eas build --profile development` → a dev client, needed to try notifications.
+- iOS follows once Android is stable (needs an Apple developer account). The whole
+  release, in order, is in [09-release.md](09-release.md).
 
 ## Testing
 
@@ -601,7 +685,13 @@ If the copies start drifting, move them into a shared npm package later. Not bef
   open, deep links, offline start-up — and **every planned screen opens without
   breaking**. It uses Testing Library **13.3**: Expo Router 57's test helper renders
   synchronously and breaks with 14's async `render`. Keep them in step.
-- **End-to-end (Phase 8):** Maestro flows — sign in with a test number, make a room
-  from a ready-made room, take a board; painter scans a test board.
+- **End-to-end:** Maestro flows in `.maestro/`: a customer from a ready-made room to a
+  colour board; a painter typing a board's code to its claim; Settings to Hindi and
+  back. They sign in with email and a password, because a texted code can't be read
+  by a test, and run against a staging backend, never production, from
+  `.github/workflows/e2e-android.yml` (manual and nightly). The data and secrets they
+  need are in [09-release.md](09-release.md).
+- **CI:** `.github/workflows/ci.yml` runs typecheck, lint and the tests on every push
+  and pull request.
 - **Real devices:** one low-end Android (3–4 GB RAM) is part of "done" for every
   studio screen.

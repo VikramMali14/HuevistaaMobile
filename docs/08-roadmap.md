@@ -580,15 +580,59 @@ Left for a real phone:
 
 ## Phase 8 — Polish and release
 
-- [ ] Push notifications (needs the backend work below): walls ready, AI image ready,
-      points credited, voucher delivered, support reply.
-- [ ] Hindi (`src/i18n/hi.ts`) and a language choice in S1.
-- [ ] Crash reporting and analytics (Sentry recommended) — and the privacy policy
-      updated to say so.
-- [ ] Maestro end-to-end flows in CI.
-- [ ] X5 minimum-version check.
-- [ ] Play Store listing: screenshots, description, data-safety form, content rating.
-- [ ] iOS build and App Store review.
+- [x] Push notifications, with the backend work (items 5 and 15):
+  - walls ready or not found;
+  - AI image ready or not made;
+  - voucher delivered or declined ("points credited": a declined voucher's points come
+    back; every other credit is the painter's own scan);
+  - support reply.
+- [x] Hindi (`src/i18n/hi.ts`) and a language choice in S1. A native speaker still reads
+      it through before release (09-release.md).
+- [x] Crash reporting (Sentry, off without a DSN), and the privacy policy updated.
+      Product analytics waits on a decision (09-release.md, 7).
+- [x] Maestro end-to-end flows, with a CI job for them (on a staging backend that is
+      still to be set up) and CI for the app itself.
+- [x] X5 minimum-version check (item 6).
+- [~] Play Store listing: description, data safety, content rating, permissions and
+      review access are written (09-release.md). Still to do: the screenshots from a
+      real phone, and the feature graphic.
+- [~] iOS: app.json is ready (export compliance, privacy manifest, universal links,
+      Hindi permission sentences), and the website serves the universal-links file.
+      Still needed: an Apple account, a build, and review (09-release.md).
+
+New:
+- `src/i18n`: `hi.ts`, `language.ts`, `types.ts`.
+- `src/features/notifications`, `src/features/app-update`, `src/lib/crash-reports.ts`,
+  `src/lib/use-alive.ts`, `src/navigation/landing.ts`.
+- `src/api/endpoints/push.ts` and `mobile-version.ts`.
+- `.maestro/`, `.github/workflows/`, `docs/09-release.md`, `locales/hi.json`,
+  `metro.config.js`, `assets/images/notification-icon.png`.
+
+Packages (SDK-pinned): `expo-localization`, `expo-notifications`, `expo-application`,
+`expo-device`, `expo-dev-client`, `expo-updates`, `@sentry/react-native`.
+
+**Done:** 2026-10.
+- **Tests.**
+  - Route tests through the real route tree (`src/__tests__/phase8.test.tsx`: 14).
+    They cover the phone's language, switching in S1 and coming back to S1 in it, the
+    remembered choice, and X5 blocking from the kept answer while never blocking mid-use.
+  - Push: registration only once allowed, again on a language change, taps for the
+    right account only (warm and cold), refreshing with the app open, the token
+    dropped before logout, and the ask once and only where push works.
+  - Unit tests for Hindi (every key, placeholders, plurals, print staying English),
+    push routes, the version gate and the crash-report scrubbers.
+  - Every guard was mutation-checked; one redundant guard survived.
+  - 70 suites, 980+ tests; typecheck and lint clean.
+- **Browser walk.** Key customer and painter screens in Hindi, light and dark, at
+  360 px: no clipped vowel signs, no text out of its box. One painter button that
+  wrapped got a shorter label.
+
+As built, against the spec:
+- "Points credited" is the voucher declined: the server credits a painter's points
+  without them acting in no other case, and shops use the website.
+- The language remounts the navigator, so a back stack doesn't survive a change of
+  language; S1 opens again.
+- X5 compares the store version, not the build number: an operator sets it by hand.
 
 ---
 
@@ -600,8 +644,8 @@ Left for a real phone:
 | 2 | HueVistaFrontEnd | Confirm `/pay/mobile` is deployed and `NEXT_PUBLIC_MOBILE_PAY_REDIRECT` is unset (defaults to `huevista://pay/callback`). The app opens `{SITE}/pay/mobile?order&key&amount&currency&desc&name&email&contact` — the page reads exactly these. | Phase 4 (now) |
 | 3 | HueVistaFrontEnd | Set `NEXT_PUBLIC_APK_URL` to the preview APK once one exists. | Phase 1+ |
 | 4 | HueVista | Confirm `MOBILE_OAUTH_REDIRECT_URI` is `huevista://sign-in/callback` in production. | Phase 1 |
-| 5 | HueVista | Push notifications: an endpoint to register a phone's push token (the existing `deviceToken` is the shop trusted-device token — a different thing), and sends on the events in Phase 8. | Phase 8 |
-| 6 | HueVista | A tiny public endpoint returning the minimum supported app version (X5). | Phase 8 |
+| 5 | HueVista | ~~Push notifications.~~ Done on branch `claude/stoic-knuth-d9829w`: `POST/DELETE /api/me/push-tokens` and sends through Expo after commit on the seven events. Tokens are dropped wherever every session ends, and the text comes in the token's language. Deploy with `PUSH_ENABLED=true` and `EXPO_ACCESS_TOKEN`. Later: a receipts sweep for tokens that die silently. | Phase 8 (merge, set env) |
+| 6 | HueVista | ~~Minimum app version.~~ Done on the same branch: public `GET /api/mobile/version` from `MOBILE_{ANDROID,IOS}_{MIN,LATEST}_VERSION` and `_STORE_URL`. | Phase 8 (merge) |
 | 7 | HueVista | Optional: nearby search by area name, for people who won't share location (C32). | Phase 7 |
 | 8 | HueVista | `docs/HueVista_Mobile_API_Guide.pdf` only covers sign-in and images — update it or point it at Swagger. | Any time |
 | 9 | HueVista | ~~`POST /api/projects/*/renders` limited per IP only.~~ Fixed on branch `claude/stoic-knuth-d9829w`: 12 an hour per account, checked first, and a network cap of 120 for many accounts behind one address. Merge it. | Phase 5 (merge) |
@@ -610,6 +654,9 @@ Left for a real phone:
 | 12 | HueVista | There's no read of one redemption, so P11 reads the whole list. `GET /api/painter/redemptions/{id}` would do. | Any time |
 | 13 | HueVista | Community writes (reviews and questions, 10 an hour together) and support messages (40 an hour) are limited per IP only. Many phones in India share a carrier's address (CGNAT), so strangers on one network can use up each other's allowance. A per-account cap with a wider network backstop would fix it, as renders now have. Support's spend is already capped per account in `SupportService`. | Any time |
 | 14 | HueVista | `POST /api/share/{token}/claim` spends a room and takes no request key. The app never sends an unanswered one again and points the visitor to their rooms; a key would make a retry safe. | Any time |
+| 15 | HueVista | ~~Account deletion kept rooms, photos and chats while S9 said they went.~~ Done on the same branch: deleting an account removes what S9 lists (rooms with their photos, boards and AI images, unused rooms and credits, points, undelivered vouchers, the listing) plus support chats and push tokens. Payment records stay. | Phase 8 (merge) |
+| 16 | HueVista | A staging backend for the end-to-end tests: its own host and database, with the accounts and data listed in 09-release.md. | Before release |
+| 17 | HueVista | Selling rooms and AI credits in store builds: Play Billing on Android (verify the purchase, grant it idempotently); none on iOS v1 (09-release.md, 1). | Before release |
 
 ## Decisions to confirm
 
@@ -619,5 +666,9 @@ Left for a real phone:
 | Android package / iOS bundle id | `com.gridstore.huevistaa` | **Cannot be changed after the first Play Store upload** — confirm before Phase 8 |
 | Link scheme | `huevista` | Must match the backend and website defaults |
 | Platforms | Android first, iOS after | |
-| Languages | English, then Hindi | |
-| Crash/analytics vendor | Sentry (suggested) | |
+| Languages | English and Hindi | Hindi needs a native speaker's read before release |
+| Crash reports | Sentry (built; off until `EXPO_PUBLIC_SENTRY_DSN` is set) | EU region and 90-day retention suggested, as the privacy policy says |
+| Product analytics | None yet | A tool and an S1 consent switch first; then the privacy policy and data safety |
+| Payments in store builds | Undecided | Play Billing on Android, none on iOS v1 suggested (09-release.md, 1) — blocks a store release |
+| Sign in with Apple | Undecided | Hide Google on iOS v1 suggested (09-release.md, 2) |
+| First store version | 0.1.0 in app.json | 1.0.0 suggested; it's X5's baseline |

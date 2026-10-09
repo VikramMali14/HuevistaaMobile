@@ -92,8 +92,22 @@ Left for a real phone: the camera on a printed board, the reader on Android and 
 Left for a real phone: the location prompts, App Links on a signed build, and handing
 over to the dialler, WhatsApp and Maps.
 
-**Next: Phase 8 — polish and release.** The order is in
-[docs/08-roadmap.md](docs/08-roadmap.md).
+**Phase 8 — polish and release — is built.**
+- Hindi throughout, chosen in Settings or following the phone; print stays English.
+- Push notifications: walls ready, an AI image ready, a voucher settled, a support
+  reply. Asked for only at the moments that wait, and opening the right screen for the
+  right account.
+- An update-needed screen when a version is retired, deciding from the last answer
+  kept on the phone and never blocking mid-task.
+- Crash reports through Sentry, with everything personal taken out first. Off until a
+  DSN is set.
+- Over-the-air updates (expo-updates), a development build profile, iOS
+  configuration, CI, and Maestro end-to-end flows for a staging backend.
+
+What's left before the stores is decisions and accounts, not code in this repo. That
+covers how rooms are sold in store builds, Sign in with Apple, the Expo, Firebase,
+Sentry, Apple and Play accounts, a staging backend, and a native Hindi read. All of it
+is in [docs/09-release.md](docs/09-release.md).
 
 ## The plan
 
@@ -109,6 +123,7 @@ Everything is planned page by page in [`docs/`](docs/README.md):
 | [06 · Shared, links, states](docs/06-screens-shared.md) | S1–S10, D1–D3, X1–X6 |
 | [07 · Architecture](docs/07-architecture.md) | Code layout, API, sign-in, payments, colour engine, security |
 | [08 · Roadmap](docs/08-roadmap.md) | Build order, checklist, changes needed in the other repos |
+| [09 · Release](docs/09-release.md) | The owner's decisions, store listing, data safety, review access, end-to-end tests |
 
 ## Run it
 
@@ -123,6 +138,10 @@ npm start                 # then press "a" for Android, or scan the QR with Expo
 
 - Android emulator → backend on this computer: `http://10.0.2.2:8080`
 - A real phone on the same Wi-Fi: `http://<this computer's LAN IP>:8080`
+
+Expo Go can't receive push notifications and lacks Sentry's native module. To try those,
+build a development client once (`eas build --profile development -p android`), install
+it, and run `npm start` against it.
 
 ### Preview in a browser (no phone needed)
 
