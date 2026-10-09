@@ -1,0 +1,27 @@
+# A painter types a board's code (the camera can't see a printed QR in an emulator) and
+# reaches its claim screen. BOARD_TOKEN is a staging board kept for this; whether it
+# still pays is not asserted, so the flow can run every night.
+appId: com.gridstore.huevistaa
+name: Painter — a board's code to its claim
+tags:
+  - painter
+---
+- runFlow:
+    file: ../subflows/sign-in.yaml
+    env:
+      EMAIL: ${PAINTER_EMAIL}
+      PASSWORD: ${PAINTER_PASSWORD}
+- tapOn:
+    id: "tab-scan"
+- tapOn:
+    id: "scan-type"
+- tapOn:
+    id: "type-code-field"
+- inputText: ${BOARD_TOKEN}
+- tapOn:
+    id: "type-code-check"
+- extendedWaitUntil:
+    visible:
+      id: "claim-preview"
+    timeout: 30000
+- takeScreenshot: painter-claim

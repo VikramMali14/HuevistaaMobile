@@ -113,6 +113,7 @@ export default function ShadePicker() {
                 accessibilityLabel={name ? `${name}, ${code}` : code}
                 accessibilityState={{ selected: on }}
                 style={{ width: tile, gap: 4 }}
+                testID="shade-tile"
               >
                 <View
                   style={{
@@ -231,7 +232,7 @@ export default function ShadePicker() {
             </Text>
           ) : null}
         </View>
-        <Button variant="secondary" block={false} label={t("picker.done")} onPress={() => (router.canGoBack() ? router.back() : router.replace("/studio"))} />
+        <Button variant="secondary" block={false} label={t("picker.done")} onPress={() => (router.canGoBack() ? router.back() : router.replace("/studio"))} testID="picker-done" />
       </View>
       <TextField
         label={t("catalogue.searchLabel")}

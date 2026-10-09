@@ -73,6 +73,7 @@ export default function PainterTabs() {
           name={tab.name}
           options={{
             title: t(tab.label),
+            tabBarButtonTestID: `tab-${tab.name}`,
             tabBarIcon: ({ color, size }) => <Feather name={tab.icon} color={color} size={size} />,
             ...(tab.primary ? { tabBarButton: (props) => <ScanTabButton {...props} /> } : null),
           }}

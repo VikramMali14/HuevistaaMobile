@@ -12,6 +12,7 @@ export function LibraryCard({ room, width, onPress }: { room: FreeProject; width
   const walls = room.wallCount === 1 ? t("library.oneWall") : t("library.walls", { n: room.wallCount });
   return (
     <Card
+      testID={`library-card-${room.slug}`}
       onPress={onPress}
       accessibilityLabel={[room.title, room.roomLabel, walls].filter(Boolean).join(", ")}
       style={[{ padding: 0, overflow: "hidden" }, width ? { width } : null]}

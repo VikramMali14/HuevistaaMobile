@@ -14,10 +14,11 @@ export interface CardProps {
   /** A lit brass hairline along the top edge — for the one card that matters most. */
   lit?: boolean;
   style?: StyleProp<ViewStyle>;
+  testID?: string;
 }
 
 /** A surface separated by a hairline, not a shadow. */
-export function Card({ children, onPress, onLongPress, accessibilityLabel, accessibilityHint, lit = false, style }: CardProps) {
+export function Card({ children, onPress, onLongPress, accessibilityLabel, accessibilityHint, lit = false, style, testID }: CardProps) {
   const { colors, radius, space } = useTheme();
   const base: ViewStyle = {
     backgroundColor: colors.surface,
@@ -27,10 +28,11 @@ export function Card({ children, onPress, onLongPress, accessibilityLabel, acces
     padding: space.lg,
   };
 
-  if (!onPress) return <View style={[styles.card, base, style]}>{children}</View>;
+  if (!onPress) return <View style={[styles.card, base, style]} testID={testID}>{children}</View>;
 
   return (
     <Pressable
+      testID={testID}
       onPress={onPress}
       onLongPress={onLongPress}
       accessibilityRole="button"

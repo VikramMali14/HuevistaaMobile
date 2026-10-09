@@ -1,0 +1,70 @@
+# A customer: a ready-made room (free) → a wall in a shade → a saved combination → the
+# colour board taken. Leaves one finished room on the test account each run.
+appId: com.gridstore.huevistaa
+name: Customer — a ready-made room to a colour board
+tags:
+  - customer
+---
+- runFlow:
+    file: ../subflows/sign-in.yaml
+    env:
+      EMAIL: ${CUSTOMER_EMAIL}
+      PASSWORD: ${CUSTOMER_PASSWORD}
+- openLink: huevista://library
+- extendedWaitUntil:
+    visible:
+      id: "library-card-.*"
+    timeout: 30000
+- tapOn:
+    id: "library-card-.*"
+    index: 0
+- runFlow:
+    when:
+      visible:
+        id: "library-fresh"
+    commands:
+      - tapOn:
+          id: "library-fresh"
+- runFlow:
+    when:
+      visible:
+        id: "library-paint"
+    commands:
+      - tapOn:
+          id: "library-paint"
+- extendedWaitUntil:
+    visible:
+      id: "paint-canvas"
+    timeout: 60000
+- tapOn:
+    id: "wall-.*"
+    index: 0
+- tapOn:
+    id: "paint-browse"
+- extendedWaitUntil:
+    visible:
+      id: "shade-tile"
+    timeout: 30000
+- tapOn:
+    id: "shade-tile"
+    index: 0
+- tapOn:
+    id: "picker-done"
+- tapOn:
+    id: "paint-save"
+- tapOn:
+    id: "paint-tray"
+- extendedWaitUntil:
+    visible:
+      id: "board-make"
+      enabled: true
+    timeout: 60000
+- tapOn:
+    id: "board-make"
+- tapOn:
+    id: "board-confirm-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "board-send"
+    timeout: 120000
+- takeScreenshot: customer-board-ready

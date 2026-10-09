@@ -15,6 +15,7 @@ when things go wrong.
 | [06-screens-shared.md](06-screens-shared.md) | Account screens both roles use, deep links, and system states — **S1–S10, D1–D3, X1–X6** |
 | [07-architecture.md](07-architecture.md) | How the code is organised: routing, API, sign-in, payments, the colour engine, security, performance, testing, builds |
 | [08-roadmap.md](08-roadmap.md) | The order we build in, a checklist for every screen, and the changes the backend and website need |
+| [09-release.md](09-release.md) | Releasing to Google Play and the App Store: the owner's decisions, the listing, data safety, content rating, review access, and the end-to-end tests |
 
 ## How a screen gets built
 

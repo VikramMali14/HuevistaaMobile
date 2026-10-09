@@ -86,7 +86,7 @@ export default function EmailSignIn() {
       title={t("auth.email.title")}
       footer={
         <View style={{ gap: space.xs }}>
-          <Button label={t("auth.email.submit")} onPress={signIn} disabled={!email.trim() || !password} loading={busy} />
+          <Button label={t("auth.email.submit")} onPress={signIn} disabled={!email.trim() || !password} loading={busy} testID="email-submit" />
           <Button
             variant="ghost"
             label={t("auth.email.createAccount")}
@@ -112,11 +112,13 @@ export default function EmailSignIn() {
         submitBehavior="submit"
         onSubmitEditing={() => passwordRef.current?.focus()}
         autoFocus={!params.email}
+        testID="email-input"
       />
       <View style={{ gap: space.xs }}>
         <TextField
           ref={passwordRef}
           label={t("fields.password")}
+          testID="password-input"
           value={password}
           onChangeText={(next) => {
             setPassword(next);

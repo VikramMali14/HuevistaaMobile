@@ -1,0 +1,93 @@
+name: End to end (Android)
+
+# The app on an Android emulator, driven by Maestro (.maestro/), against the STAGING
+# backend — never production: every run makes a room and takes its colour board.
+# Manual, and nightly. Needs the "e2e" environment's secrets (docs/07-architecture.md,
+# Testing): E2E_API_ORIGIN (https), E2E_CUSTOMER_EMAIL / _PASSWORD, E2E_PAINTER_EMAIL /
+# _PASSWORD, E2E_BOARD_TOKEN; and the E2E_SITE_ORIGIN variable.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 21 * * *' # 03:00 in India
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-staging
+  cancel-in-progress: false
+
+jobs:
+  android:
+    name: Maestro on an emulator
+    runs-on: ubuntu-latest
+    environment: e2e
+    timeout-minutes: 75
+    env:
+      EXPO_PUBLIC_API_ORIGIN: ${{ secrets.E2E_API_ORIGIN }}
+      EXPO_PUBLIC_SITE_ORIGIN: ${{ vars.E2E_SITE_ORIGIN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install
+        run: npm ci
+
+      # The native project is generated, never committed (.gitignore). A release build
+      # signed with the template's debug key installs on the emulator; x86_64 only.
+      - name: Build the app
+        run: |
+          npx expo prebuild -p android --no-install --clean
+          cd android && ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install Maestro
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Run the flows
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            adb install android/app/build/outputs/apk/release/app-release.apk
+            maestro test .maestro/flows --format junit --output maestro-report.xml --debug-output maestro-debug -e CUSTOMER_EMAIL="${{ secrets.E2E_CUSTOMER_EMAIL }}" -e CUSTOMER_PASSWORD="${{ secrets.E2E_CUSTOMER_PASSWORD }}" -e PAINTER_EMAIL="${{ secrets.E2E_PAINTER_EMAIL }}" -e PAINTER_PASSWORD="${{ secrets.E2E_PAINTER_PASSWORD }}" -e BOARD_TOKEN="${{ secrets.E2E_BOARD_TOKEN }}"
+
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: maestro-report
+          path: maestro-report.xml
+
+      - name: Keep screenshots and logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: maestro-debug
+          path: |
+            maestro-debug
+            ~/.maestro/tests

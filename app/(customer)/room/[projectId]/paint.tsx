@@ -153,6 +153,7 @@ export default function Paint() {
           label={t("paint.tray")}
           badge={tray.length}
           onPress={() => router.push({ pathname: "/room/[projectId]/board", params: { projectId: id } } as Href)}
+          testID="paint-tray"
         />
       </View>
 
@@ -272,6 +273,7 @@ export default function Paint() {
                   icon="droplet"
                   onPress={() => router.push({ pathname: "/shade-picker", params: { projectId: id, regionId: paint.selected ?? "" } })}
                   disabled={!paint.selected}
+                  testID="paint-browse"
                 />
               </View>
               <View style={[styles.actions, { paddingHorizontal: space.xs }]}>
@@ -281,7 +283,7 @@ export default function Paint() {
                   label={t("paint.suggestions")}
                   onPress={() => router.push({ pathname: "/room/[projectId]/suggestions", params: { projectId: id } } as Href)}
                 />
-                <Button variant="ghost" block={false} label={t("paint.save")} onPress={saveThis} />
+                <Button variant="ghost" block={false} label={t("paint.save")} onPress={saveThis} testID="paint-save" />
                 <View style={styles.fill} />
                 <IconButton icon="info" label={t("paint.info")} onPress={() => setInfo(true)} />
               </View>

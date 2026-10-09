@@ -1,0 +1,26 @@
+# Signs in with email and a password — the way the store reviewers do too (a texted
+# code can't be read by a test). Lands on the role's home; a first-time account goes
+# through About you first.
+appId: com.gridstore.huevistaa
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      id: "welcome-email"
+    timeout: 30000
+- tapOn:
+    id: "welcome-email"
+- tapOn:
+    id: "email-input"
+- inputText: ${EMAIL}
+- tapOn:
+    id: "password-input"
+- inputText: ${PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "email-submit"
+- extendedWaitUntil:
+    visible:
+      id: "tab-.*"
+    timeout: 30000
