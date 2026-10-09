@@ -1,5 +1,5 @@
 import { shapeTriangles, strokeTriangles, type MaskOp } from "./mask-ops";
-import { BLUR_FRAG, COPY_FRAG, DRAW_FRAG, DRAW_VERT, FRAG, NUDGE_FRAG, VERT, VERT_TEX } from "./shaders";
+import { BLUR_FRAG, COPY_FRAG, DRAW_FRAG, DRAW_VERT, FRAG, NUDGE_FRAG, OUTLINE_FRAG, VERT, VERT_TEX } from "./shaders";
 
 /**
  * Something `texImage2D` can take on this platform, with its size. On the web it is an
@@ -35,6 +35,15 @@ export interface Readback {
   height: number;
   /** RGBA, 4 bytes a pixel. */
   data: Uint8Array;
+}
+
+/** A wall to outline over the painted frame (C11's selected wall). */
+export interface Outline {
+  maskId: string;
+  /** Line width in drawing-buffer pixels; the dark halo reaches 2.5 times as far. */
+  width: number;
+  /** The line's colour, 0..1 per channel. Default white. */
+  color?: readonly [number, number, number];
 }
 
 /** The mask being edited (C10) is painted under this key. */
@@ -74,6 +83,8 @@ export class RecolorGL {
   private blurProgram!: WebGLProgram;
   private nudgeProgram!: WebGLProgram;
   private drawProgram!: WebGLProgram;
+  private outlineProgram!: WebGLProgram;
+  private outlineVao!: WebGLVertexArrayObject;
   private drawVao!: WebGLVertexArrayObject;
   private drawVbo!: WebGLBuffer;
   /** C10: the wall being edited — its mask as it was, and the copy the edits land on. */
@@ -117,6 +128,8 @@ export class RecolorGL {
     this.texVao = this.triangle(this.texProgram);
     this.blurVao = this.triangle(this.blurProgram);
     this.nudgeVao = this.triangle(this.nudgeProgram);
+    this.outlineProgram = link(gl, VERT, OUTLINE_FRAG);
+    this.outlineVao = this.triangle(this.outlineProgram);
     this.drawProgram = link(gl, DRAW_VERT, DRAW_FRAG);
     this.drawVao = gl.createVertexArray()!;
     gl.bindVertexArray(this.drawVao);
@@ -254,9 +267,10 @@ export class RecolorGL {
   /**
    * Paint the photo through every wall's mask in one frame. With `splitAt` (0..1 across),
    * only the part right of it is painted: the before-and-after view (C14), drawn here so a
-   * snapshot of the view is the comparison itself.
+   * snapshot of the view is the comparison itself. With `outline`, that wall's edge is
+   * drawn over everything, split or not.
    */
-  renderRegions(paints: readonly RegionPaint[], splitAt?: number) {
+  renderRegions(paints: readonly RegionPaint[], splitAt?: number, outline?: Outline | null) {
     const gl = this.gl;
     if (!this.imgTex) return;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -311,9 +325,30 @@ export class RecolorGL {
       gl.uniform1f(L.u_grain!, Math.max(0, p.grain ?? DEFAULT_GRAIN));
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
-    gl.disable(gl.BLEND);
     gl.disable(gl.SCISSOR_TEST);
+    if (outline) this.outlinePass(outline);
+    gl.disable(gl.BLEND);
     gl.endFrameEXP?.();
+  }
+
+  /** One wall's edge over the frame, blended (the caller has blending on). */
+  private outlinePass(o: Outline) {
+    const gl = this.gl;
+    const mask = this.maskFor(o.maskId);
+    if (!mask) return;
+    const w = gl.drawingBufferWidth;
+    const h = gl.drawingBufferHeight;
+    const p = this.outlineProgram;
+    gl.useProgram(p);
+    gl.bindVertexArray(this.outlineVao);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, mask.tex);
+    gl.uniform1i(gl.getUniformLocation(p, "u_mask"), 1);
+    gl.uniform2f(gl.getUniformLocation(p, "u_line"), o.width / w, o.width / h);
+    gl.uniform2f(gl.getUniformLocation(p, "u_halo"), (o.width * 2.5) / w, (o.width * 2.5) / h);
+    const c = o.color ?? [1, 1, 1];
+    gl.uniform3f(gl.getUniformLocation(p, "u_color"), c[0], c[1], c[2]);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
   /** Just the photo (the "before" in a comparison). */
@@ -466,8 +501,8 @@ export class RecolorGL {
     this.masks.clear();
     this.edited.clear();
     for (const b of this.buffers) gl.deleteBuffer(b);
-    for (const v of [this.vao, this.texVao, this.blurVao, this.nudgeVao, this.drawVao]) gl.deleteVertexArray(v);
-    for (const p of [this.program, this.texProgram, this.blurProgram, this.nudgeProgram, this.drawProgram]) gl.deleteProgram(p);
+    for (const v of [this.vao, this.texVao, this.blurVao, this.nudgeVao, this.drawVao, this.outlineVao]) gl.deleteVertexArray(v);
+    for (const p of [this.program, this.texProgram, this.blurProgram, this.nudgeProgram, this.drawProgram, this.outlineProgram]) gl.deleteProgram(p);
     this.imgTex = null;
     this.blur = null;
   }

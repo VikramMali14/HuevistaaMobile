@@ -348,3 +348,50 @@ uniform float u_value;
 void main() {
   outColor = vec4(u_value, u_value, u_value, 1.0);
 }`;
+
+/**
+ * The selected wall's outline (C11): a thin light line on the mask's edge with a soft dark
+ * halo either side, so it reads on a pale wall and a dark one alike. Drawn to the screen
+ * (VERT's flip) in one pass over the painted frame. The mask is probed on two rings round
+ * each pixel, u_line and u_halo apart in uv: a ring that straddles the edge (some probes
+ * in, some out) puts the pixel within that distance of it. Being measured in screen
+ * pixels, the line stays the same width however large the mask is stretched.
+ */
+export const OUTLINE_FRAG = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+out vec4 outColor;
+uniform sampler2D u_mask;
+uniform vec2 u_line;
+uniform vec2 u_halo;
+uniform vec3 u_color;
+const int DIRS = 12;
+float straddle(vec2 r) {
+  float lo = 1.0;
+  float hi = 0.0;
+  for (int i = 0; i < DIRS; i++) {
+    float a = 6.2831853 * float(i) / float(DIRS);
+    float m = texture(u_mask, v_uv + vec2(cos(a), sin(a)) * r).r;
+    lo = min(lo, m);
+    hi = max(hi, m);
+  }
+  float m = texture(u_mask, v_uv).r;
+  lo = min(lo, m);
+  hi = max(hi, m);
+  return clamp(hi - lo, 0.0, 1.0);
+}
+void main() {
+  // Most of the frame is nowhere near the edge: four probes say so before the rings run.
+  float c = texture(u_mask, v_uv).r;
+  float x0 = texture(u_mask, v_uv - vec2(u_halo.x, 0.0)).r;
+  float x1 = texture(u_mask, v_uv + vec2(u_halo.x, 0.0)).r;
+  float y0 = texture(u_mask, v_uv - vec2(0.0, u_halo.y)).r;
+  float y1 = texture(u_mask, v_uv + vec2(0.0, u_halo.y)).r;
+  float near = max(max(x0, x1), max(max(y0, y1), c)) - min(min(x0, x1), min(min(y0, y1), c));
+  if (near < 0.004) discard;
+  float line = straddle(u_line);
+  float halo = straddle(u_halo);
+  float a = max(line, halo * 0.45);
+  if (a < 0.004) discard;
+  outColor = vec4(mix(vec3(0.0), u_color, line / a), a);
+}`;
