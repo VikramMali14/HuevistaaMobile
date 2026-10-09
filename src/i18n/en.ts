@@ -395,6 +395,7 @@ export const en = {
   paint: {
     compare: "Before and after",
     undo: "Undo",
+    redo: "Redo",
     tray: "Saved combinations",
     browse: "More shades",
     suggestions: "Suggestions",

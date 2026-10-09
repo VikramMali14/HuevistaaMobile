@@ -396,6 +396,7 @@ export const hi: Translation = {
   paint: {
     compare: "पहले और बाद",
     undo: "अनडू करें",
+    redo: "रीडू करें",
     tray: "सेव किए गए कॉम्बिनेशन",
     browse: "और शेड",
     suggestions: "सुझाव",
