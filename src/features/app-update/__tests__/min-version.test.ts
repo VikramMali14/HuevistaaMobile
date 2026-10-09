@@ -16,12 +16,17 @@ describe("X5 · the minimum version", () => {
     expect(compareVersions("1.2.0", "not a version")).toBeNull();
   });
 
-  it("blocks a version below the minimum, only with a store to go to", () => {
+  it("blocks a version below the minimum", () => {
     expect(Platform.OS === "ios" || Platform.OS === "android").toBe(true);
     expect(gateFor(answer("0.2.0"), "0.1.0")).toEqual({ blocked: true, updateAvailable: false, storeUrl: STORE });
     expect(gateFor(answer("0.1.0"), "0.1.0").blocked).toBe(false);
-    expect(gateFor(answer("0.2.0", null, null), "0.1.0").blocked).toBe(false);
-    expect(gateFor(answer("0.2.0", null, "http://insecure.example"), "0.1.0").blocked).toBe(false);
+  });
+
+  // The backend's iOS store link is empty until the app is listed: a retired version is
+  // still retired.
+  it("blocks without a store to go to, offering none", () => {
+    expect(gateFor(answer("0.2.0", null, null), "0.1.0")).toEqual({ blocked: true, updateAvailable: false, storeUrl: null });
+    expect(gateFor(answer("0.2.0", null, "http://insecure.example"), "0.1.0")).toEqual({ blocked: true, updateAvailable: false, storeUrl: null });
   });
 
   it("never blocks on an answer it can't read", () => {
@@ -30,7 +35,8 @@ describe("X5 · the minimum version", () => {
     expect(gateFor({ android: null, ios: null }, "0.1.0").blocked).toBe(false);
   });
 
-  it("says when a newer version is out, without blocking", () => {
+  it("says when a newer version is out, without blocking — only with a store to go to", () => {
     expect(gateFor(answer("0.1.0", "0.3.0"), "0.1.0")).toEqual({ blocked: false, updateAvailable: true, storeUrl: STORE });
+    expect(gateFor(answer("0.1.0", "0.3.0", null), "0.1.0").updateAvailable).toBe(false);
   });
 });

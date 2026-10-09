@@ -261,7 +261,7 @@ These are components and behaviours, not pages. Every screen uses them.
 | **X2** | Error | `ErrorState`: plain reason, **Try again**, **Get help** (→ S6). Server codes are mapped to sentences in `src/api/errors.ts`; a raw message or status code is never shown. |
 | **X3** | Permission | Before the system prompt: a sheet with why (camera / photos / location). After a "don't ask again": **Open settings**. |
 | **X4** | Session ended | Refresh token rejected → clear the session → A2 with "Please sign in again", then return to where they were. |
-| **X5** | Update needed | Built (Phase 8): `UpdateNeeded` in place of every screen when the installed version is below the server's minimum for its store (`GET /api/mobile/version`), with **Update** to the store. Decided from the last answer kept on the phone, so it never waits on the network or blocks mid-task; fails open. A newer, not-required version shows **Update available** in S1. Small fixes ship over the air with EAS Update. |
+| **X5** | Update needed | Built (Phase 8): `UpdateNeeded` in place of every screen when the installed version is below the server's minimum for its store (`GET /api/mobile/version`), with **Update** to the store (or the store named, when there's no link). Decided from the last answer kept on the phone at start-up, and asked again on every return from the background, so it never waits on the network or blocks mid-use; fails open. A newer, not-required version shows **Update available** in S1. Small fixes ship over the air with EAS Update. |
 | **X6** | Not found | `app/+not-found.tsx`: "That link doesn't open anything in the app." + **Go home**. |
 
 **As built (Phase 8):**

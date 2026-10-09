@@ -7,7 +7,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import { act, fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
-import { Linking } from "react-native";
+import { AppState, Linking } from "react-native";
 
 import type { Conversation } from "@/api/endpoints/support";
 import { queryClient } from "@/api/query-client";
@@ -194,6 +194,36 @@ describe("X5 · Update needed", () => {
     renderRouter("./app", { initialUrl: "/welcome" });
     await waitFor(() => expect(screen.getByText("Continue with mobile number")).toBeTruthy());
     expect(screen.queryByTestId("update-needed")).toBeNull();
+  });
+
+  // The backend's iOS store link is empty until the app is listed.
+  it("still blocks a retired version with no store link, naming the store instead", async () => {
+    const noStore = { minimumVersion: "9.0.0", latestVersion: null, storeUrl: null };
+    await AsyncStorage.setItem("hv.minVersion", JSON.stringify({ android: noStore, ios: noStore }));
+    renderRouter("./app", { initialUrl: "/welcome" });
+    await waitFor(() => expect(screen.getByTestId("update-needed")).toBeTruthy());
+    expect(screen.getByText("Update HueVistaa from the App Store.")).toBeTruthy();
+    expect(screen.queryByTestId("update-open-store")).toBeNull();
+  });
+
+  it("asks again on coming back from the background, and that answer decides", async () => {
+    const appState = AppState.addEventListener as jest.Mock;
+    const from = appState.mock.calls.length;
+    const appGoes = (next: string) =>
+      act(async () => {
+        for (const [type, listener] of appState.mock.calls.slice(from)) if (type === "change") listener(next);
+      });
+    renderRouter("./app", { initialUrl: "/welcome" });
+    await waitFor(() => expect(screen.getByText("Continue with mobile number")).toBeTruthy());
+    mockVersions.versions.mockResolvedValue(answer("9.0.0"));
+    // A glance away (a notification pulled down) is not a return.
+    await appGoes("inactive");
+    await appGoes("active");
+    expect(screen.queryByTestId("update-needed")).toBeNull();
+    await appGoes("background");
+    await appGoes("active");
+    await waitFor(() => expect(screen.getByTestId("update-needed")).toBeTruthy());
+    expect(screen.getByTestId("update-open-store")).toBeTruthy();
   });
 });
 

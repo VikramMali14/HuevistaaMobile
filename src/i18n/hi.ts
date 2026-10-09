@@ -1685,6 +1685,8 @@ export const hi: Translation = {
     title: "HueVistaa को अपडेट करने का समय",
     body: "ऐप का यह वर्ज़न अब काम करने के लिए बहुत पुराना है। आगे बढ़ने के लिए इसे स्टोर से अपडेट करें — आपके कमरे, बोर्ड और पॉइंट्स सब सुरक्षित रहेंगे।",
     button: "अपडेट करें",
+    fromAppStore: "HueVistaa को App Store से अपडेट करें।",
+    fromPlayStore: "HueVistaa को Play Store से अपडेट करें।",
     available: "अपडेट उपलब्ध है",
   },
   tabs: {

@@ -1730,6 +1730,8 @@ export const en = {
     title: "Time to update HueVistaa",
     body: "This version of the app is too old to keep working. Update it from the store to carry on — your rooms, boards and points are all kept.",
     button: "Update",
+    fromAppStore: "Update HueVistaa from the App Store.",
+    fromPlayStore: "Update HueVistaa from the Play Store.",
     available: "Update available",
   },
   tabs: {
