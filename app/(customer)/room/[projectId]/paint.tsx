@@ -16,6 +16,7 @@ import {
   flush,
   initRoom,
   pushRecent,
+  redo,
   selectWall,
   undo,
   useRecentShades,
@@ -143,6 +144,7 @@ export default function Paint() {
           {name}
         </Text>
         <IconButton icon="corner-up-left" label={t("paint.undo")} onPress={() => undo(id)} disabled={!editable || paint.history.length === 0} />
+        <IconButton icon="corner-up-right" label={t("paint.redo")} onPress={() => redo(id)} disabled={!editable || paint.future.length === 0} />
         <IconButton
           icon="columns"
           label={t("paint.compare")}
