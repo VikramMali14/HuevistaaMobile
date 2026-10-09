@@ -342,8 +342,8 @@ from the engine's own one-pixel antialiasing.
 - The room fills the screen (tab bar hidden). Light and shadow stay real — this is the
   ported WebGL engine on `expo-gl`.
 - Tap a wall on the photo to select it (hit-test the masks). The selected wall gets a
-  thin outline. *(Built without the outline so far: the selected wall shows in the wall
-  strip.)*
+  thin outline: a light line on its edge with a soft dark halo, drawn by the engine in the
+  same frame as the paint (not in snapshots, nor while holding for the "before").
 - **Wall strip** just above the dock: chips with each wall's current colour + name. A
   saved colour shows as its shade (the catalogue shade found again); the backend's
   opening colours show as the nearest real shade, as on the website (07, "The studio's

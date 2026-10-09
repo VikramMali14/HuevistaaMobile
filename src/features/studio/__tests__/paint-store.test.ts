@@ -16,7 +16,7 @@ jest.mock("react-native", () => {
 const appGoes = (state: string) => (globalThis as { appStateListeners?: ((s: string) => void)[] }).appStateListeners?.forEach((l) => l(state));
 
 // eslint-disable-next-line import/first -- after the mocks above
-import { applyColours, flush, forgetRoom, getRoomPaint, initRoom, resetPaintStore, saveRows, undo } from "../paint-store";
+import { applyColours, flush, forgetRoom, getRoomPaint, initRoom, redo, resetPaintStore, saveRows, undo } from "../paint-store";
 
 const room = (hex: string | null = null): Pick<RoomDetail, "regions"> => ({
   regions: [
@@ -75,6 +75,64 @@ describe("the paint store", () => {
     expect(getRoomPaint("p").colours["1"]).toEqual(green);
     await jest.advanceTimersByTimeAsync(600);
     expect(mockSave).toHaveBeenLastCalledWith("p", [{ regionId: 1, shadeCode: "HV0118", hexCode: "#7b8a72" }]);
+  });
+
+  it("redoes what Undo took away and saves it", async () => {
+    initRoom("p", room(), ["1"]);
+    applyColours("p", { "1": green });
+    await jest.advanceTimersByTimeAsync(600);
+    applyColours("p", { "1": grey, "2": green });
+    await jest.advanceTimersByTimeAsync(600);
+    undo("p");
+    await jest.advanceTimersByTimeAsync(600);
+    expect(mockSave).toHaveBeenLastCalledWith("p", [
+      { regionId: 1, shadeCode: "HV0118", hexCode: "#7b8a72" },
+      { regionId: 2, shadeCode: null, hexCode: null },
+    ]);
+    redo("p");
+    expect(getRoomPaint("p").colours).toEqual({ "1": grey, "2": green });
+    expect(getRoomPaint("p").future).toHaveLength(0);
+    expect(getRoomPaint("p").history).toHaveLength(2);
+    await jest.advanceTimersByTimeAsync(600);
+    expect(mockSave).toHaveBeenLastCalledWith("p", [
+      { regionId: 1, shadeCode: "HV0124", hexCode: "#3e4a52" },
+      { regionId: 2, shadeCode: "HV0118", hexCode: "#7b8a72" },
+    ]);
+    expect(getRoomPaint("p").pending).toEqual({});
+  });
+
+  it("walks back and forth through several changes", () => {
+    initRoom("p", room(), ["1"]);
+    applyColours("p", { "1": green });
+    applyColours("p", { "1": grey });
+    undo("p");
+    undo("p");
+    expect(getRoomPaint("p").colours["1"]).toBeNull();
+    redo("p");
+    expect(getRoomPaint("p").colours["1"]).toEqual(green);
+    redo("p");
+    expect(getRoomPaint("p").colours["1"]).toEqual(grey);
+    redo("p"); // nothing left to redo
+    expect(getRoomPaint("p").colours["1"]).toEqual(grey);
+  });
+
+  it("forgets what could be redone once a new colour goes on", () => {
+    initRoom("p", room(), ["1"]);
+    applyColours("p", { "1": green });
+    undo("p");
+    applyColours("p", { "1": grey });
+    expect(getRoomPaint("p").future).toEqual([]);
+    redo("p");
+    expect(getRoomPaint("p").colours["1"]).toEqual(grey);
+  });
+
+  it("keeps Redo through a refetch", () => {
+    initRoom("p", room(), ["1"]);
+    applyColours("p", { "1": green });
+    undo("p");
+    initRoom("p", room(), ["1"]);
+    redo("p");
+    expect(getRoomPaint("p").colours["1"]).toEqual(green);
   });
 
   it("keeps a change that failed to save, says so, and tries again", async () => {

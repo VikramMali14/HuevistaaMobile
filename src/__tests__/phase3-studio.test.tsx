@@ -601,7 +601,7 @@ describe("C11 · Paint", () => {
     });
   });
 
-  it("undoes the last colour", async () => {
+  it("undoes the last colour, and redoes it", async () => {
     signedIn();
     pushRecent({ hex: "#7b8a72", code: "HV0118", lrv: 30 });
     renderRouter("./app", { initialUrl: "/room/p1/paint" });
@@ -610,6 +610,11 @@ describe("C11 · Paint", () => {
     await waitFor(() => expect(screen.getByLabelText("Main wall, HV0118")).toBeTruthy());
     fireEvent.press(screen.getByLabelText("Undo"));
     await waitFor(() => expect(screen.getByLabelText("Main wall, Not painted")).toBeTruthy());
+    fireEvent.press(screen.getByLabelText("Redo"));
+    await waitFor(() => expect(screen.getByLabelText("Main wall, HV0118")).toBeTruthy());
+    await waitFor(() => expect(mockProjects.saveColours).toHaveBeenLastCalledWith("p1", [{ regionId: 11, shadeCode: "HV0118", hexCode: "#7b8a72" }]), {
+      timeout: 2000,
+    });
   });
 
   it("puts the shade chosen on its own page onto the first wall", async () => {

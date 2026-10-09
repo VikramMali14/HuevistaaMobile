@@ -94,6 +94,8 @@ export interface RoomCanvasProps {
   showOriginal?: boolean;
   /** 0..1 across: paint only right of it (C14's divider). */
   splitAt?: number;
+  /** C11: the selected wall, outlined on the photo (not in snapshots or the "before"). */
+  selected?: string | null;
   /** C10: edit one wall's mask; the walls show as flat tints of their `hex`. */
   edit?: CanvasEdit | null;
   /**
@@ -126,6 +128,7 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
     cleaned,
     showOriginal = false,
     splitAt,
+    selected = null,
     edit = null,
     edits,
     onPointer,
@@ -152,8 +155,8 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
   const [masksVersion, setMasksVersion] = useState(0);
   const [photoAttempt, setPhotoAttempt] = useState(0);
   const [maskAttempt, setMaskAttempt] = useState(0);
-  const latest = useRef({ walls, cleaned, showOriginal, splitAt, edit });
-  latest.current = { walls, cleaned, showOriginal, splitAt, edit };
+  const latest = useRef({ walls, cleaned, showOriginal, splitAt, edit, selected, viewWidth: 0 });
+  latest.current = { walls, cleaned, showOriginal, splitAt, edit, selected, viewWidth: latest.current.viewWidth };
   const stateRef = useRef(onState);
   stateRef.current = onState;
 
@@ -184,11 +187,12 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
     const { width, height } = fitRect(box, source);
     return { width, height };
   }, [source, box]);
+  latest.current.viewWidth = size?.width ?? 0;
 
-  const paint = useCallback((colours?: ReadonlyMap<string, string>, only?: ReadonlyMap<string, SnapshotPaint>) => {
+  const paint = useCallback((colours?: ReadonlyMap<string, string>, only?: ReadonlyMap<string, SnapshotPaint>, bare = false) => {
     const e = engine.current;
     if (!e) return;
-    const { walls: ws, cleaned: cl, showOriginal: orig, splitAt: split, edit: ed } = latest.current;
+    const { walls: ws, cleaned: cl, showOriginal: orig, splitAt: split, edit: ed, selected: sel, viewWidth } = latest.current;
     if (orig) {
       e.renderBase();
       return;
@@ -210,7 +214,14 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
       )
       .filter((w) => w.hex && e.hasMask(w.id))
       .map((w) => ({ id: w.id, hex: w.hex!, lrv: w.lrv, manual: w.manual, strength: w.strength }));
-    e.renderRegions(regionPaints(painted, { baseL: baseL.current, cleaned: cl }), split);
+    // The selected wall's edge, OUTLINE_DP wide on screen whatever the phone's density;
+    // a snapshot (only, or bare) is a picture of the room, so it goes without.
+    const gl = glRef.current;
+    const outline =
+      sel && !only && !bare && gl && viewWidth > 0 && e.hasMask(sel)
+        ? { maskId: sel, width: OUTLINE_DP * (gl.drawingBufferWidth / viewWidth) }
+        : null;
+    e.renderRegions(regionPaints(painted, { baseL: baseL.current, cleaned: cl }), split, outline);
   }, []);
 
   // 2. The GL context: the engine, the photo.
@@ -350,7 +361,7 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
   const colourKey = walls.map((w) => `${w.id}=${w.hex ?? ""}/${w.lrv ?? ""}/${w.strength ?? 1}`).join("|");
   useEffect(() => {
     paint();
-  }, [colourKey, cleaned, showOriginal, splitAt, masksVersion, glReady, paint]);
+  }, [colourKey, cleaned, showOriginal, splitAt, selected, size?.width, masksVersion, glReady, paint]);
 
   useImperativeHandle(ref, () => ({
     renderTimed(colours) {
@@ -369,13 +380,13 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
     async snapshot(only) {
       const gl = glRef.current;
       if (!gl || !engine.current) return null;
-      paint(undefined, only);
+      paint(undefined, only, true);
       try {
         const shot = await GLView.takeSnapshotAsync(gl, { format: "jpeg", compress: 0.9 });
         return typeof shot.uri === "string" ? shot.uri : shot.uri ? URL.createObjectURL(shot.uri) : null;
       } finally {
         // Back to what the screen is showing.
-        if (only) paint();
+        paint();
       }
     },
   }));
@@ -439,6 +450,9 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
     </View>
   );
 });
+
+/** The selected wall's outline, in layout pixels (dp). */
+const OUTLINE_DP = 1.5;
 
 /**
  * In a browser the canvas keeps its picture after it is shown, so a snapshot (C14's
