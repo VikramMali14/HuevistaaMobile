@@ -175,6 +175,72 @@ describe("A3–A4 · mobile number and code", () => {
     expect(screen.getByTestId("phone-code-input").props.value).toBe("");
   });
 
+  const heldUnconfirmed = () =>
+    new ApiError("http", 409, "This number is already on a HueVistaa account that hasn't confirmed it yet.", undefined, "PHONE_ON_UNCONFIRMED_ACCOUNT");
+
+  it("sends a number another account holds unconfirmed to that account's email sign-in", async () => {
+    mockAuth.phoneVerify.mockRejectedValue(heldUnconfirmed());
+    renderRouter("./app", { initialUrl: "/phone-code?phone=%2B919876543210&resendAfter=30" });
+    await waitFor(() => expect(screen.getByText("Enter the code")).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId("phone-code-input"), "123456");
+    await waitFor(() => expect(screen.getByTestId("phone-code-elsewhere")).toBeTruthy());
+    expect(screen.getByText(/Sign in with that account's email and password, then confirm the number from your profile\./)).toBeTruthy();
+    // The way on for someone whose number another account took is there too, second.
+    expect(screen.getByText("This isn't my account — continue")).toBeTruthy();
+    expect(mockAuth.profile).not.toHaveBeenCalled();
+    press("Sign in with email");
+    await waitFor(() => expect(screen).toHavePathname("/email-sign-in"));
+    expect(mockAuth.phoneVerify).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends the same code again, as not their account, and signs in as a new number", async () => {
+    mockAuth.phoneVerify.mockRejectedValueOnce(heldUnconfirmed()).mockResolvedValueOnce(tokensFor());
+    willSignInAs(person({ namePending: true, welcomePending: true }));
+    renderRouter("./app", { initialUrl: "/phone-code?phone=%2B919876543210&resendAfter=30" });
+    await waitFor(() => expect(screen.getByText("Enter the code")).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId("phone-code-input"), "123456");
+    await waitFor(() => expect(screen.getByTestId("phone-code-elsewhere")).toBeTruthy());
+    // Asked plainly the first time: notMyAccount is never sent unless they say so.
+    expect(mockAuth.phoneVerify.mock.calls[0][0]).not.toHaveProperty("notMyAccount");
+    expect(screen.getByTestId("phone-code-input").props.value).toBe("");
+
+    press("This isn't my account — continue");
+    await waitFor(() => expect(screen).toHavePathname("/about-you"));
+    expect(mockAuth.phoneVerify).toHaveBeenCalledTimes(2);
+    expect(mockAuth.phoneVerify).toHaveBeenLastCalledWith({
+      phone: "+919876543210",
+      code: "123456",
+      deviceToken: undefined,
+      notMyAccount: true,
+    });
+  });
+
+  it("says a code that ran out before 'not my account' at the boxes, and drops the banner", async () => {
+    mockAuth.phoneVerify
+      .mockRejectedValueOnce(heldUnconfirmed())
+      .mockRejectedValueOnce(new ApiError("http", 400, "That code has expired. Send a new one."));
+    renderRouter("./app", { initialUrl: "/phone-code?phone=%2B919876543210&resendAfter=30" });
+    await waitFor(() => expect(screen.getByText("Enter the code")).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId("phone-code-input"), "123456");
+    await waitFor(() => expect(screen.getByTestId("phone-code-elsewhere")).toBeTruthy());
+    press("This isn't my account — continue");
+    await waitFor(() => expect(screen.getByText("That code has expired. Send a new one.")).toBeTruthy());
+    expect(screen.queryByTestId("phone-code-elsewhere")).toBeNull();
+    expect(mockAuth.profile).not.toHaveBeenCalled();
+  });
+
+  it("drops the kept code once a new one is sent, so the new one is asked about afresh", async () => {
+    mockAuth.phoneVerify.mockRejectedValue(heldUnconfirmed());
+    mockAuth.phoneStart.mockResolvedValue({ phone: "*********3210", expiresInSeconds: 300, resendAfterSeconds: 45 });
+    renderRouter("./app", { initialUrl: "/phone-code?phone=%2B919876543210&resendAfter=0" });
+    await waitFor(() => expect(screen.getByText("Enter the code")).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId("phone-code-input"), "123456");
+    await waitFor(() => expect(screen.getByTestId("phone-code-elsewhere")).toBeTruthy());
+    press("Send a new code");
+    await waitFor(() => expect(screen.getByText("A new code is on its way.")).toBeTruthy());
+    expect(screen.queryByTestId("phone-code-elsewhere")).toBeNull();
+  });
+
   it("sends admins to the website", async () => {
     mockAuth.phoneVerify.mockResolvedValue({ twoFactorRequired: true });
     renderRouter("./app", { initialUrl: "/phone-code?phone=%2B919876543210&resendAfter=30" });

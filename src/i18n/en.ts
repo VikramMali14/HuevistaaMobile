@@ -69,6 +69,11 @@ export const en = {
       verifying: "Checking…",
       lost: "We don't know which number this code is for. Enter your number again.",
       enterNumber: "Enter your number",
+      // 409 PHONE_ON_UNCONFIRMED_ACCOUNT: the code was right, but the number is on another account.
+      unconfirmedElsewhere: "This number is already on a HueVistaa account that hasn't confirmed it yet. Sign in with that account's email and password, then confirm the number from your profile.",
+      useEmail: "Sign in with email",
+      // Sends the same code again with notMyAccount: the number comes off that account.
+      notMine: "This isn't my account — continue",
     },
     email: {
       title: "Sign in with email",
@@ -309,7 +314,8 @@ export const en = {
     start: "Start",
     autoUnavailable: "Automatic wall finding isn't available on this room. You can mark the walls yourself — it's free.",
     slowTitle: "This is taking much longer than it should",
-    slowBody: "It may still finish — you can leave it running and come back. If it doesn't, tell us and we'll look at this room.",
+    slowBody: "It may still finish — you can leave it running and come back, or start it again. Starting again won't use another room. If it still doesn't work, tell us and we'll look at this room.",
+    startAgain: "Start again",
     slowReport: "Tell us",
     stageClean: "Clearing the clutter",
     stageCleanBody: "Taking out what's in the way so the walls show clearly.",
@@ -1347,6 +1353,7 @@ export const en = {
     seeAll: "See all reviews",
     change: "Change my review",
     notYours: "This one isn't yours to review.",
+    imPainter: "I'm the painter: open in the painter app",
     shopAndPainter: "Your shop and your painter scan this same board for their reward points, so show it to them too. Opening it on your phone doesn't use anything up.",
     whoPainted: "Who painted it?",
     whoPaintedBody: "Show this board to your painter. They scan it with a painter account in HueVistaa to collect their points.",
@@ -1731,6 +1738,8 @@ export const en = {
     title: "Time to update HueVistaa",
     body: "This version of the app is too old to keep working. Update it from the store to carry on — your rooms, boards and points are all kept.",
     button: "Update",
+    fromAppStore: "Update HueVistaa from the App Store.",
+    fromPlayStore: "Update HueVistaa from the Play Store.",
     available: "Update available",
   },
   tabs: {

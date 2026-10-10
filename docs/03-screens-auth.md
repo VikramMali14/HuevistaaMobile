@@ -98,16 +98,26 @@ paste fills all boxes — the digits are picked out of a pasted "123 456" or a w
 and it submits by itself on the sixth digit. The code is sent once even when the sixth
 digit and a tap on Continue land together.
 
-**API:** `POST /api/auth/phone/verify { phone, code, deviceToken? }` → `AuthResponse`.
-A number the backend has never seen gets a new `CUSTOMER` account in the same step. Save
-the tokens, load the profile, route as in A1.
+**API:** `POST /api/auth/phone/verify { phone, code, deviceToken?, notMyAccount? }` →
+`AuthResponse`. A number the backend has never seen gets a new `CUSTOMER` account in the
+same step. Save the tokens, load the profile, route as in A1. `notMyAccount: true` is sent
+only from "This isn't my account" below.
 
 **States:** wrong or expired code → shake, the boxes clear, and the backend's own words
 under them ("Incorrect code. 2 attempts left.") · an admin's number → "Admin accounts
-sign in on the website" · resend uses `POST /api/auth/phone/start` again and restarts
-the countdown on its new `resendAfterSeconds`; a failed resend is said beside the link,
-not on the code boxes · opened without a number (a stale link, the app restarted
-part-way) → "We don't know which number this code is for" with **Enter your number**.
+sign in on the website" · the right code for a number an existing account holds
+unconfirmed (409 `PHONE_ON_UNCONFIRMED_ACCOUNT`: nothing is created, and the code is not
+spent) → no shake, the boxes clear, "This number is already on a HueVistaa account that
+hasn't confirmed it yet…" with **Sign in with email** (→ A5), and under it, quieter,
+**This isn't my account — continue**: the same code again with `notMyAccount: true`, and
+the backend takes the number off every account holding it unconfirmed (audited), then
+makes the new account and signs in as for a number it has never seen. The code still
+runs out as usual — if it has by then, that is said at the boxes; a new code sent meanwhile
+drops the banner, and the new code is asked about afresh · resend uses
+`POST /api/auth/phone/start` again and restarts the countdown on its new
+`resendAfterSeconds`; a failed resend is said beside the link, not on the code boxes ·
+opened without a number (a stale link, the app restarted part-way) → "We don't know
+which number this code is for" with **Enter your number**.
 
 ---
 

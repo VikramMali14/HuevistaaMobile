@@ -7,6 +7,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { act, fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
+import { AppState } from "react-native";
 
 import { ApiError } from "@/api/errors";
 import { queryClient } from "@/api/query-client";
@@ -30,12 +31,13 @@ jest.mock("expo-secure-store", () => ({
 jest.mock("expo-web-browser", () => ({ openAuthSessionAsync: jest.fn(), openBrowserAsync: jest.fn(async () => ({})) }));
 jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn(async () => true) }));
 
+// The permission is read on mount and again when the screen asks, as expo-camera's own hook does.
 let mockPermission: { granted: boolean; canAskAgain: boolean } | null = { granted: true, canAskAgain: true };
 const mockRequestPermission = jest.fn(async () => mockPermission);
 jest.mock("expo-camera", () => {
   // jest.mock factories run before imports are set up, so they load their own.
   /* eslint-disable @typescript-eslint/no-require-imports */
-  const { forwardRef, useEffect, useImperativeHandle } = require("react");
+  const { forwardRef, useCallback, useEffect, useImperativeHandle, useState } = require("react");
   const { View } = require("react-native");
   /* eslint-enable @typescript-eslint/no-require-imports */
   return {
@@ -45,7 +47,14 @@ jest.mock("expo-camera", () => {
       useEffect(() => onCameraReady?.(), [onCameraReady]);
       return <View {...props} />;
     }),
-    useCameraPermissions: () => [mockPermission, mockRequestPermission],
+    useCameraPermissions: () => {
+      const [permission, setPermission] = useState(mockPermission);
+      const get = useCallback(async () => {
+        setPermission(mockPermission);
+        return mockPermission;
+      }, []);
+      return [permission, mockRequestPermission, get];
+    },
   };
 });
 const mockPick = jest.fn();
@@ -295,6 +304,20 @@ describe("C6–C7 · Add photo and name it", () => {
     expect(screen.getByText("Open settings")).toBeTruthy();
   });
 
+  it("opens the camera once it's allowed in the phone's Settings", async () => {
+    signedIn();
+    const appState = AppState.addEventListener as jest.Mock;
+    const from = appState.mock.calls.length;
+    mockPermission = { granted: false, canAskAgain: false };
+    renderRouter("./app", { initialUrl: "/room/new" });
+    await waitFor(() => expect(screen.getByText("Camera is off for HueVistaa")).toBeTruthy());
+    mockPermission = { granted: true, canAskAgain: true };
+    await act(async () => {
+      for (const [type, listener] of appState.mock.calls.slice(from)) if (type === "change") listener("active");
+    });
+    await waitFor(() => expect(screen.getByTestId("shutter")).toBeTruthy());
+  });
+
   it("takes a photo, shrinks it, uploads while the room is named, and creates it", async () => {
     signedIn();
     let finish!: (v: unknown) => void;
@@ -319,6 +342,45 @@ describe("C6–C7 · Add photo and name it", () => {
     press("Create");
     await waitFor(() => expect(screen).toHavePathname("/room/p9/tidy"));
     expect(mockProjects.create).toHaveBeenCalledWith({ imageId: "img-1", name: "Bedroom", roomType: "Bedroom" });
+  });
+
+  // No request key on Create: a second send would spend a second room.
+  it("goes on into the room an unanswered Create made, rather than spending another", async () => {
+    signedIn();
+    mockUpload.mockResolvedValue({ imageId: "img-1", imageUrl: "/api/images/files/img-1.jpg" });
+    mockProjects.create.mockRejectedValue(new ApiError("timeout", 0, "Request timed out"));
+    mockMe.projects.mockResolvedValue([summary(), summary({ id: "p9", imageId: "img-1", status: "CREATED" })]);
+    mockProjects.get.mockResolvedValue(room({ id: "p9", status: "CREATED", regions: [] }));
+    renderRouter("./app", { initialUrl: "/room/new" });
+    await waitFor(() => expect(screen.getByTestId("shutter")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("shutter"));
+    await waitFor(() => expect(screen.getByText("Use this photo")).toBeTruthy());
+    press("Use this photo");
+    await waitFor(() => expect(screen.getByText("Photo uploaded")).toBeTruthy());
+    press("Create");
+    await waitFor(() => expect(screen).toHavePathname("/room/p9/tidy"));
+    expect(mockProjects.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("looks for the room again before a second Create, and sends it only when there's none", async () => {
+    signedIn();
+    mockUpload.mockResolvedValue({ imageId: "img-1", imageUrl: "/api/images/files/img-1.jpg" });
+    mockProjects.create.mockRejectedValue(new ApiError("network", 0, "Network request failed"));
+    renderRouter("./app", { initialUrl: "/room/new" });
+    await waitFor(() => expect(screen.getByTestId("shutter")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("shutter"));
+    await waitFor(() => expect(screen.getByText("Use this photo")).toBeTruthy());
+    press("Use this photo");
+    await waitFor(() => expect(screen.getByText("Photo uploaded")).toBeTruthy());
+    press("Create");
+    await waitFor(() => expect(screen.getByText("No connection. Check your internet and try again.")).toBeTruthy());
+    expect(mockProjects.create).toHaveBeenCalledTimes(1);
+    // It landed after all, and shows up by the time Create is pressed again.
+    mockMe.projects.mockResolvedValue([summary({ id: "p9", imageId: "img-1", status: "CREATED" })]);
+    mockProjects.get.mockResolvedValue(room({ id: "p9", status: "CREATED", regions: [] }));
+    press("Create");
+    await waitFor(() => expect(screen).toHavePathname("/room/p9/tidy"));
+    expect(mockProjects.create).toHaveBeenCalledTimes(1);
   });
 
   it("says plainly when the photo isn't a room, and offers a retake", async () => {
@@ -463,6 +525,58 @@ describe("C8 · Tidy up", () => {
     expect(screen.queryByText("About 20 seconds", { exact: false })).toBeNull();
     press("Tell us");
     await waitFor(() => expect(screen).toHavePathname("/room/p1/report"));
+  });
+
+  describe("a run that has gone quiet", () => {
+    const stuck = () =>
+      room({
+        status: "SEGMENTING",
+        regions: [],
+        cleanedImageUrl: null,
+        updatedAt: "2026-01-01T00:00:00Z",
+        maskMode: "AUTO",
+        cleanFurnishing: "EMPTY",
+        cleanAngle: "BEST_VIEW",
+      });
+    async function openStuck() {
+      signedIn();
+      mockProjects.get.mockResolvedValue(stuck());
+      mockProjects.status.mockResolvedValue(stuck());
+      renderRouter("./app", { initialUrl: "/room/p1/tidy" });
+      await waitFor(() => expect(screen.getByText("This is taking much longer than it should")).toBeTruthy());
+    }
+
+    it("starts again with the choices it had, and watches the new run — which may end in Try again", async () => {
+      await openStuck();
+      mockProjects.segment.mockResolvedValue(room({ status: "SEGMENTING", regions: [], cleanedImageUrl: null }));
+      mockProjects.status.mockResolvedValue(room({ status: "FAILED", regions: [], failureStage: "MASK" }));
+      fireEvent.press(screen.getByTestId("tidy-start-again"));
+      await waitFor(() => expect(screen.getByText("Clearing the clutter")).toBeTruthy());
+      expect(mockProjects.segment).toHaveBeenCalledWith("p1", { maskMode: "AUTO", cleanFurnishing: "EMPTY", cleanAngle: "BEST_VIEW" });
+      expect(screen.queryByText("This is taking much longer than it should")).toBeNull();
+      // The restarted run fails: said plainly, with Try again.
+      await waitFor(() => expect(screen.getByTestId("tidy-failure")).toBeTruthy(), { timeout: 5_000 });
+      expect(screen.getByText("Try again")).toBeTruthy();
+    });
+
+    it("keeps watching when the server says the run is still going", async () => {
+      await openStuck();
+      mockProjects.segment.mockRejectedValue(new ApiError("http", 409, "Segmentation already in progress for this room."));
+      fireEvent.press(screen.getByTestId("tidy-start-again"));
+      await waitFor(() => expect(screen.getByText("Clearing the clutter")).toBeTruthy());
+      expect(screen.queryByText(/already in progress/)).toBeNull();
+      expect(screen.getByText("Leave this running")).toBeTruthy();
+    });
+
+    it("says the server's words when the room has had all its runs, and doesn't offer another", async () => {
+      await openStuck();
+      const capped = "This room's walls have already been found 5 times, which is as many as one room gets.";
+      mockProjects.segment.mockRejectedValue(new ApiError("http", 429, capped, undefined, "SEGMENTATION_RUN_LIMIT"));
+      fireEvent.press(screen.getByTestId("tidy-start-again"));
+      await waitFor(() => expect(screen.getByText(capped)).toBeTruthy());
+      expect(screen.queryByTestId("tidy-start-again")).toBeNull();
+      expect(screen.getByText("Tell us")).toBeTruthy();
+    });
   });
 
   it("says what went wrong in plain words, and can try again", async () => {

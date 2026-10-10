@@ -7,6 +7,7 @@ import { isApiError, messageFor } from "@/api/errors";
 import { communityApi, type BoardReviewState } from "@/api/endpoints/community";
 import { keys } from "@/api/query-keys";
 import { BackButton, Banner, Button, Card, ErrorState, Screen, Skeleton, Text, TextField, useToast } from "@/components/ui";
+import { env } from "@/config/env";
 import { t } from "@/i18n";
 import { openWebPage } from "@/lib/open-web";
 import { useSubmit } from "@/lib/use-submit";
@@ -24,8 +25,14 @@ import { StarInput, Stars } from "./Stars";
  * the server checks it before it goes (every attempt counts against a small allowance per
  * network). An answer that doesn't come, or a "this board has already been reviewed", is
  * looked into: if the review is there now, it was this one.
+ *
+ * `painterDoor` (D1 only): once app links are verified every board's QR opens this app, so
+ * a painter whose phone is signed in as a homeowner lands here. When the board isn't this
+ * customer's to review, they're offered the same board in the painter web app. The owner,
+ * with a review to write or written, never sees it: the website stopped offering them that
+ * door, as their own account turned painter can't claim their own room.
  */
-export function BoardReviewScreen({ token, backFallback }: { token: string; backFallback: Href }) {
+export function BoardReviewScreen({ token, backFallback, painterDoor = false }: { token: string; backFallback: Href; painterDoor?: boolean }) {
   const { space } = useTheme();
   const board = useQuery({ queryKey: keys.boardReview(token), queryFn: () => communityApi.boardReview(token) });
   const [editing, setEditing] = useState(false);
@@ -51,13 +58,29 @@ export function BoardReviewScreen({ token, backFallback }: { token: string; back
   }
 
   if ((s.review && !editing) || (!s.canReview && !s.canEdit)) {
-    return <Settled state={s} backFallback={backFallback} onEdit={() => setEditing(true)} />;
+    return <Settled state={s} backFallback={backFallback} onEdit={() => setEditing(true)} painterBoard={painterDoor ? painterBoardUrl(token) : null} />;
   }
   return <ReviewForm key={editing ? "edit" : "new"} token={token} state={s} editing={editing} backFallback={backFallback} onDone={() => setEditing(false)} />;
 }
 
+/** The same board in the painter web app, as the website links it (painterBoardUrl). */
+function painterBoardUrl(token: string): string {
+  return `${env.painterOrigin}/r/${encodeURIComponent(token)}`;
+}
+
 /** Written (thank you, and where it stands), or not this caller's to write (the reason). */
-function Settled({ state: s, backFallback, onEdit }: { state: BoardReviewState; backFallback: Href; onEdit: () => void }) {
+function Settled({
+  state: s,
+  backFallback,
+  onEdit,
+  painterBoard,
+}: {
+  state: BoardReviewState;
+  backFallback: Href;
+  onEdit: () => void;
+  /** Not theirs to review: the painter's way to the same board. */
+  painterBoard: string | null;
+}) {
   const { space } = useTheme();
   const r = s.review;
   return (
@@ -70,6 +93,8 @@ function Settled({ state: s, backFallback, onEdit }: { state: BoardReviewState; 
             {s.canEdit ? <Button variant="secondary" label={t("review.change")} onPress={onEdit} testID="review-change" /> : null}
             <Button variant="ghost" label={t("review.seeAll")} onPress={() => void openWebPage("/community")} />
           </View>
+        ) : painterBoard ? (
+          <Button variant="secondary" icon="external-link" label={t("review.imPainter")} onPress={() => void openWebPage(painterBoard)} testID="review-painter-door" />
         ) : null
       }
     >

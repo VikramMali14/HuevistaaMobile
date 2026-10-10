@@ -584,12 +584,14 @@ by id across pages. The ask form and the account's own questions sit in its head
 **X5 · update needed** (`src/features/app-update`):
 - `loadVersionGate()` decides at start-up from the last answer kept on the phone
   (`hv.minVersion`), so it never waits on the network. It fetches
-  `GET /api/mobile/version` (public, 4 s) behind that and keeps the answer for the
-  NEXT start, so a raised minimum never stops someone mid-task.
-- `gateFor` blocks only when the installed version (expo-application, never
-  app.json) is below the minimum and there's an https store link. It fails open on
-  anything it can't read.
-- Root renders `UpdateNeeded` in place of the navigator.
+  `GET /api/mobile/version` (public, 4 s) behind that and keeps the answer.
+- `watchVersionGate()` asks again each time the app comes back from the background
+  and applies that answer at once (the kept one when offline). So a raised minimum
+  never cuts in mid-use, and a phone that never closes the app is still caught.
+- `gateFor` blocks when the installed version (expo-application, never app.json) is
+  below the minimum. It fails open on anything it can't read.
+- Root renders `UpdateNeeded` in place of the navigator: **Update** opens the https
+  store link, and without one (iOS until it is listed) it names the store instead.
 
 **Crash reports** (`src/lib/crash-reports.ts`, Sentry):
 - Off without `EXPO_PUBLIC_SENTRY_DSN`, on the web and in development.

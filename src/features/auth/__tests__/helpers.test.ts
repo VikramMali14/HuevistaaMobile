@@ -34,6 +34,13 @@ describe("authErrorMessage", () => {
     expect(authErrorMessage(new ApiError("network", 0, ""))).toBe("No connection. Check your internet and try again.");
   });
 
+  it("says a number held unconfirmed by another account in the app's own words", () => {
+    const err = new ApiError("http", 409, "This number is already on a HueVistaa account…", undefined, "PHONE_ON_UNCONFIRMED_ACCOUNT");
+    expect(authErrorMessage(err)).toBe(
+      "This number is already on a HueVistaa account that hasn't confirmed it yet. Sign in with that account's email and password, then confirm the number from your profile.",
+    );
+  });
+
   it("says something in the app's own words when the server gave no reason", () => {
     expect(authErrorMessage(new ApiError("http", 400, ""))).toBe("That didn't go through. Try again.");
   });

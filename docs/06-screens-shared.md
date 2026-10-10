@@ -171,14 +171,17 @@ Opened by `https://huevistaa.com/r/{token}` (once App Links are set up) or from 
 |---|---|
 | Signed out | "Sign in to collect points or review the job" → A2, then back here |
 | Painter | → P6 |
-| Customer | The review flow (`GET /api/community/reviews/board/{token}`): review the job, or the plain `reason` when they can't |
+| Customer | The review flow (`GET /api/community/reviews/board/{token}`): review the job, or the plain `reason` when they can't, with "I'm the painter: open in the painter app" (`{painterOrigin}/r/{token}`) |
 | Shop | "Shops collect their half on the website" + link |
 
 **As built:** a link that isn't a board code says "That link doesn't carry one of our
 codes." without asking the server. Signed out → **Sign in** replaces this screen with A2, and the
 link is remembered even after a sign-out by choice, because it was asked for. Painter →
 P6 (replaced, so Back doesn't land on this screen). Customer → the review screen shared
-with C26. Any other account → the website's page for the board.
+with C26. When the board isn't theirs to review, it may be their painter signed in as a
+homeowner (App Links send every board's QR here), so D1 alone adds a link to the same board
+in the painter web app (`EXPO_PUBLIC_PAINTER_ORIGIN`, as the website's `painterBoardUrl`).
+The owner never sees it. Any other account → the website's page for the board.
 
 ### D2 · A shared room
 
@@ -261,7 +264,7 @@ These are components and behaviours, not pages. Every screen uses them.
 | **X2** | Error | `ErrorState`: plain reason, **Try again**, **Get help** (→ S6). Server codes are mapped to sentences in `src/api/errors.ts`; a raw message or status code is never shown. |
 | **X3** | Permission | Before the system prompt: a sheet with why (camera / photos / location). After a "don't ask again": **Open settings**. |
 | **X4** | Session ended | Refresh token rejected → clear the session → A2 with "Please sign in again", then return to where they were. |
-| **X5** | Update needed | Built (Phase 8): `UpdateNeeded` in place of every screen when the installed version is below the server's minimum for its store (`GET /api/mobile/version`), with **Update** to the store. Decided from the last answer kept on the phone, so it never waits on the network or blocks mid-task; fails open. A newer, not-required version shows **Update available** in S1. Small fixes ship over the air with EAS Update. |
+| **X5** | Update needed | Built (Phase 8): `UpdateNeeded` in place of every screen when the installed version is below the server's minimum for its store (`GET /api/mobile/version`), with **Update** to the store (or the store named, when there's no link). Decided from the last answer kept on the phone at start-up, and asked again on every return from the background, so it never waits on the network or blocks mid-use; fails open. A newer, not-required version shows **Update available** in S1. Small fixes ship over the air with EAS Update. |
 | **X6** | Not found | `app/+not-found.tsx`: "That link doesn't open anything in the app." + **Go home**. |
 
 **As built (Phase 8):**
@@ -276,6 +279,9 @@ These are components and behaviours, not pages. Every screen uses them.
   - a chat the team has taken (S7).
   
   Never at first launch or sign-in.
+- **X3** for the camera (C6, P3): the permission is read again on every return to the
+  app and to the screen (`lib/use-camera-permission.ts`), so turning it on in the
+  phone's Settings works at once, even on the scan tab, which stays mounted.
 
 **Push notifications (Phase 8):**
 

@@ -19,7 +19,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { connectQueryClientToApp, queryClient } from "@/api/query-client";
 import { SessionProvider, useSession } from "@/auth/session";
 import { ErrorState, Screen, ToastProvider } from "@/components/ui";
-import { loadVersionGate, versionGate } from "@/features/app-update/min-version";
+import { loadVersionGate, useVersionGate, watchVersionGate } from "@/features/app-update/min-version";
 import { UpdateNeeded } from "@/features/app-update/UpdateNeeded";
 import { usePushObserver, usePushRegistration } from "@/features/notifications/use-push";
 import { t } from "@/i18n";
@@ -65,6 +65,8 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => connectQueryClientToApp(), []);
+  // X5 asked again on every return from the background.
+  useEffect(() => watchVersionGate(), []);
 
   return (
     // Pinch-to-zoom in the studio (ZoomView) needs the gesture root at the very top.
@@ -87,8 +89,8 @@ function Root({ ready }: { ready: boolean }) {
   const { colors, scheme } = useTheme();
   const language = useLanguage();
   const [waitedTooLong, setWaitedTooLong] = useState(false);
-  const gate = ready ? versionGate() : null;
-  const blocked = Boolean(gate?.blocked && gate.storeUrl);
+  const gate = useVersionGate();
+  const blocked = ready && gate.blocked;
 
   usePushRegistration(state);
   usePushObserver(state, ready && !blocked);
@@ -111,7 +113,7 @@ function Root({ ready }: { ready: boolean }) {
   }, [canShow]);
 
   if (!ready) return null;
-  if (blocked && gate?.storeUrl) return <UpdateNeeded storeUrl={gate.storeUrl} />;
+  if (blocked) return <UpdateNeeded storeUrl={gate.storeUrl} />;
 
   return (
     <>

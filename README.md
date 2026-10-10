@@ -98,7 +98,8 @@ over to the dialler, WhatsApp and Maps.
   reply. Asked for only at the moments that wait, and opening the right screen for the
   right account.
 - An update-needed screen when a version is retired, deciding from the last answer
-  kept on the phone and never blocking mid-task.
+  kept on the phone, asking again on every return to the app, and never blocking
+  mid-use.
 - Crash reports through Sentry, with everything personal taken out first. Off until a
   DSN is set.
 - Over-the-air updates (expo-updates), a development build profile, iOS
