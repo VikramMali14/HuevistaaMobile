@@ -14,7 +14,7 @@ on:
     inputs:
       api_origin:
         description: The backend the app talks to (https)
-        default: https://api.huevista.org
+        default: https://api.huevistaa.com
       site_origin:
         description: The website it opens for payments, legal pages and shared links (https)
         default: https://huevistaa.com
@@ -40,7 +40,7 @@ jobs:
     env:
       # Built into the app. Repository variables APK_API_ORIGIN / APK_SITE_ORIGIN change
       # the default for the automatic builds.
-      EXPO_PUBLIC_API_ORIGIN: ${{ inputs.api_origin || vars.APK_API_ORIGIN || 'https://api.huevista.org' }}
+      EXPO_PUBLIC_API_ORIGIN: ${{ inputs.api_origin || vars.APK_API_ORIGIN || 'https://api.huevistaa.com' }}
       EXPO_PUBLIC_SITE_ORIGIN: ${{ inputs.site_origin || vars.APK_SITE_ORIGIN || 'https://huevistaa.com' }}
       # No Sentry account yet: don't upload source maps (the build fails trying).
       SENTRY_DISABLE_AUTO_UPLOAD: 'true'

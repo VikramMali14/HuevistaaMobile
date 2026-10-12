@@ -128,6 +128,10 @@ Everything is planned page by page in [`docs/`](docs/README.md):
 
 ## Run it
 
+New to mobile development, on Windows? Follow
+[docs/RUN_ON_WINDOWS.md](docs/RUN_ON_WINDOWS.md) instead: it covers installing the APK on a
+phone, and running the app in Android Studio's emulator step by step.
+
 You need Node 22 and either the **Expo Go** app on an Android phone or an Android
 emulator.
 
