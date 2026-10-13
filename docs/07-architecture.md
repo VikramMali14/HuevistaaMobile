@@ -310,7 +310,10 @@ As built (`src/features/payments/play`):
   before a secret rotation keeps its old id): another account's token is never sent under
   this session. One
   carrying no account id (a promo code redeemed in the Play Store) is sent, and the server
-  decides. A purchase Google still calls `pending` is noted, never sent.
+  decides. A purchase Google still calls `pending` is noted, not sent with the rest; C29's
+  Check again on it re-asks the server about its token as well as reconciling (the server
+  may already have granted and consumed it on Google's notification, and Google no longer
+  hands it back) — 202 PENDING keeps it pending, ALREADY_GRANTED shows it granted.
 - `PlayPurchaseWatcher` sits beside `RenderWatcher` in `app/(customer)/_layout.tsx`, so
   only a signed-in customer ever connects (a painter never does): `initConnection`, the
   purchase listeners, a reconcile on mount and whenever the app comes back to the front,

@@ -197,6 +197,25 @@ describe("whose purchases are sent", () => {
     expect(mockBilling.playPurchase).not.toHaveBeenCalled();
   });
 
+  it("a pending purchase can still be asked about by its token — staying pending until the server grants it", async () => {
+    rememberPlayAccount(ME);
+    const p = purchase({ state: "pending" });
+    await takePurchase(p);
+    const seen: string[] = [];
+    const answer = deferred<unknown>();
+    mockBilling.playPurchase.mockReturnValue(answer.promise);
+    const asked = checkPlayPurchaseAgain("token-1");
+    expect(asked).not.toBeNull();
+    seen.push(playPurchaseState("token-1")!.kind);
+    // The server granted and consumed it on Google's notification: ALREADY_GRANTED.
+    answer.resolve({ ...GRANTED, status: "ALREADY_GRANTED" });
+    await expect(asked).resolves.toEqual(expect.objectContaining({ kind: "granted" }));
+    expect(seen).toEqual(["pending"]);
+    expect(mockBilling.playPurchase).toHaveBeenCalledWith({ productId: "room_1", purchaseToken: "token-1" });
+    await settle();
+    expect(store.finishTransaction).toHaveBeenCalledWith(p);
+  });
+
   it("a reconcile sends this account's unfinished purchases only, each once", async () => {
     mockBilling.playPurchase.mockResolvedValue(GRANTED);
     store.getAvailablePurchases.mockResolvedValue([

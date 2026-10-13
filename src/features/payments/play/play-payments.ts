@@ -131,8 +131,18 @@ export function isSettled(token: string): boolean {
   return settled.has(token);
 }
 
-/** Google says it's still waiting for the money. Nothing is sent: only a purchased one is. */
-export function markPending(token: string, productId: string): PlayPurchaseState {
+/**
+ * Google says it's still waiting for the money. Nothing is sent now: only a purchased one
+ * is. Its token is kept so C29's Check again can still ask the server about it — once the
+ * server has granted and consumed it (Google's notification), Google no longer hands it back.
+ */
+export function markPending(
+  token: string,
+  productId: string,
+  extra: Pick<PlayPurchaseInput, "orderId" | "finish"> = {},
+): PlayPurchaseState {
+  const kept = inputs.get(token);
+  inputs.set(token, { token, productId, orderId: kept?.orderId ?? extra.orderId ?? null, finish: kept?.finish ?? extra.finish });
   const known = states.get(token);
   if (known && known.kind !== "pending" && known.kind !== "checking") return known;
   return set({ kind: "pending", token, productId });
@@ -167,8 +177,9 @@ export function verifyPlayPurchase(input: PlayPurchaseInput): Promise<PlayPurcha
   inputs.set(token, { token, productId, orderId: input.orderId ?? known?.orderId ?? null, finish: input.finish ?? known?.finish });
   const run0 = generation;
 
-  // Checking again keeps saying "checking" (the screen's own button shows it is busy).
-  if (done?.kind !== "checking") set({ kind: "verifying", token, productId });
+  // Checking again keeps saying "checking", and asking about a pending one keeps saying
+  // "pending" (the screen's own button shows it is busy).
+  if (done?.kind !== "checking" && done?.kind !== "pending") set({ kind: "verifying", token, productId });
   const run = billingApi
     .playPurchase({ productId, purchaseToken: token })
     .then((answer): PlayPurchaseState => {
@@ -204,7 +215,7 @@ export function verifyPlayPurchase(input: PlayPurchaseInput): Promise<PlayPurcha
   return run;
 }
 
-/** Try a checking purchase again (C29's timer and Check again). */
+/** Try a checking or pending purchase again (C29's timer and Check again). */
 export function checkPlayPurchaseAgain(token: string): Promise<PlayPurchaseState> | null {
   const input = inputs.get(token);
   return input ? verifyPlayPurchase(input) : null;

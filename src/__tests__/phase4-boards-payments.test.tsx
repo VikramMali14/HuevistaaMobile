@@ -1023,6 +1023,18 @@ describe("C28 · Checkout", () => {
       expect(store.finishTransaction).not.toHaveBeenCalled();
     });
 
+    it("pending, then granted on Google's notification while away: Check again asks the server about its token", async () => {
+      store.requestPurchase.mockResolvedValue({ kind: "purchases", purchases: [purchase({ state: "pending" })] });
+      await buy();
+      await waitFor(() => expect(screen.getByTestId("payment-pending")).toBeTruthy());
+      // The server granted and consumed it meanwhile, so Google no longer hands it back.
+      store.getAvailablePurchases.mockResolvedValue([]);
+      mockBilling.playPurchase.mockResolvedValue({ ...GRANTED, status: "ALREADY_GRANTED" });
+      fireEvent.press(screen.getByTestId("payment-pending-check"));
+      await waitFor(() => expect(screen.getByTestId("payment-paid")).toBeTruthy());
+      expect(mockBilling.playPurchase).toHaveBeenCalledWith({ productId: "room_1", purchaseToken: "token-1" });
+    });
+
     it("no answer from the server is checking, never failed — then granted on Check again", async () => {
       mockBilling.playPurchase.mockRejectedValueOnce(new ApiError("network", 0, "Network error"));
       await buy();

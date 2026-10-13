@@ -59,8 +59,20 @@ export function PlayResult({ token, forImage }: { token: string; forImage: boole
         />
       );
     case "pending":
-      // Google hands the purchase back once the money arrives: look again.
-      return <PendingResult busy={checking.busy} onCheck={() => void checking.run(reconcilePlay)} onHome={home} />;
+      // Google hands the purchase back once the money arrives: look again. And ask the server
+      // about this token itself — once Google's notification has had it granted and consumed
+      // there, Google no longer hands it back.
+      return (
+        <PendingResult
+          busy={checking.busy}
+          onCheck={() =>
+            void checking.run(async () => {
+              await Promise.all([reconcilePlay(), checkPlayPurchaseAgain(token)]);
+            })
+          }
+          onHome={home}
+        />
+      );
     case "refused":
       return (
         <RefusedResult

@@ -75,7 +75,9 @@ export async function fetchPlayPrices(productIds: string[]): Promise<store.Store
 export function takePurchase(purchase: StorePurchase): Promise<PlayPurchaseState> | null {
   const { token, productId } = purchase;
   if (!token || !isOurs(purchase.accountId)) return null;
-  if (purchase.state === "pending") return Promise.resolve(markPending(token, productId));
+  if (purchase.state === "pending") {
+    return Promise.resolve(markPending(token, productId, { orderId: purchase.orderId, finish: () => store.finishTransaction(purchase) }));
+  }
   if (purchase.state !== "purchased") return null;
   return verifyPlayPurchase({ token, productId, orderId: purchase.orderId, finish: () => store.finishTransaction(purchase) });
 }
