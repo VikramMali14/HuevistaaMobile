@@ -46,6 +46,8 @@ const store = jest.requireMock<{
 
 const ME = "me-0123456789abcdefghijklmnopqrstuvwxyzABCD";
 const SOMEONE = "someone-else-0123456789abcdefghijklmnopqrst";
+/** This account's id under the obfuscation secret the server has since rotated away from. */
+const ME_BEFORE = "me-before-rotation-0123456789abcdefghijklmn";
 const CATALOGUE: PlayCatalogue = {
   enabled: true,
   eligible: true,
@@ -207,6 +209,33 @@ describe("whose purchases are sent", () => {
     expect(mockBilling.playPurchase.mock.calls).toEqual([[{ productId: "room_1", purchaseToken: "mine" }]]);
     expect(playPurchaseState("theirs")).toBeNull();
     expect(playPurchaseState("waiting")?.kind).toBe("pending");
+  });
+
+  it("a purchase stamped before the server rotated its secret is still this account's, and sent", async () => {
+    mockBilling.playProducts.mockResolvedValue({ ...CATALOGUE, previousObfuscatedAccountIds: [ME_BEFORE] });
+    mockBilling.playPurchase.mockResolvedValue(GRANTED);
+    store.getAvailablePurchases.mockResolvedValue([
+      purchase({ token: "before", accountId: ME_BEFORE }),
+      purchase({ token: "theirs", accountId: SOMEONE }),
+    ]);
+    await reconcilePlay();
+    expect(mockBilling.playPurchase.mock.calls).toEqual([[{ productId: "room_1", purchaseToken: "before" }]]);
+    expect(playPurchaseState("before")?.kind).toBe("granted");
+
+    // Sign-out forgets the old id with the current one.
+    resetPlay();
+    rememberPlayAccount(ME);
+    expect(takePurchase(purchase({ token: "before-2", accountId: ME_BEFORE }))).toBeNull();
+  });
+
+  it("an earlier purchase stamped before a rotation is settled as this account's, not called another's", async () => {
+    mockBilling.playIntent.mockResolvedValue({ ...INTENT, previousObfuscatedAccountIds: [ME_BEFORE] });
+    mockBilling.playPurchase.mockResolvedValue({ ...GRANTED, status: "ALREADY_GRANTED" });
+    store.requestPurchase.mockResolvedValue({ kind: "already-owned", productId: "room_1" });
+    store.getAvailablePurchases.mockResolvedValue([purchase({ token: "before", accountId: ME_BEFORE, profileId: "intent-0" })]);
+    await expect(buyPack("room_1")).resolves.toEqual({ kind: "owned", notice: "added" });
+    expect(mockBilling.playPurchase).toHaveBeenCalledWith({ productId: "room_1", purchaseToken: "before" });
+    expect(store.requestPurchase).toHaveBeenCalledWith({ productId: "room_1", obfuscatedAccountId: ME, obfuscatedProfileId: "intent-1" });
   });
 
   it("a reconcile does nothing while Play billing is switched off on the server", async () => {

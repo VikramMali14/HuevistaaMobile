@@ -604,6 +604,12 @@ export interface PlayCatalogue {
   validDays: number;
   /** This account's own id on Google's side — a purchase carrying another is not ours. */
   obfuscatedAccountId: string | null;
+  /**
+   * This account's ids under the server's earlier obfuscation secrets, once it has rotated
+   * them: a purchase stamped before the rotation carries one and is still ours. Absent or
+   * empty when there are none (or from a server that doesn't send it yet).
+   */
+  previousObfuscatedAccountIds?: string[];
   products: PlayProduct[];
 }
 
@@ -617,6 +623,8 @@ export interface PlayIntent {
   productId: string;
   obfuscatedAccountId: string;
   obfuscatedProfileId: string;
+  /** As on GET /products: this account's ids under earlier secrets, when sent. */
+  previousObfuscatedAccountIds?: string[];
 }
 
 /** POST /api/billing/play/purchases — a purchase Google handed the phone. */

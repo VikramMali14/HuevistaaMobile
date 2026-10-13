@@ -54,7 +54,7 @@ export function ensureConnection(): Promise<boolean> {
 /** GET /products, remembering this account's id on Google's side. */
 async function fetchPlayCatalogue(): Promise<PlayCatalogue> {
   const catalogue = await billingApi.playProducts();
-  rememberPlayAccount(catalogue.obfuscatedAccountId);
+  rememberPlayAccount(catalogue.obfuscatedAccountId, catalogue.previousObfuscatedAccountIds);
   return catalogue;
 }
 
@@ -139,7 +139,7 @@ export type OwnedNotice = "added" | "pending" | "otherAccount" | "unknown";
  */
 export async function buyPack(productId: string): Promise<BuyResult> {
   const intent = await billingApi.playIntent(productId);
-  rememberPlayAccount(intent.obfuscatedAccountId);
+  rememberPlayAccount(intent.obfuscatedAccountId, intent.previousObfuscatedAccountIds);
   await ensureConnection();
 
   let heard: (outcome: Heard) => void = () => {};

@@ -268,7 +268,9 @@ another signed-in account can never receive it — is the server's pair on every
 `obfuscatedAccountId` (stable per account) and `obfuscatedProfileId` (the intent's id).
 
 1. `GET /api/billing/play/products` → the packs (`productId`, rooms and credits per unit),
-   `eligible`, `validDays` and this account's own `obfuscatedAccountId`.
+   `eligible`, `validDays` and this account's own `obfuscatedAccountId` (plus, once the
+   server has rotated its obfuscation secret, `previousObfuscatedAccountIds`: this
+   account's ids under the earlier secrets).
 2. `POST /api/billing/play/intents { productId }` → `{ intentId, obfuscatedAccountId,
    obfuscatedProfileId }` (it also opens the payment-audit row).
 3. Google's sheet: `requestPurchase({ type: "in-app", request: { google: { skus:
@@ -303,8 +305,10 @@ As built (`src/features/payments/play`):
   listener comes first — a cancel is said once and reported ABANDONED on the intent's
   attempt; "already owned" settles the held purchase on the spot); `reconcilePlay`
   (`getAvailablePurchases()` → each purchase not settled in this run ⇒ POST). Before any
-  purchase is sent, its `obfuscatedAccountIdAndroid` must be this account's (from GET
-  /products or the intent): another account's token is never sent under this session. One
+  purchase is sent, its `obfuscatedAccountIdAndroid` must be one of this account's ids
+  (the current one or a previous one, from GET /products or the intent — a purchase made
+  before a secret rotation keeps its old id): another account's token is never sent under
+  this session. One
   carrying no account id (a promo code redeemed in the Play Store) is sent, and the server
   decides. A purchase Google still calls `pending` is noted, never sent.
 - `PlayPurchaseWatcher` sits beside `RenderWatcher` in `app/(customer)/_layout.tsx`, so

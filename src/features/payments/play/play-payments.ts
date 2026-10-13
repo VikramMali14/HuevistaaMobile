@@ -51,8 +51,14 @@ const settled = new Set<string>();
 const listeners = new Set<() => void>();
 /** What sign-out must also stop: the purchase listeners, the buy waiting on Google. */
 const cleanups = new Set<() => void>();
-/** This account's id on Google's side, from GET /products or an intent. */
+/** This account's id on Google's side, from GET /products or an intent (what a buy is stamped with). */
 let account: string | null = null;
+/**
+ * Every id this account is known by on Google's side: the current one and those made with
+ * an obfuscation secret the server has since rotated away from. A purchase stamped before
+ * the rotation still carries an old one, and is still this account's.
+ */
+const accounts = new Set<string>();
 /** Counts resets, so an answer that arrives after sign-out is dropped. */
 let generation = 0;
 
@@ -92,9 +98,16 @@ export function playOrderId(token: string): string | null {
   return inputs.get(token)?.orderId ?? null;
 }
 
-/** This account's id on Google's side: a purchase carrying another one is someone else's. */
-export function rememberPlayAccount(id: string | null | undefined) {
-  if (id) account = id;
+/**
+ * This account's id on Google's side, and the ids it had under earlier secrets: a purchase
+ * carrying any other is someone else's. Ids add up until sign-out — every one is this account's.
+ */
+export function rememberPlayAccount(id: string | null | undefined, previous?: readonly string[] | null) {
+  if (id) {
+    account = id;
+    accounts.add(id);
+  }
+  for (const old of previous ?? []) if (old) accounts.add(old);
 }
 
 export function playAccount(): string | null {
@@ -105,11 +118,12 @@ export function playAccount(): string | null {
  * Whether a purchase may be sent under this session. One carrying another account's id is
  * never sent — its token is that account's business. One carrying none (a promo code
  * redeemed in the Play Store) is sent, and the server decides. One carrying an id while
- * this account's is not known yet waits for a reconcile that knows it.
+ * this account's is not known yet waits for a reconcile that knows it. Any of this account's
+ * ids counts, an old one too (a purchase made before the server rotated its secret).
  */
 export function isOurs(purchaseAccountId: string | null | undefined): boolean {
   if (!purchaseAccountId) return true;
-  return account !== null && purchaseAccountId === account;
+  return accounts.has(purchaseAccountId);
 }
 
 /** Answered for good in this run: a reconcile or a second delivery leaves it alone. */
@@ -228,6 +242,7 @@ export function resetPlay() {
   inputs.clear();
   settled.clear();
   account = null;
+  accounts.clear();
   generation += 1;
   for (const l of listeners) l();
 }
