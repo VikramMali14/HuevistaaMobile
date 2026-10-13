@@ -9,6 +9,8 @@ export class ApiError extends Error {
   readonly status: number;
   readonly fieldErrors?: Record<string, string>;
   readonly code?: string;
+  /** The detail under a code that covers several cases (a Play refusal's reason). */
+  readonly reason?: string;
 
   constructor(
     kind: ApiErrorKind,
@@ -16,6 +18,7 @@ export class ApiError extends Error {
     message: string,
     fieldErrors?: Record<string, string>,
     code?: string,
+    reason?: string,
   ) {
     super(message);
     this.name = "ApiError";
@@ -23,6 +26,7 @@ export class ApiError extends Error {
     this.status = status;
     this.fieldErrors = fieldErrors;
     this.code = code;
+    this.reason = reason;
   }
 }
 
