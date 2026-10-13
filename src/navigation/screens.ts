@@ -118,10 +118,13 @@ export const screens = {
     status: "built", summary: "Stars and a few words about the job behind a board." },
   C27: { title: "Rooms and credits", area: "customer", href: "/balance", phase: 4, spec: CUSTOMER,
     status: "built", summary: "What I hold, and how to get more.", next: ["C28", "C30"] },
+  // One route, two counters: Razorpay's basket, or — in the Android store build — the packs
+  // sold through Google Play (config/env paymentsMode). C29 follows a Play purchase by its
+  // token (?play=…) instead of a Razorpay order (?order=…).
   C28: { title: "Checkout", area: "customer", href: "/checkout", phase: 4, spec: CUSTOMER, status: "built",
-    summary: "A short basket in exact ₹, paid through Razorpay.", next: ["C29"] },
+    summary: "A short basket in exact ₹ through Razorpay — or a Google Play pack in the store build.", next: ["C29"] },
   C29: { title: "Payment result", area: "customer", href: "/payment-result", phase: 4, spec: CUSTOMER,
-    status: "built", summary: "Paid, cancelled, failed — or still checking, never a false failure.", next: ["C6", "C27", "C28"] },
+    status: "built", summary: "Paid, cancelled, failed, waiting for Google — or still checking, never a false failure.", next: ["C6", "C27", "C28"] },
   C30: { title: "Add a shop code", area: "customer", href: "/add-shop-code", phase: 2, spec: CUSTOMER,
     status: "built", summary: "The 8-character code a shop gave at the counter." },
   C31: { title: "My products", area: "customer", href: "/my-products", phase: 2, spec: CUSTOMER,

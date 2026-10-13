@@ -48,6 +48,14 @@ now opens), sharing a room, rooms and credits, checkout through Razorpay on the 
 app mid-payment. Left for a real phone: make a board on `expo-gl`, and a Razorpay test
 payment including the cold start.
 
+**Google Play Billing — the Android store build — is built.** Every Android build sells
+rooms and AI credits as packs through Google Play unless it was built with
+`EXPO_PUBLIC_PAYMENTS=web` (the sideloaded APK is); iOS keeps the website's checkout for
+now. The server issues the key each purchase is made with, reads the purchase from Google
+and grants it once; the app hands over whatever Google still holds unfinished whenever it
+comes back to the front. Left for a real phone: a license tester buying each pack from
+Play internal testing (docs/09-release.md, "Google Play Billing").
+
 **Phase 5 — AI images — is built.**
 - Choose a room and the option to photograph.
 - Choose how it is photographed, with each quality priced from the wallet. If credits
@@ -143,6 +151,11 @@ npm start                 # then press "a" for Android, or scan the QR with Expo
 
 - Android emulator → backend on this computer: `http://10.0.2.2:8080`
 - A real phone on the same Wi-Fi: `http://<this computer's LAN IP>:8080`
+
+Buying: an Android build sells through Google Play Billing unless `.env` sets
+`EXPO_PUBLIC_PAYMENTS=web` (Razorpay through the website). Expo Go has no Google Play
+Billing module, so set `web` there, or try Play from the development client as a license
+tester. Never publish an `eas update` for production from a `.env` that sets `web`.
 
 Expo Go can't receive push notifications and lacks Sentry's native module. To try those,
 build a development client once (`eas build --profile development -p android`), install

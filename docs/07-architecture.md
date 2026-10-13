@@ -76,7 +76,7 @@ HuevistaaMobile/
 │   │   ├── studio/                   #   recolor engine, canvas, board tray (Phase 3)
 │   │   ├── catalogue/                #   swatch grid, filters (Phase 2)
 │   │   ├── boards/                   #   making, keeping and sending colour boards (Phase 4)
-│   │   ├── payments/                 #   checkout, verification, the payment kept (Phase 4)
+│   │   ├── payments/                 #   checkout, verification, the payment kept (Phase 4); play/ = Google Play
 │   │   ├── ai-images/                #   the one ask, images being made, the picture kept (Phase 5)
 │   │   └── painter/                  #   points, rewards, listing, board reader (Phase 6)
 │   ├── config/env.ts                 # API origin, site origin, app scheme
@@ -249,6 +249,73 @@ As built (`src/features/payments`):
   While the app's own checkout is waiting it hands the answer over and steps aside; a
   cancel or failure just after a checkout settled is its echo; on a cold start it settles
   the kept order itself.
+
+### Google Play (the Android store build)
+
+Rooms and AI credits are digital goods used in the app, so the build distributed through
+Google Play sells them with Google Play Billing; Razorpay stays for the website, the
+sideloaded APK and (for now) iOS. `paymentsMode()` in `src/config/env.ts` decides, read at
+each call: iOS is `"web"`; Android is `"play"` unless the build was made with
+`EXPO_PUBLIC_PAYMENTS=web`. The safe value is the default on purpose: eas.json's `env` is
+applied by `eas build` and **not** by `eas update`, so an update published without the
+variable keeps the store build on Google Play. The `preview` profile (the sideloaded APK)
+sets `web`; `development` and `production` leave it unset, so license testers can try
+Play with the development client. An update for the preview channel must set `web` itself;
+one for production must not set it.
+
+The owner's rule — the key made with the payment says exactly which account paid, so
+another signed-in account can never receive it — is the server's pair on every purchase:
+`obfuscatedAccountId` (stable per account) and `obfuscatedProfileId` (the intent's id).
+
+1. `GET /api/billing/play/products` → the packs (`productId`, rooms and credits per unit),
+   `eligible`, `validDays` and this account's own `obfuscatedAccountId`.
+2. `POST /api/billing/play/intents { productId }` → `{ intentId, obfuscatedAccountId,
+   obfuscatedProfileId }` (it also opens the payment-audit row).
+3. Google's sheet: `requestPurchase({ type: "in-app", request: { google: { skus:
+   [productId], obfuscatedAccountId, obfuscatedProfileId } } })`. Those are the request's
+   own names; the `…Android`-suffixed ones exist only on the purchase read back, and a
+   wrong name is dropped without a word. The buyer chooses the quantity in the sheet.
+4. `POST /api/billing/play/purchases { productId, purchaseToken }` for each purchase Google
+   says is `purchased` → 200 GRANTED / ALREADY_GRANTED with what it added and a
+   `reference`; 202 PENDING; 409 OTHER_ACCOUNT; 409 PLAY_REFUSED + `reason`; 503
+   PLAY_UNAVAILABLE. The server reads the purchase from Google itself and grants it once.
+5. Granted: `finishTransaction({ purchase, isConsumable: true })` (errors swallowed: the
+   server consumes it too) and the `paymentChanges` keys are read again.
+
+As built (`src/features/payments/play`):
+- `store.ts` is the one file that imports `expo-iap` (5.8.1, pinned; its config plugin in
+  app.json adds `com.android.vending.BILLING` and builds against Google Play). It exports
+  the app's own shapes, never throws from a purchase request (cancel, already owned and
+  failure are results), and keeps the library's purchase objects to itself. Jest replaces
+  it with an in-memory double (`jest.setup.ts`, with `__emitPurchase` / `__emitError`).
+- `play-payments.ts` is its own store keyed by purchase token (`usePlayPurchase(token)`):
+  `verifying | granted | pending | checking | refused | otherAccount`. One request per
+  token at a time — a purchase can arrive from the sheet's answer, Google's listener and a
+  reconcile at once — and a token the server answered for good is not sent again in the
+  run. Its classifier: code OTHER_ACCOUNT → `otherAccount`; 202 / PENDING → `pending`; no
+  answer, a 5xx, 401, 408 or 429 → `checking` (never a refusal: 503 is the server's word
+  for "Google or our credentials are failing"); any other 4xx → `refused` with the
+  server's sentence and `reason`. It never imports `expo-iap`, so sign-out can reset it
+  (`resetPlay()` in `forgetAccountData`, beside `resetPayments()`). The Razorpay
+  `PaymentState`, `verifyPayment` and `pending-payment.ts` are untouched: Google keeps
+  every unfinished purchase itself, so nothing is kept on the phone.
+- `play-checkout.ts`: `buyPack` (intent, sheet, then whichever of the sheet's answer and the
+  listener comes first — a cancel is said once and reported ABANDONED on the intent's
+  attempt; "already owned" settles the held purchase on the spot); `reconcilePlay`
+  (`getAvailablePurchases()` → each purchase not settled in this run ⇒ POST). Before any
+  purchase is sent, its `obfuscatedAccountIdAndroid` must be this account's (from GET
+  /products or the intent): another account's token is never sent under this session. One
+  carrying no account id (a promo code redeemed in the Play Store) is sent, and the server
+  decides. A purchase Google still calls `pending` is noted, never sent.
+- `PlayPurchaseWatcher` sits beside `RenderWatcher` in `app/(customer)/_layout.tsx`, so
+  only a signed-in customer ever connects (a painter never does): `initConnection`, the
+  purchase listeners, a reconcile on mount and whenever the app comes back to the front,
+  `endConnection` on unmount. It does nothing in web mode.
+- C28 (`PlayCounter`) and C29 (`PlayResult`) are in 04 C28/C29. In Play mode nothing may
+  open the website to pay or say to buy there (Play's anti-steering rule): no Razorpay
+  "confirming" banner, no "UPI · cards · netbanking", nothing leads to D3.
+- Crash reports redact any opaque run of 40 or more characters (`[token]`), and no
+  purchase object is ever logged: a purchase token is as good as the purchase.
 
 ## The colour engine (the biggest risk)
 
@@ -669,13 +736,20 @@ If the copies start drifting, move them into a shared npm package later. Not bef
 | Preview (APK) | staging or production | `eas.json` → `preview.env` |
 | Production | `https://api.huevistaa.com` | `eas.json` → `production.env` |
 
+Payments: `EXPO_PUBLIC_PAYMENTS` unset is Google Play on Android (production, development);
+`web` is Razorpay through the website (the preview APK, or a local `.env` against a backend
+without Play billing). iOS is always `web` for now. See "Payments" → "Google Play".
+
 ## Builds and release
 
 - `eas build -p android --profile preview` → an APK to install directly, and the link
   for the website's `NEXT_PUBLIC_APK_URL` "HueVistaa for Android" bar.
 - `eas build -p android --profile production` → an AAB for Google Play.
 - `eas update --channel production` → JavaScript-only fixes for the same native version
-  (runtimeVersion follows the app version).
+  (runtimeVersion follows the app version). eas.json's `env` is not applied to an update:
+  never set `EXPO_PUBLIC_PAYMENTS=web` for a production update; an update for the preview
+  channel must set it. Version 0.2.0 is the runtime that carries `expo-iap` — an update
+  can't reach a 0.1.0 install, which has no Play billing.
 - `eas build --profile development` → a dev client, needed to try notifications.
 - iOS follows once Android is stable (needs an Apple developer account). The whole
   release, in order, is in [09-release.md](09-release.md).
