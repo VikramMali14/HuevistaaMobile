@@ -46,6 +46,9 @@ const EMAIL = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
 const PHONE = /(?:\+?\d[\d\s-]{8,}\d)/g;
 const PUSH_TOKEN = /Expo(?:nent)?PushToken\[[^\]]*\]/g;
 const BEARER = /Bearer\s+[A-Za-z0-9._~+/=-]+/gi;
+// A long opaque run with no spaces: a Google Play purchase token, a signature, a key. A
+// purchase token is as good as the purchase, so none ever leaves the phone in a report.
+const OPAQUE_TOKEN = /[A-Za-z0-9._-]{40,}/g;
 // A path segment long enough to be an id or a code: board and share codes, room ids, tokens.
 const LONG_SEGMENT = /\/[A-Za-z0-9_-]{16,}(?=\/|$)/g;
 
@@ -55,6 +58,7 @@ export function scrubText(text: string): string {
     .replace(PUSH_TOKEN, "[push token]")
     .replace(BEARER, "Bearer [token]")
     .replace(EMAIL, "[email]")
+    .replace(OPAQUE_TOKEN, "[token]")
     .replace(PHONE, "[number]");
 }
 
