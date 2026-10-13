@@ -340,6 +340,28 @@ describe("buyPack", () => {
   });
 });
 
+describe("startPlay", () => {
+  it("an app without Google Play billing (Expo Go) carries on: nothing thrown, nothing listening", async () => {
+    const missing = () => {
+      throw new Error("Cannot find native module 'ExpoIap'");
+    };
+    const onPurchase = jest.requireMock<{ onPurchase: jest.Mock }>("@/features/payments/play/store").onPurchase;
+    onPurchase.mockImplementationOnce(missing);
+    store.initConnection.mockImplementation(async () => missing());
+    rememberPlayAccount(ME);
+
+    expect(() => {
+      stop = startPlay();
+    }).not.toThrow();
+    await settle();
+    store.__emitPurchase(purchase());
+    await settle();
+    expect(mockBilling.playPurchase).not.toHaveBeenCalled();
+    expect(() => stop?.()).not.toThrow();
+    stop = null;
+  });
+});
+
 describe("resetPlay", () => {
   it("forgets this run's purchases and stops listening", async () => {
     mockBilling.playPurchase.mockResolvedValue(GRANTED);

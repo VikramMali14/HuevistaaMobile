@@ -94,8 +94,8 @@ jest.mock("@/features/payments/play/store", () => {
     requestPurchase: jest.fn(async () => ({ kind: "purchases", purchases: [] })),
     getAvailablePurchases: jest.fn(async () => []),
     finishTransaction: jest.fn(async () => undefined),
-    onPurchase: on(purchases),
-    onError: on(errors),
+    onPurchase: jest.fn(on(purchases)),
+    onError: jest.fn(on(errors)),
     __emitPurchase: (purchase: unknown) => {
       for (const listener of [...purchases]) listener(purchase);
     },

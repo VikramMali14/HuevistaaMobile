@@ -269,7 +269,15 @@ export function reconcilePlay(): Promise<void> {
  * connection; sign-out (resetPlay) removes the listeners too.
  */
 export function startPlay(): () => void {
-  const subscriptions = [store.onPurchase(heardPurchase), store.onError(heardFailure)];
+  const subscriptions: { remove: () => void }[] = [];
+  try {
+    subscriptions.push(store.onPurchase(heardPurchase), store.onError(heardFailure));
+  } catch {
+    // No Google Play billing in this app (Expo Go has no native module for it). The
+    // customer's screens carry on; only Checkout says Google Play can't be reached.
+    for (const s of subscriptions) s.remove();
+    subscriptions.length = 0;
+  }
   let stopped = false;
   const stopListening = () => {
     if (stopped) return;
