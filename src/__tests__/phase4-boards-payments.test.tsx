@@ -8,13 +8,18 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { act, fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
 
+import { Platform } from "react-native";
+
 import { ApiError } from "@/api/errors";
 import { queryClient } from "@/api/query-client";
-import type { CartCatalogue, ProjectCombo, RoomDetail, RoomRegion, UserProfile } from "@/api/types";
+import type { CartCatalogue, PlayCatalogue, ProjectCombo, RoomDetail, RoomRegion, UserProfile } from "@/api/types";
 import { forgetRememberedRoute } from "@/auth/pending-route";
+import * as env from "@/config/env";
 import { resetMadeBoards } from "@/features/boards/made-boards";
 import { resetPayments } from "@/features/payments/payments";
 import { clearPending, savePending } from "@/features/payments/pending-payment";
+import { resetPlay, verifyPlayPurchase } from "@/features/payments/play/play-payments";
+import type { StoreFailure, StorePurchase } from "@/features/payments/play/store";
 import { resetPaintStore, resetRecentShades } from "@/features/studio/paint-store";
 import { resetTrays, saveCombo } from "@/features/studio/tray-store";
 import type { BackendShade } from "@/lib/shade-mapping";
@@ -157,6 +162,9 @@ const mockBilling = {
   verifyCart: jest.fn(),
   pdfAllowance: jest.fn(),
   reportCheckout: jest.fn(async () => undefined),
+  playProducts: jest.fn<Promise<PlayCatalogue>, []>(),
+  playIntent: jest.fn(),
+  playPurchase: jest.fn(),
 };
 jest.mock("@/api/endpoints/billing", () => ({
   get billingApi() {
@@ -261,7 +269,17 @@ beforeEach(async () => {
   for (const group of [mockAuth, mockMe, mockShades, mockLibrary, mockProjects, mockBilling, mockFiles]) {
     for (const fn of Object.values(group)) if (jest.isMockFunction(fn)) fn.mockClear();
   }
-  for (const fn of [...Object.values(mockMe), ...Object.values(mockProjects), mockBilling.cart, mockBilling.cartOrder, mockBilling.verifyCart, mockBilling.pdfAllowance]) {
+  for (const fn of [
+    ...Object.values(mockMe),
+    ...Object.values(mockProjects),
+    mockBilling.cart,
+    mockBilling.cartOrder,
+    mockBilling.verifyCart,
+    mockBilling.pdfAllowance,
+    mockBilling.playProducts,
+    mockBilling.playIntent,
+    mockBilling.playPurchase,
+  ]) {
     if (jest.isMockFunction(fn)) fn.mockReset();
   }
   mockOpenAuth.mockReset();
@@ -292,6 +310,7 @@ beforeEach(async () => {
   resetPaintStore();
   resetTrays();
   resetPayments();
+  resetPlay();
   // Not resetPending: that keeps a paid proof, as sign-out does.
   clearPending();
   await resetMadeBoards();
@@ -847,6 +866,250 @@ describe("C28 · Checkout", () => {
     await waitFor(() => expect(screen.getByText("Your shop adds your rooms — ask them from Rooms and credits.")).toBeTruthy());
     expect(screen.queryByTestId("stepper-rooms")).toBeNull();
     await waitFor(() => expect(screen.getByText("Pay ₹70")).toBeTruthy());
+  });
+
+  // The Android store build sells packs through Google Play (the store is jest.setup.ts's
+  // in-memory double); every other build keeps the Razorpay counter above.
+  describe("Google Play (the Android store build)", () => {
+    const store = jest.requireMock<{
+      initConnection: jest.Mock;
+      fetchProducts: jest.Mock;
+      requestPurchase: jest.Mock;
+      getAvailablePurchases: jest.Mock;
+      finishTransaction: jest.Mock;
+      __emitPurchase: (p: StorePurchase) => void;
+      __emitError: (f: StoreFailure) => void;
+    }>("@/features/payments/play/store");
+    const ME = "me-0123456789abcdefghijklmnopqrstuvwxyzABCD";
+    const PLAY: PlayCatalogue = {
+      enabled: true,
+      eligible: true,
+      validDays: 365,
+      obfuscatedAccountId: ME,
+      products: [
+        { productId: "room_1", projects: 1, credits: 0 },
+        { productId: "ai_credit_1", projects: 0, credits: 1 },
+        { productId: "combo_1_1", projects: 1, credits: 1 },
+        { productId: "bundle_3_3", projects: 3, credits: 3 },
+      ],
+    };
+    // Google knows three of the four: the bundle isn't set up in the Play Console yet.
+    const PRICES = [
+      { productId: "room_1", displayPrice: "₹149.00" },
+      { productId: "ai_credit_1", displayPrice: "₹70.00" },
+      { productId: "combo_1_1", displayPrice: "₹199.00" },
+    ];
+    const INTENT = { intentId: "intent-1", productId: "room_1", obfuscatedAccountId: ME, obfuscatedProfileId: "intent-1" };
+    const purchase = (extra: Partial<StorePurchase> = {}): StorePurchase => ({
+      token: "token-1",
+      productId: "room_1",
+      quantity: 1,
+      state: "purchased",
+      accountId: ME,
+      profileId: "intent-1",
+      orderId: "GPA.3300-1111-2222-33333",
+      ...extra,
+    });
+    const GRANTED = { status: "GRANTED", projects: 1, credits: 0, reference: "GPA.3300-1111-2222-33333" };
+
+    let mode: jest.SpyInstance;
+    beforeEach(() => {
+      mode = jest.spyOn(env, "paymentsMode").mockReturnValue("play");
+      mockBilling.playProducts.mockResolvedValue(PLAY);
+      mockBilling.playIntent.mockResolvedValue(INTENT);
+      store.initConnection.mockReset().mockResolvedValue(true);
+      store.fetchProducts.mockReset().mockResolvedValue(PRICES);
+      store.requestPurchase.mockReset().mockResolvedValue({ kind: "purchases", purchases: [purchase()] });
+      store.getAvailablePurchases.mockReset().mockResolvedValue([]);
+      store.finishTransaction.mockReset().mockResolvedValue(undefined);
+    });
+    afterEach(() => mode.mockRestore());
+
+    const buy = async (url = "/checkout") => {
+      signedIn();
+      renderRouter("./app", { initialUrl: url });
+      await waitFor(() => expect(screen.getByTestId("checkout-pay")).toBeEnabled());
+      fireEvent.press(screen.getByTestId("checkout-pay"));
+    };
+
+    it("sells the packs both the server and Google know, at Google's price — and never mentions the website", async () => {
+      signedIn();
+      renderRouter("./app", { initialUrl: "/checkout" });
+      await waitFor(() => expect(screen.getByText("1 room · ₹149.00")).toBeTruthy());
+      expect(screen.getByText("1 AI credit · ₹70.00")).toBeTruthy();
+      expect(screen.getByText("1 room and 1 AI credit · ₹199.00")).toBeTruthy();
+      expect(screen.queryByTestId("checkout-pack-bundle_3_3")).toBeNull();
+      expect(store.fetchProducts).toHaveBeenCalledWith(["room_1", "ai_credit_1", "combo_1_1", "bundle_3_3"]);
+      expect(screen.getByText("Choose a pack. Everything in it lasts a year.")).toBeTruthy();
+      // A room is the default; the buyer can pick another.
+      expect(screen.getByText("Buy for ₹149.00")).toBeTruthy();
+      fireEvent.press(screen.getByTestId("checkout-pack-combo_1_1"));
+      expect(screen.getByText("Buy for ₹199.00")).toBeTruthy();
+      expect(screen.getByText("Paid through Google Play")).toBeTruthy();
+      expect(screen.queryByText("UPI · cards · netbanking")).toBeNull();
+      expect(mockBilling.cart).not.toHaveBeenCalled();
+    });
+
+    it("a link asking for AI credits highlights that pack; a shop's customer is never sold a room", async () => {
+      signedIn();
+      mockMe.entitlement.mockResolvedValue({ customerId: "u1", customerName: "Priya", projectAllowance: 2, projectsCreated: 2, projectsRemaining: 0 });
+      renderRouter("./app", { initialUrl: "/checkout?credits=3&from=ai-image" });
+      await waitFor(() => expect(screen.getByText("Buy for ₹70.00")).toBeTruthy());
+      expect(screen.getByText("Your shop adds your rooms — ask them from Rooms and credits.")).toBeTruthy();
+      expect(screen.queryByTestId("checkout-pack-room_1")).toBeNull();
+      expect(screen.queryByTestId("checkout-pack-combo_1_1")).toBeNull();
+    });
+
+    it("buying isn't available when the server says so, or Google has none of the packs", async () => {
+      signedIn();
+      store.fetchProducts.mockResolvedValue([]);
+      renderRouter("./app", { initialUrl: "/checkout" });
+      await waitFor(() => expect(screen.getByText("Buying isn't available on this account.")).toBeTruthy());
+      expect(screen.queryByTestId("checkout-pay")).toBeNull();
+    });
+
+    it("buys with the intent's ids, then shows what the server granted and its reference", async () => {
+      mockBilling.playPurchase.mockResolvedValue(GRANTED);
+      // A consume that fails on the phone is harmless: the server consumes it too.
+      store.finishTransaction.mockRejectedValue(new Error("Item not owned"));
+      await buy();
+      await waitFor(() => expect(screen.getByTestId("payment-paid")).toBeTruthy());
+      expect(mockBilling.playIntent).toHaveBeenCalledWith("room_1");
+      expect(store.requestPurchase).toHaveBeenCalledWith({ productId: "room_1", obfuscatedAccountId: ME, obfuscatedProfileId: "intent-1" });
+      expect(mockBilling.playPurchase).toHaveBeenCalledWith({ productId: "room_1", purchaseToken: "token-1" });
+      expect(screen.getByText("1 room added.")).toBeTruthy();
+      expect(screen.getByText("Payment reference GPA.3300-1111-2222-33333")).toBeTruthy();
+      expect(store.finishTransaction).toHaveBeenCalledWith(purchase());
+      press("Start a room");
+      await waitFor(() => expect(screen).toHavePathname("/room/new"));
+    });
+
+    it("a cancel says so once, stays on the counter, and is reported once", async () => {
+      store.requestPurchase.mockImplementation(async () => {
+        store.__emitError({ kind: "cancelled" });
+        return { kind: "cancelled" };
+      });
+      await buy();
+      await waitFor(() => expect(screen.getByText("Payment cancelled.")).toBeTruthy());
+      expect(screen.getAllByText("Payment cancelled.")).toHaveLength(1);
+      expect(screen).toHavePathname("/checkout");
+      expect(mockBilling.reportCheckout.mock.calls).toEqual([["intent-1", { status: "ABANDONED", pageUrl: "huevista://checkout" }]]);
+    });
+
+    it("a payment Google is still waiting for is pending — nothing sent, nothing added", async () => {
+      store.requestPurchase.mockResolvedValue({ kind: "purchases", purchases: [purchase({ state: "pending" })] });
+      await buy();
+      await waitFor(() => expect(screen.getByTestId("payment-pending")).toBeTruthy());
+      expect(screen.getByText("Waiting for Google")).toBeTruthy();
+      expect(mockBilling.playPurchase).not.toHaveBeenCalled();
+      expect(store.finishTransaction).not.toHaveBeenCalled();
+    });
+
+    it("no answer from the server is checking, never failed — then granted on Check again", async () => {
+      mockBilling.playPurchase.mockRejectedValueOnce(new ApiError("network", 0, "Network error"));
+      await buy();
+      await waitFor(() => expect(screen.getByText("We're checking your payment")).toBeTruthy());
+      expect(screen.queryByText(/didn't go through/)).toBeNull();
+      mockBilling.playPurchase.mockResolvedValue(GRANTED);
+      fireEvent.press(screen.getByTestId("payment-check"));
+      await waitFor(() => expect(screen.getByTestId("payment-paid")).toBeTruthy());
+    });
+
+    it("a purchase being confirmed keeps Buy off", async () => {
+      mockBilling.playPurchase.mockRejectedValue(new ApiError("http", 503, "", undefined, "PLAY_UNAVAILABLE"));
+      await verifyPlayPurchase({ token: "token-0", productId: "room_1" });
+      signedIn();
+      renderRouter("./app", { initialUrl: "/checkout" });
+      await waitFor(() => expect(screen.getByTestId("checkout-play-confirming")).toBeTruthy());
+      await waitFor(() => expect(screen.getByTestId("checkout-pay")).toBeDisabled());
+    });
+
+    it("a refusal for good says the server's reason, with Get help", async () => {
+      mockBilling.playPurchase.mockRejectedValue(new ApiError("http", 409, "This purchase was cancelled.", undefined, "PLAY_REFUSED", "CANCELLED"));
+      await buy();
+      await waitFor(() => expect(screen.getByTestId("payment-refused")).toBeTruthy());
+      expect(screen.getByText("This purchase was cancelled.")).toBeTruthy();
+      expect(screen.getByText("Payment reference GPA.3300-1111-2222-33333")).toBeTruthy();
+      expect(store.finishTransaction).not.toHaveBeenCalled();
+    });
+
+    it("another account's purchase is said plainly, and left alone", async () => {
+      mockBilling.playPurchase.mockRejectedValue(new ApiError("http", 409, "", undefined, "OTHER_ACCOUNT"));
+      await buy();
+      await waitFor(() => expect(screen.getByTestId("payment-other-account")).toBeTruthy());
+      expect(screen.getByText("This purchase is for another account")).toBeTruthy();
+      expect(store.finishTransaction).not.toHaveBeenCalled();
+    });
+
+    it("an earlier purchase Google still holds is settled now, and the pack can be bought again", async () => {
+      store.requestPurchase.mockResolvedValue({ kind: "already-owned", productId: "room_1" });
+      store.getAvailablePurchases.mockResolvedValue([purchase({ token: "earlier", profileId: "intent-0" })]);
+      mockBilling.playPurchase.mockResolvedValue({ ...GRANTED, status: "ALREADY_GRANTED" });
+      await buy();
+      await waitFor(() => expect(screen.getByText("Your earlier purchase of this pack has been added. You can buy it again now.")).toBeTruthy());
+      expect(mockBilling.playPurchase.mock.calls).toEqual([[{ productId: "room_1", purchaseToken: "earlier" }]]);
+      expect(screen).toHavePathname("/checkout");
+      await waitFor(() => expect(screen.getByTestId("checkout-pay")).toBeEnabled());
+    });
+
+    it("an earlier purchase still waiting for Google, or another account's, is said so — with no website", async () => {
+      store.requestPurchase.mockResolvedValue({ kind: "already-owned", productId: "room_1" });
+      store.getAvailablePurchases.mockResolvedValue([purchase({ token: "theirs", accountId: "someone-else" })]);
+      await buy();
+      await waitFor(() =>
+        expect(
+          screen.getByText("This Google account has an unfinished purchase of this pack for another HueVistaa account. It clears once that purchase is settled."),
+        ).toBeTruthy(),
+      );
+      expect(mockBilling.playPurchase).not.toHaveBeenCalled();
+
+      store.getAvailablePurchases.mockResolvedValue([purchase({ token: "waiting", state: "pending" })]);
+      fireEvent.press(screen.getByTestId("checkout-pay"));
+      await waitFor(() => expect(screen.getByText("A payment for this pack is still waiting for Google. It'll be added once Google confirms it.")).toBeTruthy());
+      expect(mockBilling.playPurchase).not.toHaveBeenCalled();
+    });
+
+    it("hands over what Google still holds on opening — each token once, and never another account's", async () => {
+      mockBilling.playPurchase.mockResolvedValue(GRANTED);
+      store.getAvailablePurchases.mockResolvedValue([purchase(), purchase({ token: "theirs", accountId: "someone-else" })]);
+      signedIn();
+      renderRouter("./app", { initialUrl: "/balance" });
+      await waitFor(() => expect(mockBilling.playPurchase).toHaveBeenCalledTimes(1));
+      // The same purchase arriving on Google's listener changes nothing.
+      await act(async () => store.__emitPurchase(purchase()));
+      expect(mockBilling.playPurchase.mock.calls).toEqual([[{ productId: "room_1", purchaseToken: "token-1" }]]);
+      await waitFor(() => expect(store.finishTransaction).toHaveBeenCalledTimes(1));
+    });
+  });
+
+  it("where the website takes the payments, Google Play is never touched", async () => {
+    const store = jest.requireMock<{ initConnection: jest.Mock }>("@/features/payments/play/store");
+    store.initConnection.mockClear();
+    signedIn();
+    renderRouter("./app", { initialUrl: "/checkout" });
+    await waitFor(() => expect(screen.getByText("Pay ₹149")).toBeTruthy());
+    expect(screen.getByText("UPI · cards · netbanking")).toBeTruthy();
+    expect(mockBilling.playProducts).not.toHaveBeenCalled();
+    expect(store.initConnection).not.toHaveBeenCalled();
+  });
+
+  it("the payments mode: Google Play on Android unless the build says web, the website on iOS", () => {
+    const before = process.env.EXPO_PUBLIC_PAYMENTS;
+    try {
+      delete process.env.EXPO_PUBLIC_PAYMENTS;
+      jest.replaceProperty(Platform, "OS", "ios");
+      expect(env.paymentsMode()).toBe("web");
+      jest.replaceProperty(Platform, "OS", "android");
+      expect(env.paymentsMode()).toBe("play");
+      process.env.EXPO_PUBLIC_PAYMENTS = "web";
+      expect(env.paymentsMode()).toBe("web");
+      process.env.EXPO_PUBLIC_PAYMENTS = "anything else";
+      expect(env.paymentsMode()).toBe("play");
+    } finally {
+      jest.restoreAllMocks();
+      if (before === undefined) delete process.env.EXPO_PUBLIC_PAYMENTS;
+      else process.env.EXPO_PUBLIC_PAYMENTS = before;
+    }
   });
 });
 

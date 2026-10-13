@@ -21,6 +21,8 @@ import { resetMadeBoards } from "@/features/boards/made-boards";
 import { forgetPush, unregisterPush } from "@/features/notifications/notifications";
 import { resetPayments } from "@/features/payments/payments";
 import { resetPending } from "@/features/payments/pending-payment";
+// Not the Play flow itself (play-checkout.ts): only this store, which never loads expo-iap.
+import { resetPlay } from "@/features/payments/play/play-payments";
 import { clearStudioCache } from "@/features/studio/engine/texture-loader";
 import { resetPaintStore, resetRecentShades } from "@/features/studio/paint-store";
 import { clearUpload } from "@/features/studio/photo-upload";
@@ -46,7 +48,8 @@ const CATALOGUE_CACHE_KEY = "hv.catalogue";
 /**
  * Everything kept for one account: the screens' data, the catalogue copy (a shop
  * customer's is limited to their shop), the studio's colours and trays, the boards made
- * here, an unpaid order, the AI images fetched here, and the pictures. (A payment that went through and is not yet
+ * here, an unpaid order, this run's Google Play purchases and their listeners, the AI
+ * images fetched here, and the pictures. (A payment that went through and is not yet
  * confirmed stays: the money has left — it is shown to its own account only.) Dropped on sign-out AND when a
  * sign-in brings a different profile (S10, C5's switch back), so one profile's rooms
  * never show under the other's name.
@@ -58,6 +61,7 @@ async function forgetAccountData(): Promise<void> {
   resetPaintStore();
   resetTrays();
   resetPayments();
+  resetPlay();
   clearUpload();
   clearStudioCache();
   clearRenderFiles();
