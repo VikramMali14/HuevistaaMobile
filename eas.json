@@ -21,7 +21,8 @@
       },
       "env": {
         "EXPO_PUBLIC_API_ORIGIN": "https://api.huevistaa.com",
-        "EXPO_PUBLIC_SITE_ORIGIN": "https://huevistaa.com"
+        "EXPO_PUBLIC_SITE_ORIGIN": "https://huevistaa.com",
+        "EXPO_PUBLIC_PAYMENTS": "web"
       }
     },
     "production": {

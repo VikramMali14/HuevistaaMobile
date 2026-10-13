@@ -1,3 +1,5 @@
+import { Platform } from "react-native";
+
 /**
  * Where the app talks to. EXPO_PUBLIC_* values are built into the app (see .env.example
  * and eas.json), so nothing secret belongs here.
@@ -37,3 +39,20 @@ export const deepLinks = {
   googleCallback: `${env.scheme}://sign-in/callback`,
   payCallback: `${env.scheme}://pay/callback`,
 } as const;
+
+/**
+ * How rooms and AI credits are sold: "play" is Google Play Billing (the Android store
+ * build — Play's payments policy requires it for digital goods used in the app), "web" is
+ * Razorpay on the website's /pay/mobile page (iOS for now, and the sideloaded APK).
+ *
+ * On Android the safe value is the default: only an explicit EXPO_PUBLIC_PAYMENTS=web
+ * gives Razorpay. eas.json's `env` is applied by `eas build` but not by `eas update`, so an
+ * update published without the variable must never turn the Play build back into a
+ * website checkout. A function, read at each call, so tests can switch it.
+ */
+export type PaymentsMode = "play" | "web";
+
+export function paymentsMode(): PaymentsMode {
+  if (Platform.OS !== "android") return "web";
+  return process.env.EXPO_PUBLIC_PAYMENTS?.trim() === "web" ? "web" : "play";
+}
