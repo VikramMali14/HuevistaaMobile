@@ -961,6 +961,23 @@ describe("C28 · Checkout", () => {
       expect(screen.queryByTestId("checkout-pack-combo_1_1")).toBeNull();
     });
 
+    it("never quotes the website's prices before the counter: Home and Rooms and credits", async () => {
+      // Google charges its own price for a pack, and no website offer applies there.
+      mockMe.projectOptions.mockResolvedValue({ subscribed: false, projectPricePoints: 0, projectPricePaise: 9900, pointsBalance: 0, validDays: 30, availableCredits: 0 });
+      signedIn();
+      const app = renderRouter("./app", { initialUrl: "/home" });
+      await waitFor(() => expect(screen.getByText("No rooms yet")).toBeTruthy());
+      expect(screen.getByText("Buy a room")).toBeTruthy();
+      expect(screen.getByText("Buy a room to start, or add a code from your paint shop.")).toBeTruthy();
+      expect(screen.queryByText(/₹/)).toBeNull();
+      app.unmount();
+
+      renderRouter("./app", { initialUrl: "/balance" });
+      await waitFor(() => expect(screen.getByTestId("balance-credits-n")).toHaveTextContent("4"));
+      expect(screen.queryByText(/a credit/)).toBeNull();
+      expect(screen.queryByText(/₹/)).toBeNull();
+    });
+
     it("buying isn't available when the server says so, or Google has none of the packs", async () => {
       signedIn();
       store.fetchProducts.mockResolvedValue([]);

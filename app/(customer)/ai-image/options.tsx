@@ -24,6 +24,7 @@ import {
   TextField,
   useToast,
 } from "@/components/ui";
+import { paymentsMode } from "@/config/env";
 import { ComboCard } from "@/features/ai-images/ComboCard";
 import {
   CHOICE_ROWS,
@@ -242,15 +243,25 @@ export default function AiImageOptions() {
   } else if (!w.eligible) {
     footer = <Banner tone="info" message={t("aiImage.notEligible")} testID="ai-not-eligible" />;
   } else if (short > 0) {
+    // Google Play charges its own price for a pack, so the website's is never quoted there.
+    const play = paymentsMode() === "play";
     footer = (
       <View style={{ gap: space.xs }}>
         <Text variant="small" tone="soft" align="center" testID="ai-cost">
-          {short === 1
-            ? t("aiImage.shortOne", { price: formatRupees(w.pricePaise) })
-            : t("aiImage.short", { n: short, price: formatRupees(w.pricePaise) })}
+          {play
+            ? short === 1
+              ? t("aiImage.shortPlainOne")
+              : t("aiImage.shortPlain", { n: short })
+            : short === 1
+              ? t("aiImage.shortOne", { price: formatRupees(w.pricePaise) })
+              : t("aiImage.short", { n: short, price: formatRupees(w.pricePaise) })}
         </Text>
         <Button
-          label={t("aiImage.buy", { short: creditWords(short), total: formatRupees(w.pricePaise * short) })}
+          label={
+            play
+              ? t("aiImage.buyPlain", { short: creditWords(short) })
+              : t("aiImage.buy", { short: creditWords(short), total: formatRupees(w.pricePaise * short) })
+          }
           icon="shopping-bag"
           onPress={buy}
           // A balance being read again may already be enough.

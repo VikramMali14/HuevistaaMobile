@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { StyleSheet, View } from "react-native";
 
 import { Button, Card, Text } from "@/components/ui";
+import { paymentsMode } from "@/config/env";
 import type { Balance } from "@/features/account/balance";
 import { welcomeFrames } from "@/features/auth/welcome-frames";
 import { t } from "@/i18n";
@@ -62,11 +63,13 @@ export function NextStepCard({
     extras.push({ label: t("home.freshCode"), to: "/add-shop-code", variant: "ghost" });
   } else {
     headline = t("home.missingTitle");
-    detail = options
-      ? t("home.missingBody", { price: formatRupees(options.projectPricePaise), span: validitySpan(options.validDays) })
+    // Google Play charges its own price for a room, so the website's is never quoted there.
+    const priced = paymentsMode() === "play" ? null : options;
+    detail = priced
+      ? t("home.missingBody", { price: formatRupees(priced.projectPricePaise), span: validitySpan(priced.validDays) })
       : t("home.missingBodyPlain");
     main = {
-      label: options ? t("home.buy", { price: formatRupees(options.projectPricePaise) }) : t("home.buyPlain"),
+      label: priced ? t("home.buy", { price: formatRupees(priced.projectPricePaise) }) : t("home.buyPlain"),
       to: "/checkout",
     };
     extras.push({ label: t("home.haveCode"), to: "/add-shop-code", variant: "secondary" });
