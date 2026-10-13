@@ -163,7 +163,7 @@ to main. It is a release build, with the JavaScript built in, so it runs without
 computer. Get it from the run's **huevistaa-apk** artifact (a zip with the APK inside);
 install it on the phone and allow "install unknown apps" when asked.
 
-- **Servers.** It talks to `https://api.huevista.org` and opens `https://huevistaa.com`
+- **Servers.** It talks to `https://api.huevistaa.com` and opens `https://huevistaa.com`
   for payments, legal pages and shared links. To build against other servers, use
   **Actions → Android APK → Run workflow**, or set the repository variables
   `APK_API_ORIGIN` / `APK_SITE_ORIGIN`.
