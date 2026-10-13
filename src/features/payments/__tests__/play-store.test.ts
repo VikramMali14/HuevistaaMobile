@@ -63,6 +63,7 @@ describe("Google Play adapter", () => {
           accountId: "acct-43",
           profileId: "intent-1",
           orderId: "GPA.3300-1111-2222-33333",
+          purchasedAt: 1_760_000_000_000,
         },
       ],
     });

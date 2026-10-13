@@ -908,6 +908,7 @@ describe("C28 · Checkout", () => {
       accountId: ME,
       profileId: "intent-1",
       orderId: "GPA.3300-1111-2222-33333",
+      purchasedAt: null,
       ...extra,
     });
     const GRANTED = { status: "GRANTED", projects: 1, credits: 0, reference: "GPA.3300-1111-2222-33333" };
@@ -1050,6 +1051,25 @@ describe("C28 · Checkout", () => {
       expect(mockBilling.playPurchase.mock.calls).toEqual([[{ productId: "room_1", purchaseToken: "earlier" }]]);
       expect(screen).toHavePathname("/checkout");
       await waitFor(() => expect(screen.getByTestId("checkout-pay")).toBeEnabled());
+    });
+
+    it("an earlier purchase Google answers the sheet with is settled as owned — never shown as a new payment", async () => {
+      // Google hands back the purchase it still holds instead of saying "already owned".
+      store.requestPurchase.mockResolvedValue({ kind: "purchases", purchases: [purchase({ token: "earlier", profileId: "intent-0" })] });
+      mockBilling.playPurchase.mockResolvedValue({ ...GRANTED, status: "ALREADY_GRANTED" });
+      await buy();
+      await waitFor(() => expect(screen.getByText("Your earlier purchase of this pack has been added. You can buy it again now.")).toBeTruthy());
+      expect(screen).toHavePathname("/checkout");
+      expect(screen.queryByTestId("payment-paid")).toBeNull();
+
+      store.requestPurchase.mockResolvedValue({ kind: "purchases", purchases: [purchase({ token: "theirs", accountId: "someone-else", profileId: "their-intent" })] });
+      fireEvent.press(screen.getByTestId("checkout-pay"));
+      await waitFor(() =>
+        expect(
+          screen.getByText("This Google account has an unfinished purchase of this pack for another HueVistaa account. It clears once that purchase is settled."),
+        ).toBeTruthy(),
+      );
+      expect(screen.queryByText(/didn't say how it went/)).toBeNull();
     });
 
     it("an earlier purchase still waiting for Google, or another account's, is said so — with no website", async () => {

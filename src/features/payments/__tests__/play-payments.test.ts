@@ -62,6 +62,7 @@ const purchase = (extra: Partial<StorePurchase> = {}): StorePurchase => ({
   accountId: ME,
   profileId: "intent-1",
   orderId: "GPA.3300-1111-2222-33333",
+  purchasedAt: null,
   ...extra,
 });
 const GRANTED = { status: "GRANTED", projects: 1, credits: 0, reference: "GPA.3300-1111-2222-33333" };
@@ -264,6 +265,56 @@ describe("buyPack", () => {
     await expect(buyPack("room_1")).resolves.toEqual({ kind: "cancelled" });
     expect(mockBilling.reportCheckout.mock.calls).toEqual([["intent-1", { status: "ABANDONED", pageUrl: "huevista://checkout" }]]);
     expect(mockBilling.playPurchase).not.toHaveBeenCalled();
+  });
+
+  // Google answers an attempt on a pack it still holds unfinished with that earlier
+  // purchase — on the sheet and on its listener, whoever's it is — and only says
+  // "already owned" when it finds none.
+  it("Google answers with another account's earlier purchase: said so at once, its token never sent", async () => {
+    stop = startPlay();
+    await settle();
+    const theirs = purchase({ token: "theirs", accountId: SOMEONE, profileId: "their-intent" });
+    store.requestPurchase.mockImplementation(async () => {
+      store.__emitPurchase(theirs);
+      return { kind: "purchases", purchases: [theirs] };
+    });
+    const started = Date.now();
+    await expect(buyPack("room_1")).resolves.toEqual({ kind: "owned", notice: "otherAccount" });
+    expect(Date.now() - started).toBeLessThan(1000);
+    expect(mockBilling.playPurchase).not.toHaveBeenCalled();
+  });
+
+  it("Google answers with this account's earlier purchase: settled as owned, never shown as a new payment", async () => {
+    stop = startPlay();
+    await settle();
+    mockBilling.playPurchase.mockResolvedValue({ ...GRANTED, status: "ALREADY_GRANTED" });
+    const earlier = purchase({ token: "earlier", profileId: "intent-0" });
+    store.requestPurchase.mockImplementation(async () => {
+      store.__emitPurchase(earlier);
+      return { kind: "purchases", purchases: [earlier] };
+    });
+    await expect(buyPack("room_1")).resolves.toEqual({ kind: "owned", notice: "added" });
+    expect(mockBilling.playPurchase.mock.calls).toEqual([[{ productId: "room_1", purchaseToken: "earlier" }]]);
+  });
+
+  it("Google answers with this account's earlier purchase still waiting for the money: said so", async () => {
+    store.requestPurchase.mockResolvedValue({ kind: "purchases", purchases: [purchase({ token: "earlier", profileId: "intent-0", state: "pending" })] });
+    await expect(buyPack("room_1")).resolves.toEqual({ kind: "owned", notice: "pending" });
+    expect(mockBilling.playPurchase).not.toHaveBeenCalled();
+  });
+
+  it("a purchase with no intent on it is this buy's only when it was plainly just made", async () => {
+    mockBilling.playPurchase.mockResolvedValue(GRANTED);
+    store.requestPurchase.mockResolvedValueOnce({
+      kind: "purchases",
+      purchases: [purchase({ token: "promo", accountId: null, profileId: null, purchasedAt: Date.now() - 30 * 86_400_000 })],
+    });
+    await expect(buyPack("room_1")).resolves.toEqual({ kind: "owned", notice: "added" });
+    store.requestPurchase.mockResolvedValueOnce({
+      kind: "purchases",
+      purchases: [purchase({ token: "new", accountId: null, profileId: null, purchasedAt: Date.now() })],
+    });
+    await expect(buyPack("room_1")).resolves.toEqual({ kind: "bought", token: "new" });
   });
 
   it("already owned and granted now: added, and the pack can be bought again", async () => {

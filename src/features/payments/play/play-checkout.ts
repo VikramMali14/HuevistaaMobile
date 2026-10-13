@@ -37,7 +37,7 @@ const LATE_PURCHASE_MS = 5000;
 
 let connection: Promise<boolean> | null = null;
 /** The buy waiting on Google's sheet, so its listener can answer it. */
-let active: { productId: string; intentId: string; heard: (outcome: Heard) => void } | null = null;
+let active: { productId: string; intentId: string; since: number; heard: (outcome: Heard) => void } | null = null;
 let reconciling: Promise<void> | null = null;
 /** Intents already reported ABANDONED (the sheet's cancel can arrive twice). */
 const abandoned = new Set<string>();
@@ -87,9 +87,27 @@ export function takePurchase(purchase: StorePurchase): Promise<PlayPurchaseState
 function heardPurchase(purchase: StorePurchase) {
   void takePurchase(purchase);
   const buy = active;
-  if (!buy || !purchase.token || purchase.productId !== buy.productId || !isOurs(purchase.accountId)) return;
-  if (purchase.profileId && purchase.profileId !== buy.intentId) return;
+  if (!buy || !purchase.token || !isThisBuy(purchase, buy)) return;
   buy.heard({ kind: "heard", token: purchase.token });
+}
+
+/**
+ * How far Google's clock may run behind the phone's and a purchase with no intent on it
+ * still count as new. Only such a purchase needs it: every one this app starts carries one.
+ */
+const CLOCK_SLACK_MS = 60_000;
+
+/**
+ * Whether a purchase is the one the waiting buy just made. Google answers an attempt on a
+ * pack it still holds unfinished with that earlier purchase — this account's, or another
+ * one's on the same Google account — so the pack and the account aren't enough: it must
+ * carry this buy's intent. One carrying none (bought outside the app) counts only when
+ * plainly made after the sheet opened.
+ */
+function isThisBuy(purchase: StorePurchase, buy: { productId: string; intentId: string; since: number }): boolean {
+  if (purchase.productId !== buy.productId || !isOurs(purchase.accountId)) return false;
+  if (purchase.profileId) return purchase.profileId === buy.intentId;
+  return purchase.purchasedAt !== null && purchase.purchasedAt >= buy.since - CLOCK_SLACK_MS;
 }
 
 /** A failure only means something to the buy waiting on Google; the sheet's answer says the same. */
@@ -128,7 +146,7 @@ export async function buyPack(productId: string): Promise<BuyResult> {
   const listened = new Promise<Heard>((resolve) => {
     heard = resolve;
   });
-  const buy = { productId, intentId: intent.intentId, heard: (outcome: Heard) => heard(outcome) };
+  const buy = { productId, intentId: intent.intentId, since: Date.now(), heard: (outcome: Heard) => heard(outcome) };
   active = buy;
   // Sign-out while the sheet is open: nothing more is waited for.
   const stopWaiting = onPlayReset(() => heard({ kind: "failed", code: null }));
@@ -142,8 +160,11 @@ export async function buyPack(productId: string): Promise<BuyResult> {
       });
     let outcome: BuyOutcome | Heard = await Promise.race([asked, listened]);
     if (outcome.kind === "purchases") {
-      const mine = outcome.purchases.find((p) => p.token && p.productId === productId && isOurs(p.accountId));
+      const ofPack = outcome.purchases.filter((p) => p.token && p.productId === productId);
+      const mine = ofPack.find((p) => isThisBuy(p, buy));
       if (mine?.token) return { kind: "bought", token: mine.token };
+      // Only an earlier purchase came back: Google wouldn't sell the pack again, and nothing was paid now.
+      if (ofPack.length > 0) return { kind: "owned", notice: await ownedNotice(ofPack) };
       const late = await Promise.race([listened, wait(LATE_PURCHASE_MS).then((): null => null)]);
       if (!late) return { kind: "no-answer" };
       outcome = late;
@@ -177,9 +198,8 @@ function wait(ms: number): Promise<void> {
 }
 
 /**
- * Google won't sell a pack again while an earlier purchase of it is unfinished: settle
- * that one now. Granted: added, and the pack can be bought again. Still pending with
- * Google, or another account's: said so — it clears once that purchase is settled.
+ * Google won't sell a pack again while an earlier purchase of it is unfinished, and had
+ * none to answer with: look it up and settle it now.
  */
 async function settleOwned(productId: string): Promise<OwnedNotice> {
   let held: StorePurchase[];
@@ -188,6 +208,15 @@ async function settleOwned(productId: string): Promise<OwnedNotice> {
   } catch {
     return "unknown";
   }
+  return ownedNotice(held);
+}
+
+/**
+ * What became of the earlier purchases Google holds of a pack, each asked about once.
+ * Granted: added, and the pack can be bought again. Still pending with Google, or another
+ * account's: said so — it clears once that purchase is settled.
+ */
+async function ownedNotice(held: StorePurchase[]): Promise<OwnedNotice> {
   if (held.some((p) => !isOurs(p.accountId))) return "otherAccount";
   const answers = await Promise.all(held.map((p) => takePurchase(p)));
   const kinds = new Set(answers.map((a) => a?.kind));

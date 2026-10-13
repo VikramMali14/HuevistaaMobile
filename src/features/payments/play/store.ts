@@ -39,6 +39,8 @@ export interface StorePurchase {
   profileId: string | null;
   /** Google's order id when the store gives one ("GPA.…"), for a person asking for help. */
   orderId: string | null;
+  /** When it was bought (ms), by Google's clock: tells a new purchase from one held earlier. */
+  purchasedAt: number | null;
 }
 
 /** A pack as Google prices it, in the buyer's own currency. */
@@ -54,7 +56,12 @@ export type StoreFailure =
   | { kind: "already-owned"; productId: string | null }
   | { kind: "failed"; code: string | null };
 
-/** What asking for a purchase came back with. Never thrown: every way it ends is here. */
+/**
+ * What asking for a purchase came back with. Never thrown: every way it ends is here. When
+ * Google already holds an unfinished purchase of the pack, the library looks it up and
+ * answers with it as if it had just been bought (whoever it belongs to), and only reports
+ * "already-owned" when it finds none — so the purchases here aren't always this buy's.
+ */
 export type BuyOutcome = { kind: "purchases"; purchases: StorePurchase[] } | StoreFailure;
 
 export interface BuyRequest {
@@ -82,6 +89,7 @@ function fromNative(p: Purchase): StorePurchase {
     accountId: android?.obfuscatedAccountIdAndroid ?? null,
     profileId: android?.obfuscatedProfileIdAndroid ?? null,
     orderId: ("transactionId" in p ? p.transactionId : null) ?? null,
+    purchasedAt: typeof p.transactionDate === "number" ? p.transactionDate : null,
   };
 }
 
