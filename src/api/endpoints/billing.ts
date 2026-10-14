@@ -1,13 +1,26 @@
 /**
- * Buying: the customer's counter, its Razorpay orders and their verification, and what
- * happened to a checkout. Backend: billing/controller/{CartController,BillingController,
- * PaymentAttemptController}. Screens: C15 (the board's page cap), C27, C28, C29, D3.
+ * Buying: the customer's counter, its Razorpay orders and their verification, the Google
+ * Play packs and their purchases, and what happened to a checkout. Backend:
+ * billing/controller/{CartController,BillingController,PaymentAttemptController} and the
+ * Play billing controller under /api/billing/play. Screens: C15 (the board's page cap),
+ * C27, C28, C29, D3.
  *
  * Only quantities travel. Every amount is priced again on the server when an order is
- * made, and only a verified signature hands anything over.
+ * made, and only a verified signature — or, for Google Play, the server's own reading of
+ * the purchase from Google — hands anything over.
  */
 import { api } from "../instance";
-import type { CartCatalogue, CartOrder, CartSplit, CheckoutEventBody, PdfAllowance } from "../types";
+import type {
+  CartCatalogue,
+  CartOrder,
+  CartSplit,
+  CheckoutEventBody,
+  PdfAllowance,
+  PlayCatalogue,
+  PlayIntent,
+  PlayPurchaseBody,
+  PlayPurchaseResult,
+} from "../types";
 
 export interface PaymentProof {
   orderId: string;
@@ -31,6 +44,20 @@ export const billingApi = {
 
   /** C15: how many options one board may carry. */
   pdfAllowance: () => api.request<PdfAllowance>("api/billing/pdf-allowance"),
+
+  /** C28 in the Play build: the packs this account may buy, and its own id on Google's side. */
+  playProducts: () => api.request<PlayCatalogue>("api/billing/play/products"),
+
+  /** C28 in the Play build: the key a purchase of one pack is made with (opens its audit row). */
+  playIntent: (productId: string) => api.request<PlayIntent>("api/billing/play/intents", { body: { productId } }),
+
+  /**
+   * C29 in the Play build: hands a purchase over once the server has read it from Google.
+   * Safe to send twice: a purchase already granted to this account answers ALREADY_GRANTED
+   * with the same numbers. 202 PENDING means Google is still waiting for the money.
+   */
+  playPurchase: (body: PlayPurchaseBody) =>
+    api.request<PlayPurchaseResult>("api/billing/play/purchases", { body, timeoutMs: 30_000 }),
 
   /**
    * What became of a checkout: opened, closed without paying, refused, or paid and not yet

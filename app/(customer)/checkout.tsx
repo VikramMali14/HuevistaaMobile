@@ -9,11 +9,13 @@ import { meApi } from "@/api/endpoints/me";
 import { messageFor } from "@/api/errors";
 import { keys } from "@/api/query-keys";
 import { useSession } from "@/auth/session";
+import { paymentsMode } from "@/config/env";
 import { BackButton, Banner, Button, EmptyState, ErrorState, Screen, Skeleton, Stepper, Text, useToast } from "@/components/ui";
 import { useBalance } from "@/features/account/use-balance";
 import { packingLine, roomsAndImages } from "@/features/payments/basket-words";
 import { payForBasket, PriceChangedError, verifyPayment } from "@/features/payments/payments";
 import { usePaidButUnconfirmed } from "@/features/payments/pending-payment";
+import { PlayCounter } from "@/features/payments/play/PlayCounter";
 import { t } from "@/i18n";
 import { packCart, packSingly } from "@/lib/cart-pack";
 import { validitySpan } from "@/lib/dates";
@@ -32,15 +34,27 @@ const images = (n: number) => (n === 1 ? t("checkout.oneImage") : t("checkout.im
 /**
  * C28 · Checkout. Spec: docs/04-screens-customer.md — C28.
  *
- * The website's counter (credits-cart.tsx): say how many rooms and AI images, and the
- * basket is packed the cheapest way the server sells them (lib/cart-pack — singles,
+ * Two counters behind one route, so every link to it (C27, C23's Buy, Home's next step,
+ * C29's retry) works in both builds: the Android store build sells packs through Google
+ * Play (PlayCounter — Play's payments policy requires it for digital goods, and nothing
+ * there may send anyone to the website to pay); everywhere else Razorpay sells the basket
+ * below. Which one is read when the screen opens (config/env `paymentsMode`).
+ */
+export default function Checkout() {
+  const params = useLocalSearchParams<{ rooms?: string; credits?: string; from?: string }>();
+  return paymentsMode() === "play" ? <PlayCounter rooms={params.rooms} credits={params.credits} from={params.from} /> : <RazorpayCheckout />;
+}
+
+/**
+ * The Razorpay counter, as the website's (credits-cart.tsx): say how many rooms and AI
+ * images, and the basket is packed the cheapest way the server sells them (lib/cart-pack — singles,
  * combos, the bundle, and the offer a subtotal earns, all priced as the server prices
  * them). Pay opens Razorpay on the website's /pay/mobile page; only the server's
  * verification decides what was bought (C29). As built: no discount-code field — the
  * best offer a basket reaches applies itself, and a code can only name one it already
  * reaches. A shop's customer is never sold a room here: their shop adds rooms.
  */
-export default function Checkout() {
+function RazorpayCheckout() {
   const router = useRouter();
   const toast = useToast();
   const { colors, radius, space } = useTheme();

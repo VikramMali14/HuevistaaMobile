@@ -9,6 +9,7 @@ import { keys } from "@/api/query-keys";
 import type { AiCreditActivity } from "@/api/types";
 import { useSession } from "@/auth/session";
 import { BackButton, Banner, Button, Card, ErrorState, ListGroup, ListRow, Screen, Skeleton, Text, useToast } from "@/components/ui";
+import { paymentsMode } from "@/config/env";
 import { askedRecently, rememberAsked } from "@/features/account/asked-shop";
 import { useBalance } from "@/features/account/use-balance";
 import { verifyPayment } from "@/features/payments/payments";
@@ -170,7 +171,8 @@ export default function BalanceScreen() {
                   {balance.credits === 1 ? t("balanceScreen.credit") : t("balanceScreen.credits")}
                 </Text>
               </View>
-              {w && w.pricePaise > 0 ? (
+              {/* Google Play charges its own price, and no website offer applies there. */}
+              {w && w.pricePaise > 0 && paymentsMode() !== "play" ? (
                 <Text variant="small" tone="mute">
                   {w.listPricePaise > w.pricePaise
                     ? t("balanceScreen.creditPriceWas", { price: formatRupees(w.pricePaise), list: formatRupees(w.listPricePaise) })

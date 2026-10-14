@@ -12,6 +12,10 @@ export const keys = {
   /** C4: rooms that took a colour board. */
   boards: ["me", "boards"] as const,
   cart: ["me", "cart"] as const,
+  /** C28 in the Play build: the packs on sale, and this account's id on Google's side. */
+  playProducts: ["me", "play-products"] as const,
+  /** C28 in the Play build: Google's own price for each pack, by the packs asked about. */
+  playPrices: (productIds: string) => ["play", "prices", productIds] as const,
   pdfAllowance: ["me", "pdf-allowance"] as const,
   assignedProducts: ["me", "assigned-products"] as const,
   shopCombos: ["me", "shop-combos"] as const,

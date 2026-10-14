@@ -14,6 +14,7 @@ import { queryClient } from "@/api/query-client";
 import { keys } from "@/api/query-keys";
 import type { AiCreditSummary, CartCatalogue, ProjectCombo, ProjectRender, RenderableProject, RoomDetail, UserProfile } from "@/api/types";
 import { forgetRememberedRoute } from "@/auth/pending-route";
+import * as env from "@/config/env";
 import { resetInFlight } from "@/features/ai-images/in-flight";
 import { resetPayments, verifyPayment } from "@/features/payments/payments";
 import { clearPending, savePending } from "@/features/payments/pending-payment";
@@ -103,7 +104,14 @@ jest.mock("@/api/endpoints/projects", () => ({
     return mockProjects;
   },
 }));
-const mockBilling = { cart: jest.fn<Promise<CartCatalogue>, []>(), cartOrder: jest.fn(), verifyCart: jest.fn(), pdfAllowance: jest.fn(), reportCheckout: jest.fn() };
+const mockBilling = {
+  cart: jest.fn<Promise<CartCatalogue>, []>(),
+  cartOrder: jest.fn(),
+  verifyCart: jest.fn(),
+  pdfAllowance: jest.fn(),
+  reportCheckout: jest.fn(),
+  playProducts: jest.fn(),
+};
 jest.mock("@/api/endpoints/billing", () => ({
   get billingApi() {
     return mockBilling;
@@ -371,6 +379,27 @@ describe("C23 · AI image — options", () => {
     fireEvent.press(screen.getByTestId("ai-buy"));
     await waitFor(() => expect(screen).toHavePathname("/checkout"));
     expect(screen).toHaveSearchParams({ credits: "1", from: "ai-image" });
+  });
+
+  it("where Google Play sells the credits, the website's price is never quoted", async () => {
+    // Google charges its own price for a pack: C28 shows it, nothing before it may promise another.
+    const mode = jest.spyOn(env, "paymentsMode").mockReturnValue("play");
+    try {
+      signedIn();
+      mockBilling.playProducts.mockResolvedValue({ enabled: false, eligible: false, validDays: 365, obfuscatedAccountId: null, products: [] });
+      mockMe.aiCredits.mockResolvedValue(wallet({ balance: 0 }));
+      open();
+      await waitFor(() => expect(screen.getByTestId("ai-buy")).toBeTruthy());
+      fireEvent.press(screen.getByTestId("ai-choice-LUXURY"));
+      expect(screen.getByTestId("ai-cost")).toHaveTextContent("You need 2 more AI credits for this image.");
+      expect(screen.getByText("Buy 2 AI credits")).toBeTruthy();
+      expect(screen.queryByText(/₹/)).toBeNull();
+      fireEvent.press(screen.getByTestId("ai-buy"));
+      await waitFor(() => expect(screen).toHavePathname("/checkout"));
+      expect(screen).toHaveSearchParams({ credits: "2", from: "ai-image" });
+    } finally {
+      mode.mockRestore();
+    }
   });
 
   it("a wallet that won't load is not 0: no price and no button until it does", async () => {

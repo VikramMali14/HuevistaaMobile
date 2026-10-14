@@ -82,6 +82,8 @@ export interface ErrorBody {
   fieldErrors?: Record<string, string>;
   /** Machine-readable hint, e.g. AUTO_MASK_UNAVAILABLE. */
   code?: string;
+  /** Why, under a code that covers several cases (PLAY_REFUSED: CANCELLED, REFUNDED, …). */
+  reason?: string;
 }
 
 // ── Balance (docs/04 "The rooms balance") ─────────────────────────────────────
@@ -581,6 +583,78 @@ export interface CheckoutEventBody {
   errorStep?: string;
   errorReason?: string;
 }
+
+// ── Google Play (C28, C29 in the Android store build) ────────────────────────
+
+/** One pack sold through Google Play: its id in the Play Console and what one unit holds. */
+export interface PlayProduct {
+  productId: string;
+  projects: number;
+  credits: number;
+}
+
+/**
+ * GET /api/billing/play/products — what this account may buy through Google Play. Play
+ * itself sets the prices. Switched off on the server: `enabled` and `eligible` false,
+ * no account id and no products (still a 200).
+ */
+export interface PlayCatalogue {
+  enabled: boolean;
+  eligible: boolean;
+  validDays: number;
+  /** This account's own id on Google's side — a purchase carrying another is not ours. */
+  obfuscatedAccountId: string | null;
+  /**
+   * This account's ids under the server's earlier obfuscation secrets, once it has rotated
+   * them: a purchase stamped before the rotation carries one and is still ours. Absent or
+   * empty when there are none (or from a server that doesn't send it yet).
+   */
+  previousObfuscatedAccountIds?: string[];
+  products: PlayProduct[];
+}
+
+/**
+ * POST /api/billing/play/intents — the key a purchase is made with. Google keeps both ids
+ * on the purchase, so the server can tell exactly which account paid for it.
+ * `obfuscatedProfileId` is the intent's own id.
+ */
+export interface PlayIntent {
+  intentId: string;
+  productId: string;
+  obfuscatedAccountId: string;
+  obfuscatedProfileId: string;
+  /** As on GET /products: this account's ids under earlier secrets, when sent. */
+  previousObfuscatedAccountIds?: string[];
+}
+
+/** POST /api/billing/play/purchases — a purchase Google handed the phone. */
+export interface PlayPurchaseBody {
+  productId: string;
+  purchaseToken: string;
+}
+
+/**
+ * The answer to a purchase: 200 GRANTED or ALREADY_GRANTED with what it added (in all, for
+ * every unit bought) and its payment reference; 202 PENDING while Google waits for the
+ * money, with nothing added.
+ */
+export interface PlayPurchaseResult {
+  status: "GRANTED" | "ALREADY_GRANTED" | "PENDING";
+  projects: number;
+  credits: number;
+  reference: string | null;
+}
+
+/** The `reason` beside a 409 PLAY_REFUSED: why the server will never grant that purchase. */
+export type PlayRefusalReason =
+  | "CANCELLED"
+  | "REFUNDED"
+  | "PRODUCT_MISMATCH"
+  | "INTENT_MISMATCH"
+  | "NO_ACCOUNT"
+  | "TEST_PURCHASE"
+  | "NOT_ELIGIBLE"
+  | "UNKNOWN_PURCHASE";
 
 // ── Shades ────────────────────────────────────────────────────────────────────
 

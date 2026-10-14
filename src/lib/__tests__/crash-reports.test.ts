@@ -10,6 +10,8 @@ describe("crash reports", () => {
     expect(scrubText("Authorization: Bearer abc.def.ghi")).toBe("Authorization: Bearer [token]");
     expect(scrubText("ExponentPushToken[xxxxyyyy] failed")).toBe("[push token] failed");
     expect(scrubText("Room HV0348 failed after 3 tries")).toBe("Room HV0348 failed after 3 tries");
+    // A Google Play purchase token is as good as the purchase.
+    expect(scrubText("Purchase opaque-token.AO-J1OxabcdefGHIJKLmnopqrSTUVwxyz0123456789 failed")).toBe("Purchase [token] failed");
   });
 
   it("drops queries and ids from addresses", () => {

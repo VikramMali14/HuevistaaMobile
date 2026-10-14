@@ -98,6 +98,13 @@ Google sign-in and Razorpay payments send you back to the app through its own li
 browser. Sign in with **email** in the emulator, and use the APK (Way 1) to try Google
 sign-in and payments. Push notifications don't work in Expo Go either.
 
+Expo Go also has no Google Play Billing, which an Android build uses to sell rooms and
+credits unless told otherwise: Checkout says it can't reach Google Play. To see the
+website's checkout instead, add this line to `.env` and restart with `npm start -- --clear`:
+```
+EXPO_PUBLIC_PAYMENTS=web
+```
+
 ### When something goes wrong
 
 | You see | Do this |

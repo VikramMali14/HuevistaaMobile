@@ -818,6 +818,27 @@ moment old, so the order's own amount is checked against it: a different price o
 nothing and says the new total. An order the server refuses re-reads the counter. Back is
 held while a payment is under way, so its result is always shown.
 
+**Google Play (the Android store build), as built.** The same route renders
+`PlayCounter` (`features/payments/play`) instead whenever `paymentsMode()` is `"play"` —
+every Android build unless it was made with `EXPO_PUBLIC_PAYMENTS=web` (07 "Payments",
+"Google Play"). It sells packs, not a basket: the packs `GET /api/billing/play/products`
+names that Google Play also knows (`fetchProducts`, type in-app), each titled by what it
+holds ("1 room", "1 room and 1 AI credit") at Google's own `displayPrice`. One is chosen;
+**Buy for {price}** asks the server for an intent (`POST /api/billing/play/intents`) and
+opens Google's purchase sheet with the intent's two ids. The buyer chooses how many in
+Google's sheet where the pack allows more than one, so `?rooms=` / `?credits=` only choose
+which pack is highlighted (AI credits alone, both, or by default a room). The gating is
+C28's: nothing is sold until the entitlement answers, a shop's customer sees no pack that
+holds a room, and the lead line says how long everything lasts. "Buying isn't available on
+this account." when the server says the account isn't eligible, Play billing is off, or
+Google knows none of the packs. Buy is off while any Play purchase is being confirmed. A
+cancel is a toast ("Payment cancelled.", said once) and the intent is reported ABANDONED.
+Google's "already owned" (an earlier purchase of the pack not yet consumed) settles that
+purchase on the spot: added (and the pack can be bought again), still waiting for Google,
+or another HueVistaa account's on this Google account — each said in a sentence. Nothing in
+this counter opens the website or mentions paying anywhere else: no Razorpay banner, no
+"UPI · cards · netbanking" (it says "Paid through Google Play"), no link to D3.
+
 ### C29 · Payment result
 
 **Route** `payment-result.tsx` · **Phase** 4
@@ -840,6 +861,21 @@ busy). The server's 403 "Payment verification error." means Razorpay couldn't be
 so it stays "checking"; any other 4xx is a refusal for good. Paid gives a success haptic.
 Bought from C23 (`from=ai-image`, carried through C28), paid leads **Back to your AI
 image**, back to the C23 it came from with its choices kept (C22 after a cold start).
+
+**Google Play, as built.** C28's counter opens C29 with `?play=<purchase token>` (and
+`from`), and the screen follows that purchase (`play/PlayResult.tsx`) in the same blocks —
+the same words and testIDs (`features/payments/ResultBlocks.tsx`):
+
+| The server's answer to `POST /api/billing/play/purchases` | Screen |
+|---|---|
+| 200 GRANTED / ALREADY_GRANTED | Paid: what was added (every unit counted), the new balance, **Payment reference {reference}** |
+| 202 PENDING, or Google says pending | "Waiting for Google" (`payment-pending`): nothing added, nothing to pay again; **Check again** looks at Google's purchases |
+| No answer, 5xx, 401, 408, 429 | "We're checking your payment": tried again after 4, 10 and 30 s and on **Check again** |
+| 409 OTHER_ACCOUNT | "This purchase is for another account" (`payment-other-account`): left alone, never consumed here |
+| 409 PLAY_REFUSED, any other 4xx | Refused: the server's sentence, Google's order id when the phone has one, **Get help** |
+
+Granted purchases are consumed on the phone too (errors ignored — the server consumes them
+itself). There is no Try again and no Buy button on any of them.
 
 ### C30 · Add a shop code
 

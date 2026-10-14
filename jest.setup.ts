@@ -75,3 +75,32 @@ jest.mock("expo-notifications", () => {
   };
 });
 jest.mock("expo-device", () => ({ isDevice: false }));
+
+// Google Play Billing: the app's one adapter over expo-iap, in memory. Nothing is
+// on sale and nothing is held until a test says so; a purchase or a failure arrives on
+// Google's listeners through `__emitPurchase` / `__emitError`. Tests run in the website's
+// payments mode (Jest is iOS), and switch config/env's `paymentsMode` per test.
+jest.mock("@/features/payments/play/store", () => {
+  const purchases: Set<(event: unknown) => void> = new Set();
+  const errors: Set<(event: unknown) => void> = new Set();
+  const on = (set: Set<(event: unknown) => void>) => (listener: (event: unknown) => void) => {
+    set.add(listener);
+    return { remove: () => set.delete(listener) };
+  };
+  return {
+    initConnection: jest.fn(async () => true),
+    endConnection: jest.fn(async () => undefined),
+    fetchProducts: jest.fn(async () => []),
+    requestPurchase: jest.fn(async () => ({ kind: "purchases", purchases: [] })),
+    getAvailablePurchases: jest.fn(async () => []),
+    finishTransaction: jest.fn(async () => undefined),
+    onPurchase: jest.fn(on(purchases)),
+    onError: jest.fn(on(errors)),
+    __emitPurchase: (purchase: unknown) => {
+      for (const listener of [...purchases]) listener(purchase);
+    },
+    __emitError: (failure: unknown) => {
+      for (const listener of [...errors]) listener(failure);
+    },
+  };
+});

@@ -52,7 +52,7 @@ async function readError(res: Response): Promise<ApiError> {
   // and a made-up "Request failed (400)" would reach the screen — so with no message the
   // error carries none, and messageFor() says something in the app's own words.
   const message = typeof body.message === "string" ? body.message.trim() : "";
-  return new ApiError("http", res.status, message, body.fieldErrors, body.code);
+  return new ApiError("http", res.status, message, body.fieldErrors, body.code, typeof body.reason === "string" ? body.reason : undefined);
 }
 
 async function readBody<T>(res: Response): Promise<T> {

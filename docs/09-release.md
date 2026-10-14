@@ -9,7 +9,7 @@ policies change, so read each form's current wording as you fill it in.
 
 | # | What | Why it blocks | Suggested |
 |---|---|---|---|
-| 1 | **How rooms and AI credits are sold in the store builds** | Rooms and AI credits are digital goods used inside the app, and the app sells them through Razorpay in a browser (`/pay/mobile`). Google Play's payments policy requires Google Play Billing for that, or an approved alternative such as user-choice billing in India, which still offers Play Billing beside it. Apple's guideline 3.1.1 requires in-app purchase. Shop codes that unlock rooms may also need explaining to Apple (3.1.1 and 3.1.3). | Android: Play Billing consumables for a room and an AI credit, verified by the backend, which grants them idempotently. iOS v1: no buying in the app. Shop codes and existing balances still work, and the Buy buttons are hidden. Either is real work on both the app and the backend. Until it's done, the payment screens must not ship in a store build. |
+| 1 | **How rooms and AI credits are sold in the store builds** | Rooms and AI credits are digital goods used inside the app, and the app sells them through Razorpay in a browser (`/pay/mobile`). Google Play's payments policy requires Google Play Billing for that, or an approved alternative such as user-choice billing in India, which still offers Play Billing beside it. Apple's guideline 3.1.1 requires in-app purchase. Shop codes that unlock rooms may also need explaining to Apple (3.1.1 and 3.1.3). | **Android: done** — the Play build sells packs through Google Play Billing, verified and granted once by the backend; see "Google Play Billing" below for the Play Console checklist and the `eas update` rule. **iOS: still open** — suggested for v1: no buying in the app (shop codes and existing balances still work, the Buy buttons hidden). Until it's decided and built, the iOS store build must not ship its payment screens. |
 | 2 | **Sign in with Apple** | The app offers Google sign-in on every platform (`welcome.tsx`). Apple's guideline 4.8 then expects a privacy-focused equivalent. | Hide Google on iOS for v1; email and phone remain. Add Sign in with Apple later (`expo-apple-authentication`, a backend endpoint that checks Apple's identity token, and revoking it on account deletion). |
 | 3 | **Accounts** | Nothing below can start without them. | An Expo account and project (`eas init` writes `extra.eas.projectId`), then `eas update:configure`. A Firebase project for Android push (`google-services.json`, the FCM v1 key uploaded with `eas credentials`). A Sentry organisation (EU region; plan retention of 90 days or less, as the privacy policy says). The Apple Developer Program (Team ID, APNs key). A Google Play Console account. A personal account must run a closed test with 12 testers for 14 days before production. |
 | 4 | **The package id and first version** | `com.gridstore.huevistaa` can't change after the first Play upload. The version is X5's baseline. | Confirm the id. Ship `1.0.0`: set `version` in app.json, and the backend's `MOBILE_*_MIN_VERSION` stays `0.0.0` until a version must be retired. |
@@ -18,6 +18,39 @@ policies change, so read each form's current wording as you fill it in.
 | 7 | **Product analytics** | docs/01's "measure what matters" needs product events. Crash reports alone don't give them. | Decide on a tool and a consent switch in S1 first. Then the privacy policy and the data-safety form both gain an "app activity" line. Until then, none is collected. |
 
 ## Google Play
+
+### Google Play Billing (decision 1, Android)
+
+The Android store build sells rooms and AI credits as one-time consumable packs through
+Google Play Billing (07-architecture.md, "Payments" → "Google Play"); Razorpay stays for
+the website, the sideloaded APK and iOS. The backend's side — the service account, the
+real-time developer notifications, the secrets — is in the backend repository's
+`docs/GOOGLE_PLAY_BILLING_SETUP.md`.
+
+1. Upload a build of version 0.2.0 or later (it carries `com.android.vending.BILLING`
+   through expo-iap's config plugin) to internal testing first: Play Console only lets
+   you create products for an app whose uploaded build asks for billing.
+2. Monetize → Products → One-time products: `room_1` (1 room), `ai_credit_1` (1 AI
+   credit), `combo_1_1` (1 room + 1 AI credit) and `bundle_3_3` (3 rooms + 3 AI credits),
+   each consumable, with one price, and active. Turn multi-quantity on for `room_1` and
+   `ai_credit_1` — the buyer picks how many in Google's sheet; the app can't preset it. The
+   ids and contents must match the backend's `PLAY_BILLING_PRODUCTS`. A pack the server
+   lists but Play doesn't know is simply not shown.
+3. Settings → License testing: add the testers' Google accounts. Their purchases use test
+   cards, are refunded about 3 minutes after if not acknowledged, and are refused by the
+   production backend (`accept-test-purchases` is for staging only). A license tester can
+   also try Play with the development client (`eas build --profile development`), which
+   leaves `EXPO_PUBLIC_PAYMENTS` unset.
+4. Try each pack as a tester: bought (C29 says what was added, with its reference, and the
+   balance follows), cancelled (C28 says "Payment cancelled." once), a slow test card
+   (C29 "Waiting for Google", then added on the next return to the app), and buying the
+   same pack again straight after.
+5. **`eas update`.** eas.json's `env` is applied by `eas build`, not by `eas update`. The
+   app is on Google Play unless a build says `EXPO_PUBLIC_PAYMENTS=web`, so a production
+   update must never set it (and never publish one from a machine whose `.env` sets it);
+   an update for the preview channel (the sideloaded APK) must set `web` itself.
+6. The listing's "In-app purchases" line, and the data-safety and content-rating answers
+   below, assume this is live.
 
 ### Store listing
 
@@ -95,14 +128,16 @@ the form's current wording.
 | Approximate location | Yes: a painter's chosen base, rounded to about 1 km | Yes | App functionality |
 | Precise location | Yes: sent with one nearby search, not kept with the account; the web server's access log holds it for about 2 weeks | Yes | App functionality |
 | Photos | Yes: the room photographs a customer takes or picks | No (the app's purpose) | App functionality (AI processing to find walls and make images) |
-| Purchase history | Yes: rooms and credits bought, on the website's checkout | Yes | App functionality, fraud prevention |
+| Purchase history | Yes: rooms and credits bought, through Google Play in the Android app (on the website's checkout elsewhere) | Yes | App functionality, fraud prevention |
 | Other in-app messages | Yes: support chats | Yes | Customer support |
 | Other user-generated content | Yes: reviews, questions, and an AI image's note | Yes | App functionality |
 | Crash logs, diagnostics | Yes: Sentry, with an internal account id only, kept at most 90 days | No | Analytics (crash diagnosis) |
 | Device or other IDs | Yes: the push token, while notifications are on | Yes | App functionality (notifications) |
 | App interactions | No (until product analytics is decided — see 7 above) | | |
 
-Payment details are typed into Razorpay's page on the website, not into the app.
+Payment details are typed into Google Play's own sheet in the Android app (into Razorpay's
+page on the website elsewhere), never into the app itself. The app sends the server only
+the purchase token Google gives it.
 
 What deletion removes and keeps is listed on https://huevistaa.com/legal/delete-account
 and matches S9. Rooms, photos, boards, AI images, unused rooms and credits, points,
@@ -118,7 +153,7 @@ Category: all other app types.
 - Shares the user's location with other users: **yes**, opt-in. A painter's rough area
   (about 1 km) is shown to customers searching nearby.
 - Shares personal information: a listed painter's mobile number, to a customer who asks.
-- Digital purchases: yes, if any are sold in the store build (decision 1).
+- Digital purchases: yes — rooms and AI credits, through Google Play Billing (decision 1).
 - Unrestricted web access: no.
 - Generated by AI: yes (AI images).
 
@@ -164,7 +199,8 @@ computer. Get it from the run's **huevistaa-apk** artifact (a zip with the APK i
 install it on the phone and allow "install unknown apps" when asked.
 
 - **Servers.** It talks to `https://api.huevistaa.com` and opens `https://huevistaa.com`
-  for payments, legal pages and shared links. To build against other servers, use
+  for payments (it is built with `EXPO_PUBLIC_PAYMENTS=web`: Razorpay, not Google Play),
+  legal pages and shared links. To build against other servers, use
   **Actions → Android APK → Run workflow**, or set the repository variables
   `APK_API_ORIGIN` / `APK_SITE_ORIGIN`.
 - **Signing.** It is signed with the Expo template's debug key, the same on every
@@ -185,7 +221,8 @@ install it on the phone and allow "install unknown apps" when asked.
 2. `eas init` and `eas update:configure`. Then add `google-services.json` and the FCM
    key. Then set `EXPO_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT` and
    `SENTRY_AUTH_TOKEN` as EAS secrets.
-3. Decide 1 and 2 above, and build what they need.
+3. Decide 2 above, and build what it needs. Decision 1 is built for Android: deploy the
+   backend's Play billing settings, then follow "Google Play Billing" above.
 4. `eas build -p android --profile production`, then upload to Play internal testing
    with Play App Signing.
 5. Put both SHA-256 fingerprints (upload and Play signing) into the website's
@@ -194,7 +231,8 @@ install it on the phone and allow "install unknown apps" when asked.
    crash-free sessions. The listing, data safety, content rating and app access come
    from the sections above.
 7. Production. Afterwards, `eas update --channel production` ships JavaScript-only
-   fixes for the same native version. A native change needs a new build, and raising
+   fixes for the same native version — never with `EXPO_PUBLIC_PAYMENTS=web` (Google Play
+   Billing, step 5). A native change needs a new build, and raising
    `MOBILE_ANDROID_MIN_VERSION` retires an old one.
 8. iOS: the Apple account, Team ID, APNs key and `APPLE_TEAM_ID` on the website. Then a
    TestFlight build, the first device pass, and review.

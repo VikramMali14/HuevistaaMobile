@@ -1,15 +1,13 @@
-import Feather from "@expo/vector-icons/Feather";
-import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 import { useSession } from "@/auth/session";
-import { BalanceChip, Banner, Button, EmptyState, Screen, Text } from "@/components/ui";
-import { useBalance } from "@/features/account/use-balance";
-import { roomsAndCredits } from "@/features/payments/basket-words";
+import { Banner, Button, EmptyState, Screen, Text } from "@/components/ui";
 import { usePayment, verifyPayment, type Basket } from "@/features/payments/payments";
 import { loadPending, pendingIsFor } from "@/features/payments/pending-payment";
+import { PlayResult } from "@/features/payments/play/PlayResult";
+import { CheckingResult, PaidResult, RefusedResult, WaitingResult } from "@/features/payments/ResultBlocks";
 import { t } from "@/i18n";
 import { useSubmit } from "@/lib/use-submit";
 import { useTheme } from "@/theme";
@@ -26,16 +24,25 @@ const RETRY_AFTER_MS = [4_000, 10_000, 30_000];
  * payment", tried again by itself and on demand — never "failed" after a success, and never
  * a Pay button, because the money has already left. Refused by our server (it checked and
  * said no): its reason, the payment reference and Get help.
+ *
+ * `play` (a purchase token) instead of `order`: a Google Play purchase from the Android
+ * store build, said by PlayResult in the same blocks (features/payments/ResultBlocks).
  */
 export default function PaymentResult() {
-  const router = useRouter();
-  const { colors, space } = useTheme();
-  const { profile } = useSession();
-  const { order = "", from } = useLocalSearchParams<{ order: string; from?: string }>();
+  const { order = "", play, from } = useLocalSearchParams<{ order?: string; play?: string; from?: string }>();
   // Credits bought from C23's Buy: back to the image being chosen, under this screen.
   const forImage = from === "ai-image";
+  // A Google Play purchase (the Android store build), by its purchase token.
+  if (play) return <PlayResult token={play} forImage={forImage} />;
+  return <RazorpayResult order={order} forImage={forImage} />;
+}
+
+function RazorpayResult({ order, forImage }: { order: string; forImage: boolean }) {
+  const router = useRouter();
+  const { space } = useTheme();
+  const { profile } = useSession();
+  const from = forImage ? "ai-image" : undefined;
   const state = usePayment(order);
-  const balance = useBalance();
   const checking = useSubmit();
   const tries = useRef(0);
   const [looked, setLooked] = useState(false);
@@ -66,11 +73,6 @@ export default function PaymentResult() {
     return () => clearTimeout(timer);
   }, [checkingState]);
 
-  const verified = state?.kind === "verified";
-  useEffect(() => {
-    if (verified) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-  }, [verified]);
-
   // Back to the tabs that are already there, rather than a second copy of them.
   const goTo = (href: Href) => (router.canDismiss() ? router.dismissTo(href) : router.replace(href));
   const home = () => goTo("/home");
@@ -84,128 +86,36 @@ export default function PaymentResult() {
     });
 
   if (!state || state.kind === "verifying") {
-    const nothing = !state && (looked || !order);
-    return (
-      <Screen>
-        <View style={[styles.fill, styles.center, { gap: space.md }]} accessibilityLiveRegion="polite" testID="payment-verifying">
-          {nothing ? null : <ActivityIndicator color={colors.accentText} />}
-          <Text variant="body" tone="soft">
-            {nothing ? t("payment.nothing") : t("payment.verifying")}
-          </Text>
-          {nothing ? <Button variant="secondary" block={false} label={t("common.goHome")} onPress={home} /> : null}
-        </View>
-      </Screen>
-    );
+    return <WaitingResult nothing={!state && (looked || !order)} onHome={home} />;
   }
 
   if (state.kind === "verified") {
-    const what = roomsAndCredits(state.rooms, state.credits);
-    return (
-      <Screen
-        footer={
-          <View style={{ gap: space.xs }}>
-            {forImage && state.credits > 0 ? (
-              <Button
-                label={t("payment.backToImage")}
-                icon="image"
-                onPress={() => (router.canGoBack() ? router.back() : router.replace("/ai-image/new"))}
-                testID="payment-back-to-image"
-              />
-            ) : state.rooms > 0 ? (
-              <Button label={t("payment.startRoom")} icon="camera" onPress={() => router.replace("/room/new")} testID="payment-start" />
-            ) : (
-              <Button label={t("payment.toBalance")} onPress={() => router.replace("/balance")} />
-            )}
-            <Button variant="ghost" label={t("common.goHome")} onPress={home} />
-          </View>
-        }
-      >
-        <View style={[styles.fill, { justifyContent: "center", gap: space.lg }]} testID="payment-paid" accessibilityLiveRegion="polite">
-          <Feather name="check-circle" size={40} color={colors.accentText} />
-          <View style={{ gap: space.xs }}>
-            <Text variant="display" accessibilityRole="header">
-              {t("payment.paid")}
-            </Text>
-            <Text variant="lead">{what ? t("payment.added", { what }) : t("payment.paidPlain")}</Text>
-          </View>
-          {balance.loaded ? (
-            <View style={[styles.row, { gap: space.xs }]}>
-              <BalanceChip
-                icon="home"
-                label={balance.rooms === 0 ? t("balance.noRooms") : balance.rooms === 1 ? t("balance.oneRoom") : t("balance.rooms", { n: balance.rooms })}
-              />
-              {balance.credits !== null ? (
-                <BalanceChip icon="image" label={balance.credits === 1 ? t("balance.oneCredit") : t("balance.credits", { n: balance.credits })} />
-              ) : null}
-            </View>
-          ) : null}
-        </View>
-      </Screen>
-    );
+    return <PaidResult rooms={state.rooms} credits={state.credits} forImage={forImage} onHome={home} />;
   }
 
   if (state.kind === "checking") {
     return (
-      <Screen
-        footer={
-          <View style={{ gap: space.xs }}>
-            <Button
-              label={t("payment.checkAgain")}
-              loading={checking.busy}
-              onPress={() =>
-                void checking.run(async () => {
-                  await verifyPayment(state.orderId, state.paymentId, state.signature);
-                })
-              }
-              testID="payment-check"
-            />
-            <Button variant="ghost" label={t("common.goHome")} onPress={home} />
-          </View>
+      <CheckingResult
+        reference={state.paymentId}
+        busy={checking.busy}
+        onCheck={() =>
+          void checking.run(async () => {
+            await verifyPayment(state.orderId, state.paymentId, state.signature);
+          })
         }
-      >
-        <View style={[styles.fill, { justifyContent: "center", gap: space.md }]} testID="payment-checking" accessibilityLiveRegion="polite">
-          <Feather name="clock" size={40} color={colors.accentText} />
-          <Text variant="title1" accessibilityRole="header">
-            {t("payment.checkingTitle")}
-          </Text>
-          <Text variant="body" tone="soft">
-            {t("payment.checkingBody")}
-          </Text>
-          <Text variant="small" tone="mute" selectable>
-            {t("payment.reference", { id: state.paymentId })}
-          </Text>
-        </View>
-      </Screen>
+        onHome={home}
+      />
     );
   }
 
   if (state.kind === "refused") {
     return (
-      <Screen
-        footer={
-          <View style={{ gap: space.xs }}>
-            <Button
-              label={t("common.getHelp")}
-              icon="help-circle"
-              onPress={() => router.push({ pathname: "/help", params: { draft: t("help.paymentDraft", { id: state.paymentId }) } })}
-            />
-            <Button variant="ghost" label={t("common.goHome")} onPress={home} />
-          </View>
-        }
-      >
-        <View style={[styles.fill, { justifyContent: "center", gap: space.md }]} testID="payment-refused">
-          <Text variant="title1" accessibilityRole="header">
-            {t("payment.refusedTitle")}
-          </Text>
-          <Banner tone="danger" message={state.message} />
-          <Text variant="body" tone="soft">
-            {t("payment.refusedBody")}
-          </Text>
-          <Text variant="small" tone="mute" selectable>
-            {t("payment.reference", { id: state.paymentId })}
-          </Text>
-        </View>
-      </Screen>
+      <RefusedResult
+        message={state.message}
+        reference={state.paymentId}
+        onHelp={() => router.push({ pathname: "/help", params: { draft: t("help.paymentDraft", { id: state.paymentId }) } })}
+        onHome={home}
+      />
     );
   }
 
@@ -244,6 +154,4 @@ export default function PaymentResult() {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  center: { alignItems: "center", justifyContent: "center" },
-  row: { flexDirection: "row", flexWrap: "wrap" },
 });

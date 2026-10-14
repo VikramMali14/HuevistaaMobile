@@ -3,7 +3,7 @@
     "name": "HueVistaa",
     "slug": "huevistaa",
     "description": "See your walls in your chosen colour — before you paint a single stroke.",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "scheme": "huevista",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -189,6 +189,7 @@
           }
         }
       ],
+      "expo-iap",
       [
         "@sentry/react-native/expo",
         {
