@@ -11,7 +11,7 @@ import { keys } from "@/api/query-keys";
 import type { ColourCombo, KeptColours } from "@/api/types";
 import { BackButton, Banner, Button, Card, Disclaimer, ErrorState, Skeleton, Text, useToast } from "@/components/ui";
 import { namesShown, useCatalogue, useShadeScheme } from "@/features/catalogue/use-catalogue";
-import { applyColours, getRoomPaint, pushRecent, type WallColour } from "@/features/studio/paint-store";
+import { applyColours, pushRecent, useRoomPaint, type WallColour } from "@/features/studio/paint-store";
 import { comboColours, type SuggestedColour } from "@/features/studio/suggested-swatches";
 import { useRoom, wallsWithMasks } from "@/features/studio/use-room";
 import { planWalls, wallLabel, wallsForTrio } from "@/features/studio/wall-plan";
@@ -20,8 +20,11 @@ import { hairline, useTheme } from "@/theme";
 
 const ROLES: MessageKey[] = ["suggest.main", "suggest.accent", "suggest.trim"];
 
+/** A kept colour, with the name it was shown under when it was kept. */
+type KeptColour = SuggestedColour & { name?: string | null };
+
 /** Nothing kept: one empty place per role — main, accent, trim. */
-const NONE_KEPT: readonly (SuggestedColour | null)[] = [null, null, null];
+const NONE_KEPT: readonly (KeptColour | null)[] = [null, null, null];
 
 /** What a colour is known by, for telling two apart: its code, or its hex without one. */
 const colourKey = (c: SuggestedColour | null | undefined) => (c ? (c.code ?? c.hex).toUpperCase() : "");
@@ -51,7 +54,7 @@ export default function Suggestions() {
   const [round, setRound] = useState(0);
   // The colour kept in each role, or null. A lock is on a ROLE because that is how the
   // palettes come back, and each role has its own wall (below).
-  const [kept, setKept] = useState<readonly (SuggestedColour | null)[]>(NONE_KEPT);
+  const [kept, setKept] = useState<readonly (KeptColour | null)[]>(NONE_KEPT);
   const keeping = kept.some(Boolean);
   const keptBody = (): KeptColours => {
     const one = (c: SuggestedColour | null | undefined) => (c ? { hex: c.hex, code: c.code } : null);
@@ -69,7 +72,11 @@ export default function Suggestions() {
   });
 
   const walls = room.data ? planWalls(wallsWithMasks(room.data)) : [];
-  const targets = wallsForTrio(walls, null);
+  // The walls each role's colour goes on — worked out once, from the wall selected in the
+  // studio, so the label on a swatch, the wall its lock keeps it on and the wall Try this
+  // paints are always the same wall (website shade-grid.tsx, `slotsForRoles`).
+  const selected = useRoomPaint(projectId).selected;
+  const targets = wallsForTrio(walls, selected ? Number(selected) : null);
   // From two walls up: with one, keeping its colour leaves nothing to suggest.
   const canKeep = targets.filter(Boolean).length >= 2;
   const keptWalls = targets.filter((wall, slot) => wall && kept[slot]);
@@ -80,7 +87,7 @@ export default function Suggestions() {
   const trioOf = (combo: ColourCombo) =>
     comboColours(combo, catalogue.data?.shades, scheme).map((colour, slot) => kept[slot] ?? colour);
 
-  const toggleKeep = (slot: number, colour: SuggestedColour) => {
+  const toggleKeep = (slot: number, colour: KeptColour) => {
     setKept((prev) => prev.map((k, i) => (i !== slot ? k : colourKey(k) === colourKey(colour) ? null : colour)));
     // The first set around a new lock is the best answer for it.
     setRound(0);
@@ -91,8 +98,6 @@ export default function Suggestions() {
   };
 
   const apply = (combo: ColourCombo) => {
-    const selected = getRoomPaint(projectId).selected;
-    const targets = wallsForTrio(walls, selected ? Number(selected) : null);
     const changes: Record<string, WallColour> = {};
     trioOf(combo).forEach((colour, i) => {
       const wall = targets[i];
@@ -107,6 +112,10 @@ export default function Suggestions() {
   };
 
   const closed = suggestions.isError && isApiError(suggestions.error) && suggestions.error.status === 402;
+  // The last set, still on screen while the next one comes (or while the phone is offline
+  // and it cannot). Shown faded and not offered for Try this: it was not built around
+  // what is kept now, so painting the room with it would be painting the wrong answer.
+  const stale = suggestions.isPlaceholderData;
   const combos = (suggestions.data?.combinations ?? []).filter((c) => c.primaryHex || c.primaryShade);
 
   return (
@@ -160,7 +169,7 @@ export default function Suggestions() {
           combos.map((combo, i) => {
             const trio = trioOf(combo);
             return (
-              <Card key={`${i}-${combo.name}`}>
+              <Card key={`${i}-${combo.name}`} style={stale ? styles.stale : undefined}>
                 <Text variant="title3">{combo.name}</Text>
                 {combo.rationale ? (
                   <Text variant="body" tone="soft">
@@ -170,9 +179,12 @@ export default function Suggestions() {
                 <View style={[styles.trio, { gap: space.xs }]}>
                   {trio.map((c, slot) => {
                     const matched = [combo.primaryShade, combo.accentShade, combo.trimShade][slot];
-                    const name = namesShown(scheme) ? matched?.name?.trim() : null;
+                    const keptHere = kept[slot];
+                    // A kept colour is named as it was when it was kept, not after the shade
+                    // this palette had in its place.
+                    const name = keptHere ? keptHere.name : namesShown(scheme) ? matched?.name?.trim() : null;
                     const wall = targets[slot];
-                    const isKept = Boolean(kept[slot]);
+                    const isKept = Boolean(keptHere);
                     const where = wall ? wallLabel(wall) : t(ROLES[slot]!);
                     const colour = name || c.code || c.hex;
                     return (
@@ -196,7 +208,7 @@ export default function Suggestions() {
                               accessibilityRole="button"
                               accessibilityLabel={t(isKept ? "suggest.unkeep" : "suggest.keep", { colour, wall: where })}
                               accessibilityState={{ selected: isKept }}
-                              onPress={() => toggleKeep(slot, c)}
+                              onPress={() => toggleKeep(slot, { ...c, name })}
                               hitSlop={10}
                               style={[
                                 styles.lock,
@@ -220,7 +232,7 @@ export default function Suggestions() {
                     );
                   })}
                 </View>
-                <Button label={t("suggest.tryThis")} onPress={() => apply(combo)} />
+                <Button label={t("suggest.tryThis")} onPress={() => apply(combo)} disabled={stale} testID={`try-${i}`} />
               </Card>
             );
           })
@@ -232,7 +244,7 @@ export default function Suggestions() {
             label={t("suggest.again")}
             icon="refresh-cw"
             onPress={() => setRound((r) => r + 1)}
-            loading={suggestions.isFetching}
+            loading={suggestions.isFetching || stale}
             // Every wall kept: there is nothing left for another set to change.
             disabled={allKept}
           />
@@ -261,5 +273,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   keeping: { borderWidth: hairline },
+  stale: { opacity: 0.5 },
   keepingHead: { flexDirection: "row", alignItems: "center" },
 });

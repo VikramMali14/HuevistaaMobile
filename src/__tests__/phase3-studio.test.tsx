@@ -13,7 +13,7 @@ import { ApiError } from "@/api/errors";
 import { queryClient } from "@/api/query-client";
 import type { ProjectSummary, RoomDetail, RoomRegion, UserProfile } from "@/api/types";
 import { forgetRememberedRoute } from "@/auth/pending-route";
-import { applyColours, getRoomPaint, initRoom, pushRecent, resetPaintStore, resetRecentShades } from "@/features/studio/paint-store";
+import { applyColours, getRoomPaint, initRoom, pushRecent, resetPaintStore, resetRecentShades, selectWall } from "@/features/studio/paint-store";
 import { clearUpload } from "@/features/studio/photo-upload";
 import { resetTrays } from "@/features/studio/tray-store";
 import type { BackendShade } from "@/lib/shade-mapping";
@@ -950,12 +950,61 @@ describe("C13 · Suggested palettes", () => {
     fireEvent.press(screen.getByLabelText("Keep HV0118 on Accent wall"));
     await waitFor(() => expect(mockProjects.suggestions).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.getByLabelText("Unlock HV0118 on Accent wall")).toBeTruthy());
+    // Try this waits for the set asked for with the lock, not the one before it.
+    await waitFor(() => expect(screen.getByTestId("try-0")).not.toBeDisabled());
 
     press("Try this");
     await waitFor(
       () => expect(mockProjects.saveColours).toHaveBeenCalledWith("p1", expect.arrayContaining([{ regionId: 12, shadeCode: "HV0118", hexCode: "#7b8a72" }])),
       { timeout: 2000 },
     );
+  });
+
+  it("names the wall a lock keeps the colour on as the wall Try this paints", async () => {
+    signedIn();
+    // No main wall: the main colour goes to the wall selected in the studio.
+    mockProjects.get.mockResolvedValue(
+      room({ regions: [region(11, "OTHER_WALL", { label: "Left wall" }), region(12, "ACCENT_WALL"), region(13, "OTHER_WALL", { label: "Right wall" })] }),
+    );
+    selectWall("p1", "13");
+    mockProjects.suggestions.mockResolvedValue({ projectId: "p1", combinations: [combo] });
+    renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
+    await waitFor(() => expect(screen.getByLabelText("Keep HV0101 on Right wall")).toBeTruthy());
+    expect(screen.queryByLabelText("Keep HV0101 on Left wall")).toBeNull();
+    press("Try this");
+    await waitFor(
+      () => expect(mockProjects.saveColours).toHaveBeenCalledWith("p1", expect.arrayContaining([{ regionId: 13, shadeCode: "HV0101", hexCode: "#e8d5b0" }])),
+      { timeout: 2000 },
+    );
+  });
+
+  it("names a kept colour as it was kept, whatever the next palette had there", async () => {
+    signedIn();
+    mockShades.scheme.mockResolvedValue({ showBrands: false, showNames: true, showRealCodes: false });
+    const named = { ...combo, accentShade: { ...combo.accentShade, name: "Sage" } };
+    mockProjects.suggestions.mockResolvedValue({ projectId: "p1", combinations: [named] });
+    renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
+    await waitFor(() => expect(screen.getByLabelText("Keep Sage on Accent wall")).toBeTruthy());
+    mockProjects.suggestions.mockResolvedValue({
+      projectId: "p1",
+      combinations: [{ ...combo, name: "Garden evening", accentShade: { shadeCode: "HV0124", hvCode: "HV0124", hexCode: "#3e4a52", name: "Slate" } }],
+    });
+    fireEvent.press(screen.getByLabelText("Keep Sage on Accent wall"));
+    // The new set has landed, with a different shade in the accent's place.
+    await waitFor(() => expect(screen.getByText("Garden evening")).toBeTruthy());
+    expect(screen.getByLabelText("Unlock Sage on Accent wall")).toBeTruthy();
+    expect(screen.queryByText("Slate")).toBeNull();
+  });
+
+  it("does not offer the last set for Try this while the set built around a lock is on its way", async () => {
+    signedIn();
+    mockProjects.suggestions.mockResolvedValueOnce({ projectId: "p1", combinations: [combo] });
+    mockProjects.suggestions.mockReturnValue(new Promise(() => {}));
+    renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
+    await waitFor(() => expect(screen.getByLabelText("Keep HV0118 on Accent wall")).toBeTruthy());
+    expect(screen.getByTestId("try-0")).not.toBeDisabled();
+    fireEvent.press(screen.getByLabelText("Keep HV0118 on Accent wall"));
+    await waitFor(() => expect(screen.getByTestId("try-0")).toBeDisabled());
   });
 
   it("offers no locks in a one-wall room", async () => {
