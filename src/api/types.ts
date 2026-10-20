@@ -291,6 +291,22 @@ export interface ColourCombo {
   trimShade?: MatchedShade | null;
 }
 
+/** A colour locked on a palette, sent back so the next ask keeps it (backend KeptColour). */
+export interface KeptColour {
+  hex: string;
+  code?: string | null;
+}
+
+/**
+ * POST /api/projects/{id}/recommendations — its optional body: the colours to keep, by
+ * role. Every palette then carries each one in its role, and is built around it.
+ */
+export interface KeptColours {
+  primary?: KeptColour | null;
+  accent?: KeptColour | null;
+  trim?: KeptColour | null;
+}
+
 /** POST /api/projects/{id}/recommendations. */
 export interface Recommendations {
   projectId: string;

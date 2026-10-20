@@ -30,7 +30,9 @@ export const keys = {
   /** One room with its walls. Under "me", "projects" so a change to the list reaches it. */
   room: (id: string) => ["me", "projects", id] as const,
   roomReport: (id: string) => ["me", "projects", id, "report"] as const,
-  suggestions: (id: string, round: number) => ["me", "projects", id, "suggestions", round] as const,
+  /** `kept` names the locked colours; absent for an ordinary ask, which C11's dock shares. */
+  suggestions: (id: string, round: number, kept?: string) =>
+    kept ? (["me", "projects", id, "suggestions", round, kept] as const) : (["me", "projects", id, "suggestions", round] as const),
   combos: (id: string) => ["me", "projects", id, "combos"] as const,
   /** Every AI image of one room (C23, C25); one of them below it (C24). */
   roomRenders: (id: string) => ["me", "projects", id, "renders"] as const,

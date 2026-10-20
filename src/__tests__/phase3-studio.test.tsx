@@ -910,6 +910,63 @@ describe("C13 · Suggested palettes", () => {
     renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
     await waitFor(() => expect(screen.getByText(/This room has closed/)).toBeTruthy());
   });
+
+  // Keep one, change the rest: a customer with three walls who likes one colour.
+  it("keeps a locked colour on its wall and asks for the rest around it", async () => {
+    signedIn();
+    mockProjects.suggestions.mockResolvedValue({ projectId: "p1", combinations: [combo] });
+    renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
+    await waitFor(() => expect(screen.getByText(/Tap its lock to keep it/)).toBeTruthy());
+
+    fireEvent.press(screen.getByLabelText("Keep HV0118 on Accent wall"));
+    const body = { primary: null, accent: { hex: "#7b8a72", code: "HV0118" }, trim: null };
+    await waitFor(() => expect(mockProjects.suggestions).toHaveBeenCalledWith("p1", 0, body));
+    await waitFor(() => expect(screen.getByText("Keeping 1 colour")).toBeTruthy());
+    expect(screen.getByText(/keeps it on Accent wall/)).toBeTruthy();
+    expect(screen.getByLabelText("Unlock HV0118 on Accent wall")).toBeTruthy();
+
+    // Suggest again keeps it, and moves on a round.
+    await waitFor(() => expect(screen.getByText("Suggest again")).toBeTruthy());
+    press("Suggest again");
+    await waitFor(() => expect(mockProjects.suggestions).toHaveBeenCalledWith("p1", 1, body));
+
+    await waitFor(() => expect(screen.getByText("Unlock all")).toBeTruthy());
+    press("Unlock all");
+    await waitFor(() => expect(screen.getByText(/Tap its lock to keep it/)).toBeTruthy());
+    expect(screen.queryByText("Keeping 1 colour")).toBeNull();
+  });
+
+  it("shows the kept colour on its wall even when the answer has another there", async () => {
+    signedIn();
+    mockProjects.suggestions.mockResolvedValue({ projectId: "p1", combinations: [combo] });
+    renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
+    await waitFor(() => expect(screen.getByLabelText("Keep HV0118 on Accent wall")).toBeTruthy());
+
+    // A server that predates locks answers with a different accent.
+    mockProjects.suggestions.mockResolvedValue({
+      projectId: "p1",
+      combinations: [{ ...combo, accentHex: "#3e4a52", accentShade: { shadeCode: "HV0124", hvCode: "HV0124", hexCode: "#3e4a52" } }],
+    });
+    fireEvent.press(screen.getByLabelText("Keep HV0118 on Accent wall"));
+    await waitFor(() => expect(mockProjects.suggestions).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByLabelText("Unlock HV0118 on Accent wall")).toBeTruthy());
+
+    press("Try this");
+    await waitFor(
+      () => expect(mockProjects.saveColours).toHaveBeenCalledWith("p1", expect.arrayContaining([{ regionId: 12, shadeCode: "HV0118", hexCode: "#7b8a72" }])),
+      { timeout: 2000 },
+    );
+  });
+
+  it("offers no locks in a one-wall room", async () => {
+    signedIn();
+    mockProjects.get.mockResolvedValue(room({ regions: [region(11, "MAIN_WALL")] }));
+    mockProjects.suggestions.mockResolvedValue({ projectId: "p1", combinations: [combo] });
+    renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
+    await waitFor(() => expect(screen.getByText("Garden morning")).toBeTruthy());
+    expect(screen.queryByLabelText(/^Keep /)).toBeNull();
+    expect(screen.queryByText(/Tap its lock to keep it/)).toBeNull();
+  });
 });
 
 describe("C14 · Before and after", () => {

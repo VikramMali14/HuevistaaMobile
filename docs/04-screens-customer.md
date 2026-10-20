@@ -415,12 +415,19 @@ Three named palettes, each a run of swatches mapped to the walls and one sentenc
 why. **Try this** paints the room with it (autosaves). **Suggest again** asks for a new
 set. Free and instant.
 
-**API:** `POST /api/projects/{id}/recommendations?round={n}`. 402 → the room's access
-has closed.
+**API:** `POST /api/projects/{id}/recommendations?round={n}`, with an optional body
+`{ primary, accent, trim }` (each `{ hex, code }`) naming the colours to keep. 402 → the
+room's access has closed.
 
 As built: a modal route sharing C11's paint store. Each palette shows which wall each
 colour will go on (main, accent, trim from the paint plan — the website's
 `shade-grid.tsx`); a colour with no wall to go on is shown faded.
+
+**Keep one, change the rest.** In a room with two walls or more, each colour has a lock
+in its corner. Locking one keeps it on its wall in every palette: the next set is asked
+for with that colour kept, and is built around it; **Suggest again** changes only the
+other walls. A bar above the palettes says how many colours are kept and on which walls,
+with **Unlock all**. With every wall kept, Suggest again is off.
 
 ### C14 · Before and after
 

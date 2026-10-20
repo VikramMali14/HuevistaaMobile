@@ -13,6 +13,7 @@ import type {
   MaskReportIssue,
   ProjectCombo,
   ProjectRender,
+  KeptColours,
   Recommendations,
   RegionCategory,
   RegionColourUpdate,
@@ -72,11 +73,16 @@ export const projectsApi = {
   /** The backend's own route to a wall's mask (with the session; no CORS, no expiry). */
   maskPath: (id: string, regionId: number) => `/api/projects/${encodeURIComponent(id)}/regions/${regionId}/mask`,
 
-  /** C13. Free and instant; `round` asks for a different set. 402: the room has closed. */
-  suggestions: (id: string, round: number) =>
+  /**
+   * C13. Free and instant; `round` asks for a different set. `kept` is the colours locked
+   * on the screen: each palette keeps them in their roles and is built around them.
+   * 402: the room has closed.
+   */
+  suggestions: (id: string, round: number, kept?: KeptColours) =>
     api.request<Recommendations>(`api/projects/${encodeURIComponent(id)}/recommendations`, {
       method: "POST",
       query: { round },
+      ...(kept ? { body: kept } : {}),
     }),
 
   /**
