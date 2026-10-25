@@ -2,7 +2,7 @@ import type { AiCreditSummary, ProjectRender, RenderChoices, RenderQuality } fro
 import { t, type MessageKey } from "@/i18n";
 
 /**
- * How an AI image is photographed (C23) — the backend's CreateRenderRequest choices, in the
+ * How a Vista image is photographed (C23) — the backend's CreateRenderRequest choices, in the
  * website's order and with its words (render-studio.tsx, lib/render-labels.ts). Quality
  * comes first because it is the only choice that changes the price.
  */
@@ -89,7 +89,7 @@ export function costOf(wallet: Pick<AiCreditSummary, "renderTiers" | "renderCost
   return Number.isFinite(cost) && cost >= 1 ? Math.round(cost) : 1;
 }
 
-/** "1 AI credit", "2 AI credits". */
+/** "1 Vista credit", "2 Vista credits". */
 export function creditWords(n: number): string {
   return n === 1 ? t("balance.oneCredit") : t("balance.credits", { n });
 }

@@ -10,7 +10,7 @@ import type { PackedCart } from "@/lib/cart-pack";
 const rooms = (n: number) => (n === 1 ? t("checkout.oneRoom") : t("checkout.rooms", { n }));
 const images = (n: number) => (n === 1 ? t("checkout.oneImage") : t("checkout.images", { n }));
 
-/** "2 rooms and 1 AI image" — what a basket hands over, or a surplus. Empty for nothing. */
+/** "2 rooms and 1 Vista image" — what a basket hands over, or a surplus. Empty for nothing. */
 export function roomsAndImages(r: number, p: number): string {
   if (r > 0 && p > 0) return t("checkout.and", { a: rooms(r), b: images(p) });
   if (r > 0) return rooms(r);
@@ -18,7 +18,7 @@ export function roomsAndImages(r: number, p: number): string {
 }
 
 /**
- * "2 rooms and 1 AI credit" — what a confirmed payment added, in the units the balance is
+ * "2 rooms and 1 Vista credit" — what a confirmed payment added, in the units the balance is
  * kept in (C29 shows the balance beside it).
  */
 export function roomsAndCredits(r: number, c: number): string {
@@ -28,7 +28,7 @@ export function roomsAndCredits(r: number, c: number): string {
   return c > 0 ? credits : "";
 }
 
-/** "Bundled as the 3 rooms + 3 AI images offer and 2 × room + AI image" — what took money off. */
+/** "Bundled as the 3 rooms + 3 Vista images offer and 2 × room + Vista image" — what took money off. */
 export function packingLine(packed: Pick<PackedCart, "combos" | "bundles">, cart: CartCatalogue): string {
   const parts: string[] = [];
   const times = (n: number, what: string) => (n > 1 ? t("checkout.times", { n, what }) : what);

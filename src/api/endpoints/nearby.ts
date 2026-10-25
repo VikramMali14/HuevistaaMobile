@@ -25,6 +25,8 @@ export interface NearbyPainter {
   rating: number | null;
   ratingCount: number;
   jobsCompleted: number;
+  /** HueVistaa Certified — only certified painters are listed, so true on every result. */
+  certified?: boolean;
   /** To the painter's position as stored — rounded to about a kilometre. */
   distanceKm: number;
 }

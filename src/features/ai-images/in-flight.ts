@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * The AI images being made that this run of the app knows of — asked for here (C23), or
+ * The Vista images being made that this run of the app knows of — asked for here (C23), or
  * opened while still being made (C24). RenderWatcher polls each until it ends, wherever the
  * customer has gone, so the end reaches the shelf, the room and the wallet without C24
  * having to stay open.

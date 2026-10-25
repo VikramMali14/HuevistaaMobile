@@ -118,7 +118,7 @@ export const projectsApi = {
   combos: (id: string) => api.request<ProjectCombo[]>(`api/projects/${encodeURIComponent(id)}/combos`),
 
   /**
-   * C23. Asks for an AI image of one option: 202 with the image QUEUED, its credits spent
+   * C23. Asks for a Vista image of one option: 202 with the image QUEUED, its credits spent
    * there and then. Never repeated on its own (every ask is a new charge), and given time:
    * with the server's AI queue full, the answer can be slow in coming.
    * 402: not enough credits · 404: the room or the option has gone · 429: too many asks.
@@ -127,7 +127,7 @@ export const projectsApi = {
     api.request<ProjectRender>(`api/projects/${encodeURIComponent(id)}/renders`, { body, timeoutMs: 45_000 }),
 
   /**
-   * C23, C25. Every AI image of the room, in any state, newest first. `timeoutMs` for the
+   * C23, C25. Every Vista image of the room, in any state, newest first. `timeoutMs` for the
    * quick look C23 takes around asking for one.
    */
   renders: (id: string, timeoutMs?: number) =>

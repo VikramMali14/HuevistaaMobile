@@ -345,24 +345,24 @@ describe("C4 · Boards", () => {
     renderRouter("./app", { initialUrl: "/boards" });
     await waitFor(() => expect(screen.getByText("No colour boards yet")).toBeTruthy());
     expect(screen.getByText("Take a colour board from any room and it appears here.")).toBeTruthy();
-    press("AI images");
-    await waitFor(() => expect(screen.getByText("No AI images yet")).toBeTruthy());
-    press("Make an AI image");
+    press("Vista images");
+    await waitFor(() => expect(screen.getByText("No Vista images yet")).toBeTruthy());
+    press("Make a Vista image");
     await waitFor(() => expect(screen).toHavePathname("/ai-image/new"));
   });
 
-  it("shows finished AI images and opens one", async () => {
+  it("shows finished Vista images and opens one", async () => {
     signedIn();
     mockMe.renders.mockResolvedValue([
       { id: "r1", projectId: "p1", projectName: "Living room", status: "READY", imageUrl: "https://x/r1.jpg", completedAt: "2026-10-03T10:00:00" },
       { id: "r2", projectId: "p1", projectName: "Kitchen", status: "FAILED" },
     ]);
     renderRouter("./app", { initialUrl: "/boards" });
-    await waitFor(() => expect(screen.getByText("AI images")).toBeTruthy());
-    press("AI images");
-    await waitFor(() => expect(screen.getByLabelText("AI image of Living room")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Vista images")).toBeTruthy());
+    press("Vista images");
+    await waitFor(() => expect(screen.getByLabelText("Vista image of Living room")).toBeTruthy());
     expect(screen.queryByText("Kitchen")).toBeNull();
-    fireEvent.press(screen.getByLabelText("AI image of Living room"));
+    fireEvent.press(screen.getByLabelText("Vista image of Living room"));
     await waitFor(() => expect(screen).toHavePathname("/ai-image/r1"));
   });
 });
@@ -389,7 +389,7 @@ describe("C25 · Board detail", () => {
     expect(screen.getByText("Read these codes out at the counter — any HueVistaa shop can look them up.")).toBeTruthy();
     // In the order they were printed.
     expect(screen.getByTestId("board-combo-c1")).toBeTruthy();
-    fireEvent.press(screen.getAllByText("Make an AI image of this option")[0]!);
+    fireEvent.press(screen.getAllByText("Make a Vista image of this option")[0]!);
     await waitFor(() => expect(screen).toHavePathname("/ai-image/options"));
   });
 
@@ -726,7 +726,7 @@ describe("C27 · Rooms and credits", () => {
     expect(screen.getByText("A room stays open for a year once you start it.")).toBeTruthy();
     expect(screen.getByText("₹70 a credit, down from ₹99")).toBeTruthy();
     expect(screen.getByText("Credits bought")).toBeTruthy();
-    expect(screen.getByText("1 AI image")).toBeTruthy();
+    expect(screen.getByText("1 Vista image")).toBeTruthy();
     expect(screen.getByText("4 left")).toBeTruthy();
     fireEvent.press(screen.getByTestId("balance-buy-credits"));
     await waitFor(() => expect(screen).toHavePathname("/checkout"));
@@ -753,11 +753,11 @@ describe("C28 · Checkout", () => {
     fireEvent.press(screen.getByTestId("stepper-images-more"));
     // One room and one image is the combo: ₹199, not ₹219.
     await waitFor(() => expect(screen.getByTestId("checkout-total")).toHaveTextContent("₹199"));
-    expect(screen.getByText("Bundled as the room + AI image")).toBeTruthy();
+    expect(screen.getByText("Bundled as the room + Vista image")).toBeTruthy();
     fireEvent.press(screen.getByTestId("checkout-offer"));
     await waitFor(() => expect(screen.getByTestId("checkout-total")).toHaveTextContent("₹438"));
     expect(screen.getByText("Pay ₹438")).toBeTruthy();
-    expect(screen.getByText("Bundled as the 3 rooms + 3 AI images offer")).toBeTruthy();
+    expect(screen.getByText("Bundled as the 3 rooms + 3 Vista images offer")).toBeTruthy();
   });
 
   it("opens nothing when the order's price has changed, and says the new one", async () => {
@@ -859,7 +859,7 @@ describe("C28 · Checkout", () => {
     await waitFor(() => expect(screen.getByTestId("checkout-pay")).toBeDisabled());
   });
 
-  it("a shop's customer buys AI images only", async () => {
+  it("a shop's customer buys Vista images only", async () => {
     signedIn();
     mockMe.entitlement.mockResolvedValue({ customerId: "u1", customerName: "Priya", projectAllowance: 2, projectsCreated: 2, projectsRemaining: 0 });
     renderRouter("./app", { initialUrl: "/checkout?credits=1" });
@@ -937,8 +937,8 @@ describe("C28 · Checkout", () => {
       signedIn();
       renderRouter("./app", { initialUrl: "/checkout" });
       await waitFor(() => expect(screen.getByText("1 room · ₹149.00")).toBeTruthy());
-      expect(screen.getByText("1 AI credit · ₹70.00")).toBeTruthy();
-      expect(screen.getByText("1 room and 1 AI credit · ₹199.00")).toBeTruthy();
+      expect(screen.getByText("1 Vista credit · ₹70.00")).toBeTruthy();
+      expect(screen.getByText("1 room and 1 Vista credit · ₹199.00")).toBeTruthy();
       expect(screen.queryByTestId("checkout-pack-bundle_3_3")).toBeNull();
       expect(store.fetchProducts).toHaveBeenCalledWith(["room_1", "ai_credit_1", "combo_1_1", "bundle_3_3"]);
       expect(screen.getByText("Choose a pack. Everything in it lasts a year.")).toBeTruthy();
@@ -951,7 +951,7 @@ describe("C28 · Checkout", () => {
       expect(mockBilling.cart).not.toHaveBeenCalled();
     });
 
-    it("a link asking for AI credits highlights that pack; a shop's customer is never sold a room", async () => {
+    it("a link asking for Vista credits highlights that pack; a shop's customer is never sold a room", async () => {
       signedIn();
       mockMe.entitlement.mockResolvedValue({ customerId: "u1", customerName: "Priya", projectAllowance: 2, projectsCreated: 2, projectsRemaining: 0 });
       renderRouter("./app", { initialUrl: "/checkout?credits=3&from=ai-image" });
@@ -974,7 +974,7 @@ describe("C28 · Checkout", () => {
 
       renderRouter("./app", { initialUrl: "/balance" });
       await waitFor(() => expect(screen.getByTestId("balance-credits-n")).toHaveTextContent("4"));
-      expect(screen.queryByText(/a credit/)).toBeNull();
+      expect(screen.queryByText(/\ba credit\b/)).toBeNull();
       expect(screen.queryByText(/₹/)).toBeNull();
     });
 

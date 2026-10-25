@@ -36,7 +36,7 @@ export function comboWords(combo: Pick<ProjectCombo, "shades">): string {
   return combo.shades.map((s) => [s.regionLabel?.trim() || t("aiImage.wall"), s.shadeName, comboCode(s)].filter(Boolean).join(" ")).join(", ");
 }
 
-/** An option's shades as a PDF prints them (the AI image's page) — in English: the PDF's font has Latin letters only. */
+/** An option's shades as a PDF prints them (the Vista image's page) — in English: the PDF's font has Latin letters only. */
 export function comboPdfShades(combo: Pick<ProjectCombo, "shades">, namesShown: boolean): PdfShade[] {
   return combo.shades.map((s) => {
     const code = comboCode(s) ?? undefined;
@@ -50,7 +50,7 @@ export function comboPdfShades(combo: Pick<ProjectCombo, "shades">, namesShown: 
   });
 }
 
-/** Each option's newest finished AI image (an option's own `rendered` counts failed asks too). */
+/** Each option's newest finished Vista image (an option's own `rendered` counts failed asks too). */
 export function finishedImages(renders: readonly ProjectRender[] | undefined): Map<string, ProjectRender> {
   const out = new Map<string, ProjectRender>();
   // Newest first from the server: the first READY one of each option is its newest.

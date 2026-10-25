@@ -29,7 +29,7 @@ function count(raw: string | undefined): number {
   return Number.isInteger(n) && n > 0 ? n : 0;
 }
 
-/** Which pack C28's link asked for: AI images alone, both, or (by default) a room. */
+/** Which pack C28's link asked for: Vista images alone, both, or (by default) a room. */
 function highlighted(packs: Pack[], rooms: number, credits: number): Pack | undefined {
   const fits = (p: Pack) => (credits > 0 && rooms === 0 ? p.projects === 0 : rooms > 0 && credits > 0 ? p.projects > 0 && p.credits > 0 : p.projects > 0 && p.credits === 0);
   const singles = packs.filter((p) => p.projects + p.credits === 1);

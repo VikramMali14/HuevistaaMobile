@@ -8,7 +8,7 @@ import { fetchMedia } from "@/api/media";
 import { fileSlug } from "@/features/boards/board-pages";
 
 /**
- * An AI image on the phone (C24): fetched once into the cache, then saved to the photos,
+ * A Vista image on the phone (C24): fetched once into the cache, then saved to the photos,
  * shared, or put on a PDF with its shades. The picture's address is signed and expires
  * within the hour, so it is never what is shared — the file is. Deleted on sign-out.
  */
@@ -133,14 +133,14 @@ export async function shareRender(uri: string, title: string): Promise<void> {
 export async function sharePdf(pdf: Uint8Array, renderId: string, roomName: string, title: string): Promise<void> {
   const dir = new Directory(folder(), nameOf(renderId));
   dir.create({ intermediates: true, idempotent: true });
-  const file = new File(dir, `HueVistaa-AI-image-${fileSlug(roomName)}.pdf`);
+  const file = new File(dir, `HueVistaa-Vista-image-${fileSlug(roomName)}.pdf`);
   file.create({ overwrite: true });
   file.write(pdf);
   if (!(await Sharing.isAvailableAsync())) throw new Error("No share sheet");
   await Sharing.shareAsync(file.uri, { mimeType: "application/pdf", UTI: "com.adobe.pdf", dialogTitle: title });
 }
 
-/** Forget every AI image kept on the phone (sign-out, or a switch of profile). */
+/** Forget every Vista image kept on the phone (sign-out, or a switch of profile). */
 export function clearRenderFiles(): void {
   generation += 1;
   fetching.clear();

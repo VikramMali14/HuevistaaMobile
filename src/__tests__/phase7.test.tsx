@@ -129,6 +129,7 @@ const painterRow = (id: string, extra: Partial<NearbyPainter> = {}): NearbyPaint
   rating: 4.6,
   ratingCount: 23,
   jobsCompleted: 3,
+  certified: true,
   distanceKm: 0.6,
   ...extra,
 });
@@ -228,6 +229,8 @@ describe("C32 · Painters and shops near you", () => {
     expect(screen.getByText("Under 1 km away")).toBeTruthy();
     expect(screen.getByText("3 jobs done on HueVistaa · ★ 4.6 from 23 reviews")).toBeTruthy();
     expect(screen.getByText("New on HueVistaa — no jobs or reviews yet")).toBeTruthy();
+    // Only certified painters are listed, and each card says so.
+    expect(screen.getAllByText("HueVistaa Certified")).toHaveLength(2);
     expect(screen.getByText("Painters · 2")).toBeTruthy();
     fireEvent.press(screen.getByText("Shops · 1"));
     expect(screen.getByText("Shop 4, Khade Bazar · Belagavi, Karnataka")).toBeTruthy();

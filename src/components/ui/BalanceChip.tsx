@@ -6,7 +6,7 @@ import { fonts, hairline, useTheme } from "@/theme";
 
 import { Text } from "./Text";
 
-/** "3 rooms left" · "12 AI credits" — a balance you can tap through to (C27). */
+/** "3 rooms left" · "12 Vista credits" — a balance you can tap through to (C27). */
 export function BalanceChip({
   label,
   icon,

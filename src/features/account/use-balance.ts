@@ -11,7 +11,7 @@ function answer<T>(q: { isSuccess: boolean; isError: boolean; data: T | undefine
   return null;
 }
 
-/** The rooms and AI credits this account holds, and its one next step (C1, C5, C27). */
+/** The rooms and Vista credits this account holds, and its one next step (C1, C5, C27). */
 export function useBalance(): Balance & { loading: boolean; roomsLoading: boolean; refetch: () => Promise<unknown> } {
   const [ent, opts, wallet] = useQueries({
     queries: [

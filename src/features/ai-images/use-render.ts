@@ -69,7 +69,7 @@ export function renderQuery(projectId: string, renderId: string, poll: boolean):
 }
 
 /**
- * C24 · one AI image. While it is being made it is handed to RenderWatcher, which polls it
+ * C24 · one Vista image. While it is being made it is handed to RenderWatcher, which polls it
  * (pausing in the background, at once on return) until it ends — wherever the customer goes.
  */
 export function useRender(projectId: string, renderId: string) {

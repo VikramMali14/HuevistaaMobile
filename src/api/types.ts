@@ -116,10 +116,10 @@ export interface ProjectPurchaseOptions {
   availableCredits: number;
 }
 
-/** GET /api/billing/ai-credits — the AI credit wallet. */
+/** GET /api/billing/ai-credits — the Vista credit wallet. */
 export interface AiCreditSummary {
   balance: number;
-  /** False when this account cannot hold AI credits — hide the figure, never show 0. */
+  /** False when this account cannot hold Vista credits — hide the figure, never show 0. */
   eligible: boolean;
   pricePaise: number;
   listPricePaise: number;
@@ -131,7 +131,7 @@ export interface AiCreditSummary {
   expiringCredits?: number;
   currency: string;
   /**
-   * What each quality of AI image costs, in credits (C23), in the backend's order (Premium,
+   * What each quality of Vista image costs, in credits (C23), in the backend's order (Premium,
    * then Luxury). `quality` is sent straight back as the render's quality.
    */
   renderTiers?: { quality: RenderQuality | (string & {}); credits: number }[];
@@ -139,7 +139,7 @@ export interface AiCreditSummary {
   recentActivity?: AiCreditActivity[];
 }
 
-/** One movement in the AI credit wallet (backend AiCreditSummaryResponse.ActivityRow). */
+/** One movement in the Vista credit wallet (backend AiCreditSummaryResponse.ActivityRow). */
 export interface AiCreditActivity {
   id: string;
   /** Signed: positive is bought or handed back, negative is spent. */
@@ -339,7 +339,7 @@ export interface MaskReport {
 
 export type RenderStatus = "QUEUED" | "RUNNING" | "READY" | "FAILED";
 
-// ── AI images (C22–C24) ───────────────────────────────────────────────────────
+// ── Vista images (C22–C24) ───────────────────────────────────────────────────────
 // The backend's CreateRenderRequest enums (ProjectRender.java), sent exactly as written.
 
 /** Which model makes it: the only choice that changes the price. */
@@ -352,7 +352,7 @@ export type RenderStyle = "MODERN" | "MINIMAL" | "TRADITIONAL" | "HERITAGE" | "L
 /** Paint from the cleaned photo (the usual) or the photo as taken. */
 export type RenderSource = "CLEANED" | "ORIGINAL";
 
-/** How an AI image is photographed (C23). */
+/** How a Vista image is photographed (C23). */
 export interface RenderChoices {
   quality: RenderQuality;
   sourceImage: RenderSource;
@@ -371,7 +371,7 @@ export interface RenderRequest extends RenderChoices {
 }
 
 /**
- * GET /api/projects/{id}/renders[/{renderId}] — one AI image of a room, in any state. The
+ * GET /api/projects/{id}/renders[/{renderId}] — one Vista image of a room, in any state. The
  * choices are the server's words (an older or newer value may come back). `imageUrl` is
  * signed afresh on every read, so it changes each time; `failureReason` is set only when
  * FAILED, and a FAILED image has already handed its credits back.
@@ -396,7 +396,7 @@ export interface ProjectRender {
   completedAt: string | null;
 }
 
-/** GET /api/me/renders (one row) — a finished AI image (the server lists READY ones only). */
+/** GET /api/me/renders (one row) — a finished Vista image (the server lists READY ones only). */
 export interface MyRender {
   id: string;
   projectId: string;
@@ -496,7 +496,7 @@ export interface ProjectCombo {
   pageIndex: number;
   title?: string | null;
   /**
-   * An AI image of it has been ASKED for — in any state, a failed one included. Whether
+   * A Vista image of it has been ASKED for — in any state, a failed one included. Whether
    * one was made is the room's renders' to say (GET /api/projects/{id}/renders).
    */
   rendered: boolean;

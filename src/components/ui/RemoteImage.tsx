@@ -7,7 +7,7 @@ import { mediaSource } from "@/api/media";
 import { useTheme } from "@/theme";
 
 /**
- * A picture the backend serves — a room photo, an AI image. Sits on a soft surface
+ * A picture the backend serves — a room photo, a Vista image. Sits on a soft surface
  * while it loads, and shows a quiet image icon rather than a broken box if it fails.
  */
 export function RemoteImage({

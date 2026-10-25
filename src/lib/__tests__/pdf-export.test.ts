@@ -105,7 +105,7 @@ describe("buildColourBoardPdf", () => {
     expect(pdfText(buildColourBoardPdf([entry()], "x", false))).toContain("your paint shop can look these codes up");
   });
 
-  describe("the AI image page", () => {
+  describe("the Vista image page", () => {
     const aiImage = () => ({
       jpeg: fakeJpeg(1024, 768),
       shades: [{ label: "Main wall", name: "Off White", code: "7112", hex: "#f4efe6" }],
@@ -118,13 +118,13 @@ describe("buildColourBoardPdf", () => {
       expect(text).toContain("Page 3 of 3");
       expect(text).toContain("Option 2 of 2");
       expect(text).not.toContain("Option 3 of 3");
-      expect(text).toContain("Your AI image");
+      expect(text).toContain("Your Vista image");
     });
 
     it("is one page on its own sheet, saying what it is", () => {
       const text = pdfText(buildAiImagePdf(aiImage(), "My room"));
       expect(text).toContain("/Count 1");
-      expect(text).toContain("HUEVISTA · AI IMAGE");
+      expect(text).toContain("HUEVISTA · VISTA IMAGE");
       expect(text).not.toContain("HUEVISTA · COLOUR BOARD");
     });
   });

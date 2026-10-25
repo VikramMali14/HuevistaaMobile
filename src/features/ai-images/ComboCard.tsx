@@ -22,7 +22,7 @@ export function ComboCard({
   combo: ProjectCombo;
   /** "Board 2", when the room has taken more than one. */
   board?: string | null;
-  /** "AI image made". */
+  /** "Vista image made". */
   badge?: string | null;
   onPress?: () => void;
   testID?: string;

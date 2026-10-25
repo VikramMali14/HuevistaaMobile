@@ -1,5 +1,5 @@
 /**
- * An AI image on the phone (C24): fetched once, only ever a whole JPEG, one fetch at a time
+ * A Vista image on the phone (C24): fetched once, only ever a whole JPEG, one fetch at a time
  * per image, nothing written for an account that has signed out, and saving to the photos
  * asks for nothing more than saving.
  */

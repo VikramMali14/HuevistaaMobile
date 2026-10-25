@@ -7,7 +7,7 @@ import { untrackRender, useTrackedRenders } from "./in-flight";
 import { isFinal, isGone, renderQuery } from "./use-render";
 
 /**
- * Mounted once under the customer's screens: polls every AI image being made (in-flight.ts)
+ * Mounted once under the customer's screens: polls every Vista image being made (in-flight.ts)
  * until it ends, then reads again what its end changed — the credits (spent, or handed back
  * when it failed), the finished images and the room's own — so the shelf, C25, Home and the
  * wallet catch up whether or not C24 is still open. Renders nothing.

@@ -48,7 +48,7 @@ export type { CartSplit };
 export interface PackedCart extends CartSplit {
   /** Rooms this split delivers. Never fewer than asked for; sometimes more. */
   roomsGranted: number;
-  /** AI picture credits this split delivers. Same rule. */
+  /** Vista picture credits this split delivers. Same rule. */
   picturesGranted: number;
   /** The lines at their advertised prices, before any percentage offer. */
   subtotalPaise: number;

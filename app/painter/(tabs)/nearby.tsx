@@ -18,6 +18,8 @@ import { t } from "@/i18n";
 import { formatServerDate } from "@/lib/dates";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { useSubmit } from "@/lib/use-submit";
+import { env, paymentsMode } from "@/config/env";
+import { openWebPage } from "@/lib/open-web";
 import { useTheme } from "@/theme";
 
 /**
@@ -29,6 +31,12 @@ import { useTheme } from "@/theme";
  * and the row a customer would see. Listing needs a base and a confirmed mobile; what's
  * missing is said, with the way to it. Location is asked for only when "Use where I am now"
  * is pressed, with why on the screen above it.
+ *
+ * Only HueVistaa Certified painters are shown to customers. The switch stays the painter's
+ * to set before they are — the listing is saved and goes live once they're certified — so
+ * certification is a line under it. The year is bought on the painter website; the link to
+ * it is offered only where the app may send somebody to the website to pay (paymentsMode
+ * "web" — the Play build's anti-steering rule forbids it there).
  */
 export default function PainterNearby() {
   const { space } = useTheme();
@@ -86,6 +94,7 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
   const saving = useSubmit();
 
   const needs = listingNeeds(profile, pending);
+  const certified = Boolean(profile.certified);
   const dirty = listed !== Boolean(profile.listedForCustomers) || about.trim() !== (profile.about ?? "") || pending !== null;
   const rough = pending && pending !== "clear" && Number.isFinite(pending.accuracy) && pending.accuracy > ROUGH_FIX_METRES ? pending.accuracy : null;
 
@@ -112,7 +121,14 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
       try {
         const updated = await painterApi.updateListing(listingBody(listed, about, pending));
         queryClient.setQueryData(keys.painterProfile, updated);
-        toast.show(updated.listedForCustomers ? t("painter.nearby.savedListed") : t("painter.nearby.savedHidden"), "success");
+        toast.show(
+          !updated.listedForCustomers
+            ? t("painter.nearby.savedHidden")
+            : updated.certified
+              ? t("painter.nearby.savedListed")
+              : t("painter.nearby.savedUncertified"),
+          "success",
+        );
       } catch (err) {
         setError(messageFor(err, t("painter.nearby.failed")));
       }
@@ -148,7 +164,7 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
         <View style={{ gap: space.sm }}>
           <Switch
             label={t("painter.nearby.show")}
-            note={listed ? t("painter.nearby.shown") : t("painter.nearby.hidden")}
+            note={listed ? (certified ? t("painter.nearby.shown") : t("painter.nearby.shownUncertified")) : t("painter.nearby.hidden")}
             value={listed}
             onValueChange={(next) => {
               setError(null);
@@ -168,6 +184,18 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
               />
             </View>
           ) : null}
+          <View testID="nearby-certified">
+            <Need
+              done={certified}
+              label={
+                certified
+                  ? t("painter.nearby.certifiedUntil", { date: formatServerDate(profile.certifiedUntil) })
+                  : t("painter.nearby.needCertified")
+              }
+              action={t("painter.nearby.getCertified")}
+              onPress={certified || paymentsMode() !== "web" ? undefined : () => void openWebPage(`${env.painterOrigin}/certified`)}
+            />
+          </View>
         </View>
       </Card>
 
@@ -252,6 +280,7 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
                 rating: profile.rating ?? null,
                 ratingCount: profile.ratingCount ?? 0,
                 jobsCompleted: profile.jobsCompleted ?? 0,
+                certified: true,
                 distanceKm: 2.4,
               }}
               actions={<Button icon="phone" label={t("nearby.call")} disabled onPress={() => {}} />}
@@ -268,7 +297,7 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
 }
 
 /** One thing listing still needs, with a way to it when there is one. */
-function Need({ done, label, onPress }: { done: boolean; label: string; onPress?: () => void }) {
+function Need({ done, label, action, onPress }: { done: boolean; label: string; action?: string; onPress?: () => void }) {
   const { colors, space } = useTheme();
   return (
     <View style={[styles.row, { gap: space.sm }]}>
@@ -276,7 +305,7 @@ function Need({ done, label, onPress }: { done: boolean; label: string; onPress?
       <Text variant="body" style={styles.fill}>
         {label}
       </Text>
-      {onPress ? <Button variant="ghost" block={false} label={t("painter.rewards.addMobile")} onPress={onPress} /> : null}
+      {onPress ? <Button variant="ghost" block={false} label={action ?? t("painter.rewards.addMobile")} onPress={onPress} /> : null}
     </View>
   );
 }

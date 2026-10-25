@@ -17,7 +17,7 @@ import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { useTheme } from "@/theme";
 
 /**
- * C22 · AI image — choose the room. Spec: docs/04-screens-customer.md — C22.
+ * C22 · Vista image — choose the room. Spec: docs/04-screens-customer.md — C22.
  *
  * The rooms that have taken a colour board (GET /api/me/renderable-projects, in the
  * server's order: finished first, then rooms still open), then the option to photograph

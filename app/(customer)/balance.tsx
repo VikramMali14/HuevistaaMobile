@@ -39,10 +39,10 @@ function activityLine(row: AiCreditActivity): string {
 /**
  * C27 · Rooms and credits. Spec: docs/04-screens-customer.md — C27.
  *
- * Two counters — rooms left, and AI credits — then how to get more: a shop's customer
+ * Two counters — rooms left, and Vista credits — then how to get more: a shop's customer
  * whose rooms are used up asks the shop (who adds one free from the counter; they are never
- * sold a room), anyone else buys rooms; AI credits are bought by anyone who can hold them.
- * Then the AI credit statement. Worked out by the one balance hook (useBalance), so a
+ * sold a room), anyone else buys rooms; Vista credits are bought by anyone who can hold them.
+ * Then the Vista credit statement. Worked out by the one balance hook (useBalance), so a
  * balance that won't load is "didn't load", never "0 rooms".
  */
 export default function BalanceScreen() {

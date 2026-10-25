@@ -44,17 +44,17 @@ describe("the checkout page link", () => {
   it("carries the order, the public key, the amount and the prefill — nothing else", () => {
     const url = checkoutUrl(
       { orderId: "order_ABC123xyz", razorpayKeyId: "rzp_test_123456", amountPaise: 28900, currency: "INR" },
-      "2 rooms + 1 AI credit",
+      "2 rooms + 1 Vista credit",
       { name: "Priya Sharma", email: "", contact: "+919876543210" },
     );
     expect(url).toBe(
-      "https://huevistaa.com/pay/mobile?order=order_ABC123xyz&key=rzp_test_123456&amount=28900&currency=INR&desc=2%20rooms%20%2B%201%20AI%20credit&name=Priya%20Sharma&contact=%2B919876543210",
+      "https://huevistaa.com/pay/mobile?order=order_ABC123xyz&key=rzp_test_123456&amount=28900&currency=INR&desc=2%20rooms%20%2B%201%20Vista%20credit&name=Priya%20Sharma&contact=%2B919876543210",
     );
   });
 
   it("describes what the order hands over", () => {
-    expect(describeOrder({ projectsGranted: 3, creditsGranted: 3 })).toBe("3 rooms + 3 AI credits");
+    expect(describeOrder({ projectsGranted: 3, creditsGranted: 3 })).toBe("3 rooms + 3 Vista credits");
     expect(describeOrder({ projectsGranted: 1, creditsGranted: 0 })).toBe("1 room");
-    expect(describeOrder({ projectsGranted: 0, creditsGranted: 1 })).toBe("1 AI credit");
+    expect(describeOrder({ projectsGranted: 0, creditsGranted: 1 })).toBe("1 Vista credit");
   });
 });

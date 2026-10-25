@@ -8,7 +8,7 @@ import { useTheme } from "@/theme";
 /**
  * The homeowner's app — CUSTOMER accounts only. The tabs sit at the bottom of this
  * stack; every other customer screen is pushed over them, which is what hides the tab
- * bar inside the studio. RenderWatcher follows each AI image being made until it ends,
+ * bar inside the studio. RenderWatcher follows each Vista image being made until it ends,
  * whichever of these screens is showing; PlayPurchaseWatcher hands over the Google Play
  * purchases of the Android store build, whenever they arrive.
  */

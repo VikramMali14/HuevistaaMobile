@@ -7,8 +7,10 @@ import { givenName } from "@/features/account/display-name";
 import { PainterHeader, painterGreeting } from "@/features/painter/PainterHeader";
 import { expirySentence, expiryWarning, nextReward, points, signedPoints } from "@/features/painter/points";
 import { useCatalogue, usePainterProfile, useWallet } from "@/features/painter/use-painter";
+import { env, paymentsMode } from "@/config/env";
 import { t } from "@/i18n";
-import { formatServerDateTime } from "@/lib/dates";
+import { daysUntil, formatServerDate, formatServerDateTime } from "@/lib/dates";
+import { openWebPage } from "@/lib/open-web";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { useTheme } from "@/theme";
 
@@ -19,7 +21,15 @@ import { useTheme } from "@/theme";
  * The balance (counting up as it grows) with a warning when a batch is close to lapsing,
  * the one big Scan button, the next reward the points buy, whether customers nearby can
  * find this painter, and the latest movements.
+ *
+ * Only HueVistaa Certified painters are shown to customers, so a painter who isn't — or
+ * whose year ends within a month — is told so. The year is bought on the painter website;
+ * the card links there only where the app may send somebody to pay on the website
+ * (paymentsMode "web"; the Play build's anti-steering rule forbids it).
  */
+
+/** How close to the end of a year Home starts asking for the renewal. */
+const RENEW_NUDGE_DAYS = 30;
 export default function PainterHome() {
   const router = useRouter();
   const { space } = useTheme();
@@ -33,6 +43,11 @@ export default function PainterHome() {
   const warning = expiryWarning(w);
   const reward = nextReward(catalogue.data);
   const recent = (w?.recentActivity ?? []).slice(0, 3);
+  const certified = Boolean(painter.data?.certified);
+  const certDaysLeft = daysUntil(painter.data?.certifiedUntil);
+  const renewSoon = certified && certDaysLeft !== null && certDaysLeft <= RENEW_NUDGE_DAYS;
+  const canBuyHere = paymentsMode() === "web";
+  const openCertified = () => void openWebPage(`${env.painterOrigin}/certified`);
 
   return (
     <Screen scroll edges={["top"]} onRefresh={pull.onRefresh} refreshing={pull.refreshing} contentStyle={{ gap: space.xl }}>
@@ -97,6 +112,27 @@ export default function PainterHome() {
             <Text variant="painterStrong">
               {reward.affordable ? t("painter.home.rewardReady", { title: reward.title }) : t("painter.home.rewardToGo", { points: points(reward.pointsShort), title: reward.title })}
             </Text>
+          </View>
+        </Card>
+      ) : null}
+
+      {painter.data && (!certified || renewSoon) ? (
+        <Card
+          onPress={canBuyHere ? openCertified : undefined}
+          accessibilityLabel={certified ? t("painter.home.certRenewTitle") : t("painter.home.certTitle")}
+        >
+          <View style={{ gap: space.xxs }} testID="painter-certification">
+            <Text variant="painterStrong">{certified ? t("painter.home.certRenewTitle") : t("painter.home.certTitle")}</Text>
+            <Text variant="small" tone="soft">
+              {certified
+                ? t("painter.home.certRenewBody", { date: formatServerDate(painter.data.certifiedUntil) })
+                : t("painter.home.certBody")}
+            </Text>
+            {canBuyHere ? (
+              <Text variant="bodyStrong" tone="accent">
+                {certified ? t("painter.home.certRenewAction") : t("painter.home.certAction")}
+              </Text>
+            ) : null}
           </View>
         </Card>
       ) : null}

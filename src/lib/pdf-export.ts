@@ -15,7 +15,7 @@
  * The studio lets the user snapshot the recoloured canvas (up to the plan's
  * per-board cap) and download them as a single multi-page PDF. A project hands
  * over ONE board and is then finished, so this file is the whole deliverable —
- * which is why the project's latest AI image goes on the end of it (see
+ * which is why the project's latest Vista image goes on the end of it (see
  * `aiImage`) rather than living only on a screen the customer has to come back
  * to. Each page is a branded A4 sheet:
  * a palette strip of the option's colours across the top edge, a header with
@@ -73,12 +73,12 @@ export interface PdfImageEntry {
 }
 
 /**
- * The project's latest AI image, printed as the board's closing page.
+ * The project's latest Vista image, printed as the board's closing page.
  *
  * It is a separate type rather than one more {@link PdfImageEntry} because it is not
  * an option to choose between — the choosing already happened, and this is the one
  * combination the customer had photographed for real. It is numbered apart from the
- * options for the same reason ("AI image", not "Option 6 of 5"), and it is never
+ * options for the same reason ("Vista image", not "Option 6 of 5"), and it is never
  * counted against the per-board picture cap: the cap exists to bound how many canvas
  * snapshots a phone has to hold in memory at once, and this is a single already-encoded
  * image the browser downloaded rather than rendered.
@@ -212,9 +212,9 @@ function pageChrome(
   universalCodes: boolean,
   counter?: string,
   /** The small tracked-out line above the title. "COLOUR BOARD" on a board; a
-   *  one-page sheet of a single AI image says what it actually is instead. */
+   *  one-page sheet of a single Vista image says what it actually is instead. */
   eyebrow: string = tEn("pdf.eyebrowBoard"),
-  /** The line above the footer. An AI image's page says it was made by AI as well. */
+  /** The line above the footer. A Vista image's page says it was made by AI as well. */
   disclaimer: string = tEn("pdf.disclaimer"),
 ): string[] {
   const ops: string[] = [];
@@ -283,7 +283,7 @@ function pageContent(
   universalCodes: boolean,
   pageNo: number,
   pageCount: number,
-  /** Right-hand slot beside the title, e.g. "Option 2 of 5" or "Your AI image". */
+  /** Right-hand slot beside the title, e.g. "Option 2 of 5" or "Your Vista image". */
   counter: string,
   /** Heading over the shade table, e.g. "COLOURS IN THIS OPTION". */
   sectionLabel: string,
@@ -479,7 +479,7 @@ export function buildColourBoardPdf(
    */
   universalCodes = true,
   /**
-   * The project's latest AI image, appended as the closing page. Omitted when the
+   * The project's latest Vista image, appended as the closing page. Omitted when the
    * project has not had one made yet — which is the ordinary case at the counter, since
    * the board is usually downloaded before the picture is ordered. An unreadable one is
    * dropped like any other page rather than failing the board.
@@ -523,7 +523,7 @@ export function buildColourBoardPdf(
   // Every option is printed: one whose picture is missing or unreadable gets swatches.
   const usable = entries.map((e) => ({ entry: e, bytes: readableJpeg(e.jpeg) }));
 
-  // The AI image only earns its page if its bytes actually decoded. A board that lost
+  // The Vista image only earns its page if its bytes actually decoded. A board that lost
   // its closing page is a smaller board; a board that threw on the way to being built
   // is no board at all, and this is the last thing the customer gets.
   const aiBytes = aiImage ? readableJpeg(aiImage.jpeg) : null;
@@ -531,7 +531,7 @@ export function buildColourBoardPdf(
   // Numbered across the whole document, closing page included, so "Page 6 of 6" is
   // true. The OPTION counter deliberately is not — see the counter argument below.
   //
-  // The `|| 1` rather than a Math.max around the options is what lets the AI image stand
+  // The `|| 1` rather than a Math.max around the options is what lets the Vista image stand
   // on its own. A board with no options is a document with nothing in it and earns the
   // apology page below; a board that is ONLY the closing image is the single-image sheet,
   // and padding it to two pages would print that apology opposite a perfectly good
@@ -595,7 +595,7 @@ export function buildColourBoardPdf(
     kids.push(pageId);
   } else {
     // The option counter counts OPTIONS, not pages — "Option 5 of 5" stays true on a
-    // board whose sixth page is the AI image, because the customer was never asked to
+    // board whose sixth page is the Vista image, because the customer was never asked to
     // choose between six things.
     usable.forEach(({ entry, bytes }, i) => {
       addPicturePage(entry, bytes, i + 1, tEn("pdf.optionOf", { n: i + 1, total: usable.length }),
@@ -631,10 +631,10 @@ export function buildColourBoardPdf(
 }
 
 /**
- * One AI image on a sheet of its own — picture, the shades it was made in, and the
+ * One Vista image on a sheet of its own — picture, the shades it was made in, and the
  * footer saying where those codes can be read.
  *
- * This is the small deliverable the product was missing. The board carries the AI image
+ * This is the small deliverable the product was missing. The board carries the Vista image
  * as its closing page, which is right when somebody is finishing a job at a counter and
  * wants everything on one document — but it is the wrong shape for the far more common
  * moment afterwards: the customer has the picture, wants to send it to a painter or a
