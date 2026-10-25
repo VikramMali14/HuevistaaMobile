@@ -9,12 +9,15 @@ import { router } from "expo-router";
 import { act, fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
 import { AppState } from "react-native";
 
+import * as WebBrowser from "expo-web-browser";
+
 import { ApiError } from "@/api/errors";
 import type { PainterProfile } from "@/api/endpoints/painter";
 import type { PainterWallet, Redemption, RewardItem, RewardScan } from "@/api/endpoints/rewards";
 import { queryClient } from "@/api/query-client";
 import type { UserProfile } from "@/api/types";
 import { forgetRememberedRoute } from "@/auth/pending-route";
+import * as env from "@/config/env";
 import type { BoardReaderProps } from "@/features/painter/board-reader/protocol";
 import { holdSharedBoard, takeSharedBoard } from "@/features/painter/shared-board";
 
@@ -188,6 +191,9 @@ const painter = (extra: Partial<PainterProfile> = {}): PainterProfile => ({
   latitude: 19.07,
   longitude: 72.88,
   locationUpdatedAt: ist(-10 * DAY),
+  // Certified for most of a year: only HueVistaa Certified painters are shown to customers.
+  certified: true,
+  certifiedUntil: ist(200 * DAY),
   ...extra,
 });
 const board = (extra: Partial<RewardScan> = {}): RewardScan => ({
@@ -262,6 +268,28 @@ describe("P1 · Home", () => {
     await waitFor(() => expect(screen.getByTestId("painter-nudge")).toBeTruthy());
     fireEvent.press(screen.getByText("Set up"));
     await waitFor(() => expect(screen).toHavePathname("/painter/nearby"));
+  });
+
+  it("tells a painter who isn't certified that customers only see certified painters", async () => {
+    mockPainter.profile.mockResolvedValue(painter({ certified: false, certifiedUntil: null }));
+    renderRouter("./app", { initialUrl: "/painter" });
+    await waitFor(() => expect(screen.getByTestId("painter-certification")).toBeTruthy());
+    expect(screen.getByText("Get HueVistaa Certified")).toBeTruthy();
+    expect(screen.getByText("Only certified painters are shown to customers looking for a painter nearby.")).toBeTruthy();
+  });
+
+  it("asks for the renewal a month before the year ends, and not before", async () => {
+    mockPainter.profile.mockResolvedValue(painter({ certifiedUntil: ist(12 * DAY) }));
+    renderRouter("./app", { initialUrl: "/painter" });
+    await waitFor(() => expect(screen.getByTestId("painter-certification")).toBeTruthy());
+    expect(screen.getByText("Renew HueVistaa Certified")).toBeTruthy();
+  });
+
+  it("says nothing about certification while a year has long to run", async () => {
+    renderRouter("./app", { initialUrl: "/painter" });
+    await waitFor(() => expect(screen.getByTestId("painter-balance")).toBeTruthy());
+    await waitFor(() => expect(mockPainter.profile).toHaveBeenCalled());
+    expect(screen.queryByTestId("painter-certification")).toBeNull();
   });
 
   it("says so when the points won't load", async () => {
@@ -619,6 +647,60 @@ describe("P5 · Nearby", () => {
     await waitFor(() => expect(mockPainter.updateListing).toHaveBeenCalled());
     expect(mockPainter.updateListing).toHaveBeenCalledWith({ listedForCustomers: true, about: "", latitude: 19.08, longitude: 72.88 });
     await waitFor(() => expect(screen.getByText("Saved. Customers near you can see you now.")).toBeTruthy());
+  });
+
+  /**
+   * Only certified painters are shown, but the switch stays the painter's: the listing is
+   * saved, and goes live once they're certified. The way to the year is offered only where
+   * the app may send a painter to the website to pay — never in the Play build.
+   */
+  it("saves a listing before certification, and says it goes live once certified", async () => {
+    mockPainter.profile.mockResolvedValue(painter({ listedForCustomers: false, certified: false, certifiedUntil: null }));
+    mockPainter.updateListing.mockImplementation(async (body) => painter({ ...body, certified: false, certifiedUntil: null }));
+    renderRouter("./app", { initialUrl: "/painter/nearby" });
+    await waitFor(() => expect(screen.getByTestId("nearby-certified")).toBeTruthy());
+    expect(screen.getByText("Only HueVistaa Certified painters are shown to customers")).toBeTruthy();
+
+    fireEvent(screen.getByTestId("nearby-switch"), "valueChange", true);
+    expect(screen.getByText("On — customers will see you once you're HueVistaa Certified.")).toBeTruthy();
+    fireEvent.press(screen.getByTestId("nearby-save"));
+    await waitFor(() => expect(screen.getByText("Saved. Customers will see you once you're HueVistaa Certified.")).toBeTruthy());
+  });
+
+  it("links to the year on the website only where the app may send a painter to pay", async () => {
+    mockPainter.profile.mockResolvedValue(painter({ certified: false, certifiedUntil: null }));
+    const mode = jest.spyOn(env, "paymentsMode").mockReturnValue("play");
+    try {
+      renderRouter("./app", { initialUrl: "/painter/nearby" });
+      await waitFor(() => expect(screen.getByTestId("nearby-certified")).toBeTruthy());
+      expect(screen.queryByText("Get certified")).toBeNull();
+    } finally {
+      mode.mockRestore();
+    }
+  });
+
+  it("opens the painter website's certification page in a web-payments build", async () => {
+    mockPainter.profile.mockResolvedValue(painter({ certified: false, certifiedUntil: null }));
+    const mode = jest.spyOn(env, "paymentsMode").mockReturnValue("web");
+    try {
+      renderRouter("./app", { initialUrl: "/painter/nearby" });
+      await waitFor(() => expect(screen.getByText("Get certified")).toBeTruthy());
+      fireEvent.press(screen.getByText("Get certified"));
+      await waitFor(() =>
+        expect(WebBrowser.openBrowserAsync).toHaveBeenCalledWith(
+          expect.stringMatching(/\/certified$/),
+          expect.anything(),
+        ),
+      );
+    } finally {
+      mode.mockRestore();
+    }
+  });
+
+  it("shows a certified painter until when, with the badge on their preview", async () => {
+    renderRouter("./app", { initialUrl: "/painter/nearby" });
+    await waitFor(() => expect(screen.getByTestId("nearby-certified")).toHaveTextContent(/HueVistaa Certified until/));
+    expect(screen.getByTestId("painter-certified")).toBeTruthy();
   });
 
   it("offers Settings when location has been refused for good", async () => {

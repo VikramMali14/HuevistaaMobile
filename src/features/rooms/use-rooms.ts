@@ -8,7 +8,7 @@ export function useProjects() {
   return useQuery({ queryKey: keys.projects, queryFn: meApi.projects });
 }
 
-/** GET /api/me/renders — the AI images. */
+/** GET /api/me/renders — the Vista images. */
 export function useRenders() {
   return useQuery({ queryKey: keys.renders, queryFn: meApi.renders });
 }

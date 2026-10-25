@@ -57,7 +57,7 @@ type Params = { projectId?: string; comboId?: string; note?: string } & Partial<
 type Problem = { kind: StartOutcome["kind"]; message: string; balance?: number };
 
 /**
- * C23 · AI image — options. Spec: docs/04-screens-customer.md — C23.
+ * C23 · Vista image — options. Spec: docs/04-screens-customer.md — C23.
  *
  * The option to photograph, then how: quality (the only choice that changes the price,
  * so first), which photo to paint from (only when the room has a cleaned one), time of

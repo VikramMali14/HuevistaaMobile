@@ -34,7 +34,7 @@ export const keys = {
   suggestions: (id: string, round: number, kept?: string) =>
     kept ? (["me", "projects", id, "suggestions", round, kept] as const) : (["me", "projects", id, "suggestions", round] as const),
   combos: (id: string) => ["me", "projects", id, "combos"] as const,
-  /** Every AI image of one room (C23, C25); one of them below it (C24). */
+  /** Every Vista image of one room (C23, C25); one of them below it (C24). */
   roomRenders: (id: string) => ["me", "projects", id, "renders"] as const,
   render: (id: string, renderId: string) => ["me", "projects", id, "renders", renderId] as const,
   /** The painter's side (P1–P12). */
@@ -99,7 +99,7 @@ export const paymentChanges = [keys.entitlement, keys.projectOptions, keys.aiCre
 export const boardChanges = (id: string) => [keys.room(id), keys.projects, keys.boards] as const;
 
 /**
- * What asking for an AI image changes, and what its end changes again: the credits (spent
+ * What asking for a Vista image changes, and what its end changes again: the credits (spent
  * on asking, handed back if it fails), the finished images, and the room's own images and
  * options (an option's `rendered`).
  */

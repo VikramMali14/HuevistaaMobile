@@ -82,7 +82,7 @@ export default function Account() {
       </Pressable>
 
       <ListGroup>
-        {/* The balance goes under the title: beside it, "No rooms left · 12 AI credits"
+        {/* The balance goes under the title: beside it, "No rooms left · 12 Vista credits"
             squeezed "Your balance" onto two lines. */}
         <ListRow icon="home" title={t("account.balance")} detail={balanceValue} onPress={() => router.push("/balance")} />
       </ListGroup>

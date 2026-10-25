@@ -41,6 +41,14 @@ export interface PainterProfile {
   latitude?: number | null;
   longitude?: number | null;
   locationUpdatedAt?: string | null;
+  /**
+   * HueVistaa Certified right now. Only certified painters are shown to customers, so a
+   * listing switched on without it is saved but not yet seen. Bought for a year on the
+   * painter website (₹499); the server decides.
+   */
+  certified?: boolean;
+  /** When the certification runs out; null when not certified. */
+  certifiedUntil?: string | null;
 }
 
 /**

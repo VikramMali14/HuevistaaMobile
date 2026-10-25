@@ -45,7 +45,7 @@ describe("balanceFrom", () => {
     expect(balanceFrom(ok(ent(-2)), ok(opts(-1)), null).rooms).toBe(0);
   });
 
-  it("hides AI credits the account cannot hold", () => {
+  it("hides Vista credits the account cannot hold", () => {
     expect(balanceFrom(null, null, ok(wallet(5, false))).credits).toBeNull();
   });
 

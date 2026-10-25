@@ -100,6 +100,16 @@ Left for a real phone: the camera on a printed board, the reader on Android and 
 Left for a real phone: the location prompts, App Links on a signed build, and handing
 over to the dialler, WhatsApp and Maps.
 
+**HueVistaa Certified painters.** Only certified painters are shown to customers in
+"Painters & shops near you", each with a "HueVistaa Certified" badge. A painter is certified
+for a year (₹499) on the painter website, once their mobile is confirmed and their trade
+profile is filled in. Here, Home and the painter's Nearby tab say whether they are certified
+and until when, ask for the renewal a month before the year ends, and keep the listing switch
+the painter's own — a listing saved before certification goes live once they're certified.
+The link to the year on the website is offered only in web-payment builds
+(`paymentsMode() === "web"`): in the Play build nothing may send somebody to the website to
+pay.
+
 **Phase 8 — polish and release — is built.**
 - Hindi throughout, chosen in Settings or following the phone; print stays English.
 - Push notifications: walls ready, an AI image ready, a voucher settled, a support

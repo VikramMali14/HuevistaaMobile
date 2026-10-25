@@ -53,7 +53,7 @@ export function parsePayCallback(url: string | null | undefined): PayCallback {
   }
 }
 
-/** "2 rooms + 3 AI credits" — what the order hands over, for Checkout and the bank statement. */
+/** "2 rooms + 3 Vista credits" — what the order hands over, for Checkout and the bank statement. */
 export function describeOrder(order: Pick<CartOrder, "projectsGranted" | "creditsGranted">): string {
   const parts: string[] = [];
   if (order.projectsGranted > 0) {

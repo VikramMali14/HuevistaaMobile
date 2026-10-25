@@ -26,9 +26,9 @@ function newestFirst(a: RenderableProject, b: RenderableProject): number {
  * C4 · Boards. Spec: docs/04-screens-customer.md — C4.
  *
  * What the rooms produced: every room that took a colour board (→ C25), and every finished
- * AI image (→ C24). As built: the boards come from GET /api/me/renderable-projects — the
+ * Vista image (→ C24). As built: the boards come from GET /api/me/renderable-projects — the
  * rooms carrying board combinations — because the room list sends no board count. Opened
- * with `?tab=ai` (C24's "All my AI images", "Leave this running") on the AI images.
+ * with `?tab=ai` (C24's "All my Vista images", "Leave this running") on the Vista images.
  */
 export default function BoardsScreen() {
   const router = useRouter();

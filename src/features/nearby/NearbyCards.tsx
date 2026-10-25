@@ -36,6 +36,7 @@ export function PainterCardBody({ painter: p, actions }: { painter: NearbyPainte
           {distanceLabel(p.distanceKm, true)}
         </Text>
       </View>
+      {p.certified !== false ? <Pill label={t("nearby.certified")} tone="accent" testID="painter-certified" /> : null}
       <Text variant="small" tone="soft">
         {trackRecord(p)}
       </Text>

@@ -41,7 +41,7 @@ export const deepLinks = {
 } as const;
 
 /**
- * How rooms and AI credits are sold: "play" is Google Play Billing (the Android store
+ * How rooms and Vista credits are sold: "play" is Google Play Billing (the Android store
  * build — Play's payments policy requires it for digital goods used in the app), "web" is
  * Razorpay on the website's /pay/mobile page (iOS for now, and the sideloaded APK).
  *

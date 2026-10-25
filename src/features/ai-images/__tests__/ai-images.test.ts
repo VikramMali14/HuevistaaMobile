@@ -128,8 +128,8 @@ describe("asking for an image", () => {
 
   it("obeys every reply: short of credits, an option or room gone, too many asks, a note too long", async () => {
     mockProjects.renders.mockResolvedValue([]);
-    mockProjects.requestRender.mockRejectedValueOnce(new ApiError("http", 402, "You need 2 AI image credits…"));
-    expect(await startRender(input)).toEqual({ kind: "short", message: "You need 2 AI image credits…" });
+    mockProjects.requestRender.mockRejectedValueOnce(new ApiError("http", 402, "You need 2 Vista credits…"));
+    expect(await startRender(input)).toEqual({ kind: "short", message: "You need 2 Vista credits…" });
     mockProjects.requestRender.mockRejectedValueOnce(new ApiError("http", 404, "That combination isn't on any of this room's colour boards."));
     expect((await startRender(input)).kind).toBe("optionGone");
     mockProjects.requestRender.mockRejectedValueOnce(new ApiError("http", 404, "Project not found: p1"));

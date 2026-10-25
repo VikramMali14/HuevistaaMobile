@@ -38,7 +38,7 @@ function greeting(name: string | null): string {
  * C1 · Home. Spec: docs/04-screens-customer.md — C1.
  *
  * What this person holds and the one thing to do next, then their rooms, their latest
- * AI image, help nearby and the ready-made rooms. A first visit with nothing yet is the
+ * Vista image, help nearby and the ready-made rooms. A first visit with nothing yet is the
  * next step alone, filling the screen.
  */
 export default function Home() {

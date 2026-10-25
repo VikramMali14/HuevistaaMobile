@@ -58,11 +58,11 @@ import { useTheme } from "@/theme";
 const PICTURE_MAX_SHARE = 0.5;
 
 /**
- * C24 · AI image — working and result. Spec: docs/04-screens-customer.md — C24.
+ * C24 · Vista image — working and result. Spec: docs/04-screens-customer.md — C24.
  *
  * While it is being made, RenderWatcher polls it (QUEUED and RUNNING look the same: the
  * customer is told how long it has taken, never a status), and it can be left — it is on
- * the AI images shelf once ready. Ready: the picture (tap for full screen, pinch to zoom),
+ * the Vista images shelf once ready. Ready: the picture (tap for full screen, pinch to zoom),
  * then Send the image (the phone's share sheet, where WhatsApp is — a file reaches WhatsApp
  * no other way without native code, as on C16), Save to phone (the photos, asked for only
  * now), and a one-page PDF with its shades. Failed: the server's own sentence (which says
@@ -76,7 +76,7 @@ export default function AiImageResult() {
   const shelf = useQuery({ queryKey: keys.renders, queryFn: meApi.renders, enabled: !given, refetchOnMount: "always" });
   const projectId = given || shelf.data?.find((r) => r.id === renderId)?.projectId || "";
   const render = useRender(projectId, renderId);
-  // Back to the tabs already there, on the AI images — never a second set of tabs.
+  // Back to the tabs already there, on the Vista images — never a second set of tabs.
   const toImages = () => {
     const to = { pathname: "/boards", params: { tab: "ai" } } as const;
     if (router.canDismiss()) router.dismissTo(to);

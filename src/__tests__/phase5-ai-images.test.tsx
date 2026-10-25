@@ -265,7 +265,7 @@ afterEach(() => onlineManager.setOnline(true));
 
 // ── C22 ───────────────────────────────────────────────────────────────────────
 
-describe("C22 · AI image — choose the room", () => {
+describe("C22 · Vista image — choose the room", () => {
   it("lists the rooms with a board in the server's order, finished or still open, then that room's options", async () => {
     signedIn();
     mockMe.renderableProjects.mockResolvedValue([
@@ -290,7 +290,7 @@ describe("C22 · AI image — choose the room", () => {
     signedIn();
     renderRouter("./app", { initialUrl: "/ai-image/new" });
     await waitFor(() => expect(screen.getByText("No colour boards yet")).toBeTruthy());
-    expect(screen.getByText("Take a colour board from a room first — the AI image is made from one of its options.")).toBeTruthy();
+    expect(screen.getByText("Take a colour board from a room first — the Vista image is made from one of its options.")).toBeTruthy();
   });
 
   it("says a list that won't load didn't load, never that there are no rooms", async () => {
@@ -314,9 +314,9 @@ describe("C22 · AI image — choose the room", () => {
     mockProjects.combos.mockResolvedValue([{ ...combo("c1", 1, 0, ["HV0118"]), rendered: true }, { ...combo("c2", 1, 1, ["HV0124"]), rendered: true }]);
     mockProjects.renders.mockResolvedValue([image({ id: "r2", comboId: "c2", status: "FAILED" }), ready({ id: "r1", comboId: "c1" })]);
     renderRouter("./app", { initialUrl: "/ai-image/new?projectId=p1" });
-    await waitFor(() => expect(screen.getByText("AI image made")).toBeTruthy());
-    expect(screen.getAllByText("AI image made")).toHaveLength(1);
-    expect(screen.getByTestId("ai-option-c1")).toHaveTextContent(/AI image made/);
+    await waitFor(() => expect(screen.getByText("Vista image made")).toBeTruthy());
+    expect(screen.getAllByText("Vista image made")).toHaveLength(1);
+    expect(screen.getByTestId("ai-option-c1")).toHaveTextContent(/Vista image made/);
   });
 
   it("a room that isn't on the account says so", async () => {
@@ -330,7 +330,7 @@ describe("C22 · AI image — choose the room", () => {
 
 // ── C23 ───────────────────────────────────────────────────────────────────────
 
-describe("C23 · AI image — options", () => {
+describe("C23 · Vista image — options", () => {
   const open = () => renderRouter("./app", { initialUrl: "/ai-image/options?projectId=p1&comboId=c1" });
 
   it("prices the quality from the wallet, then asks for the image with every choice — once — and waits on C24", async () => {
@@ -338,12 +338,12 @@ describe("C23 · AI image — options", () => {
     mockProjects.requestRender.mockResolvedValue(image());
     mockProjects.render.mockResolvedValue(image());
     open();
-    await waitFor(() => expect(screen.getByTestId("ai-cost")).toHaveTextContent("This image uses 1 AI credit. You have 4 AI credits."));
-    expect(screen.getByText("Premium · 1 AI credit")).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId("ai-cost")).toHaveTextContent("This image uses 1 Vista credit. You have 4 Vista credits."));
+    expect(screen.getByText("Premium · 1 Vista credit")).toBeTruthy();
     expect(screen.getByTestId("ai-chosen-option")).toHaveTextContent(/HV0118/);
 
     fireEvent.press(screen.getByTestId("ai-choice-LUXURY"));
-    expect(screen.getByTestId("ai-cost")).toHaveTextContent("This image uses 2 AI credits. You have 4 AI credits.");
+    expect(screen.getByTestId("ai-cost")).toHaveTextContent("This image uses 2 Vista credits. You have 4 Vista credits.");
     expect(screen.getByText("Our finest — sharper, larger, and truer to your building's own lines.")).toBeTruthy();
     fireEvent.press(screen.getByTestId("ai-choice-NIGHT"));
     fireEvent.press(screen.getByTestId("ai-choice-STAGED"));
@@ -374,7 +374,7 @@ describe("C23 · AI image — options", () => {
     open();
     await waitFor(() => expect(screen.getByTestId("ai-make")).toBeTruthy());
     fireEvent.press(screen.getByTestId("ai-choice-LUXURY"));
-    expect(screen.getByTestId("ai-cost")).toHaveTextContent("You need 1 more AI credit for this image, at ₹70.");
+    expect(screen.getByTestId("ai-cost")).toHaveTextContent("You need 1 more Vista credit for this image, at ₹70.");
     expect(screen.queryByTestId("ai-make")).toBeNull();
     fireEvent.press(screen.getByTestId("ai-buy"));
     await waitFor(() => expect(screen).toHavePathname("/checkout"));
@@ -391,8 +391,8 @@ describe("C23 · AI image — options", () => {
       open();
       await waitFor(() => expect(screen.getByTestId("ai-buy")).toBeTruthy());
       fireEvent.press(screen.getByTestId("ai-choice-LUXURY"));
-      expect(screen.getByTestId("ai-cost")).toHaveTextContent("You need 2 more AI credits for this image.");
-      expect(screen.getByText("Buy 2 AI credits")).toBeTruthy();
+      expect(screen.getByTestId("ai-cost")).toHaveTextContent("You need 2 more Vista credits for this image.");
+      expect(screen.getByText("Buy 2 Vista credits")).toBeTruthy();
       expect(screen.queryByText(/₹/)).toBeNull();
       fireEvent.press(screen.getByTestId("ai-buy"));
       await waitFor(() => expect(screen).toHavePathname("/checkout"));
@@ -418,13 +418,13 @@ describe("C23 · AI image — options", () => {
     signedIn();
     mockMe.aiCredits.mockReturnValue(new Promise<AiCreditSummary>(() => {}));
     open();
-    await waitFor(() => expect(screen.getByText("Reading your AI credits…")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Reading your Vista credits…")).toBeTruthy());
     expect(screen.getByText("Make my image")).toBeTruthy();
     expect(screen.queryByText(/Make my image ·/)).toBeNull();
     expect(screen.queryByTestId("ai-make")).toBeNull();
   });
 
-  it("an account that can't hold AI credits is told so, with nothing to press", async () => {
+  it("an account that can't hold Vista credits is told so, with nothing to press", async () => {
     signedIn();
     mockMe.aiCredits.mockResolvedValue(wallet({ eligible: false, balance: 0 }));
     open();
@@ -436,7 +436,7 @@ describe("C23 · AI image — options", () => {
   it("obeys a 402 — the server's sentence, the wallet read again, and the sentence kept until credits come", async () => {
     signedIn();
     mockProjects.requestRender.mockRejectedValue(
-      new ApiError("http", 402, "You need 1 AI image credit to make this image and you have 0. Top up your AI wallet to carry on."),
+      new ApiError("http", 402, "You need 1 Vista credit to make this image and you have 0. Top up your Vista credit wallet to carry on."),
     );
     open();
     await waitFor(() => expect(screen.getByTestId("ai-make")).toBeTruthy());
@@ -447,7 +447,7 @@ describe("C23 · AI image — options", () => {
     await waitFor(() => expect(screen.getByTestId("ai-buy")).toBeTruthy());
     expect(mockMe.aiCredits.mock.calls.length).toBeGreaterThan(reads);
     // Its own re-read doesn't clear it…
-    expect(screen.getByTestId("ai-problem")).toHaveTextContent(/You need 1 AI image credit/);
+    expect(screen.getByTestId("ai-problem")).toHaveTextContent(/You need 1 Vista credit/);
     expect(screen).toHavePathname("/ai-image/options");
     // …credits bought do.
     mockMe.aiCredits.mockResolvedValue(wallet({ balance: 3 }));
@@ -515,7 +515,7 @@ describe("C23 · AI image — options", () => {
 
     fireEvent.press(screen.getByTestId("ai-make"));
     await waitFor(() => expect(screen.getByText("Make a second image?")).toBeTruthy());
-    expect(screen.getByText(/Making another uses 1 AI credit again\./)).toBeTruthy();
+    expect(screen.getByText(/Making another uses 1 Vista credit again\./)).toBeTruthy();
     press("Cancel");
     expect(mockProjects.requestRender).toHaveBeenCalledTimes(1);
 
@@ -642,7 +642,7 @@ describe("C23 · AI image — options", () => {
 
 // ── C24 ───────────────────────────────────────────────────────────────────────
 
-describe("C24 · AI image — working and result", () => {
+describe("C24 · Vista image — working and result", () => {
   it("waits honestly, then shows the image to send, save, and send as a PDF with its shades", async () => {
     signedIn();
     const createdAt = ist(Date.now() - 5_000);
@@ -652,11 +652,11 @@ describe("C24 · AI image — working and result", () => {
     renderRouter("./app", { initialUrl: "/ai-image/r1?projectId=p1" });
     await waitFor(() => expect(screen.getByTestId("ai-image-working")).toBeTruthy());
     expect(screen.getByText("Leave this running")).toBeTruthy();
-    await waitFor(() => expect(screen.getByText("Your AI image is ready")).toBeTruthy(), { timeout: 5000 });
+    await waitFor(() => expect(screen.getByText("Your Vista image is ready")).toBeTruthy(), { timeout: 5000 });
     expect(screen.getByText("Luxe · Day · Natural light · Luxury")).toBeTruthy();
 
     fireEvent.press(screen.getByTestId("ai-send"));
-    await waitFor(() => expect(mockFiles.shareRender).toHaveBeenCalledWith("file://cache/ai-images/r1.jpg", "Your AI image · Living room"));
+    await waitFor(() => expect(mockFiles.shareRender).toHaveBeenCalledWith("file://cache/ai-images/r1.jpg", "Your Vista image · Living room"));
     expect(mockFiles.renderFile).toHaveBeenCalledWith("https://bucket.s3/r1.jpg?sig=1", "r1");
 
     fireEvent.press(screen.getByTestId("ai-save"));
@@ -748,11 +748,11 @@ describe("C24 · AI image — working and result", () => {
     signedIn();
     mockProjects.render.mockRejectedValue(new ApiError("http", 404, "Render not found: r1"));
     renderRouter("./app", { initialUrl: "/ai-image/r1?projectId=p1" });
-    await waitFor(() => expect(screen.getByText("This AI image isn't on your account any more")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("This Vista image isn't on your account any more")).toBeTruthy());
     expect(screen.queryByText(/Render not found/)).toBeNull();
   });
 
-  it("can be left while it is made: the AI images catch up when it ends, with C24 long gone", async () => {
+  it("can be left while it is made: the Vista images catch up when it ends, with C24 long gone", async () => {
     signedIn();
     let finished = false;
     mockProjects.render.mockImplementation(async () => {
@@ -768,10 +768,10 @@ describe("C24 · AI image — working and result", () => {
     press("Leave this running");
     await waitFor(() => expect(screen).toHavePathname("/boards"));
     expect(screen.queryByTestId("ai-image-working")).toBeNull();
-    await waitFor(() => expect(screen.getByLabelText("AI image of Living room")).toBeTruthy(), { timeout: 8_000 });
+    await waitFor(() => expect(screen.getByLabelText("Vista image of Living room")).toBeTruthy(), { timeout: 8_000 });
   }, 15_000);
 
-  it("an image left while being made shows on the AI images as being made, then as finished", async () => {
+  it("an image left while being made shows on the Vista images as being made, then as finished", async () => {
     signedIn();
     let finished = false;
     mockMe.renderableProjects.mockResolvedValue([{ id: "p1", name: "Living room", imageUrl: "/a.jpg", closedAt: null, comboCount: 2 }]);
@@ -782,11 +782,11 @@ describe("C24 · AI image — working and result", () => {
     renderRouter("./app", { initialUrl: "/ai-image/r1?projectId=p1" });
     await waitFor(() => expect(screen.getByText("Leave this running")).toBeTruthy());
     press("Leave this running");
-    await waitFor(() => expect(screen.getByLabelText("AI image of Living room, being made")).toBeTruthy());
-    expect(screen.queryByText("No AI images yet")).toBeNull();
+    await waitFor(() => expect(screen.getByLabelText("Vista image of Living room, being made")).toBeTruthy());
+    expect(screen.queryByText("No Vista images yet")).toBeNull();
     finished = true;
-    await waitFor(() => expect(screen.getByLabelText("AI image of Living room")).toBeTruthy(), { timeout: 8_000 });
-    expect(screen.queryByLabelText("AI image of Living room, being made")).toBeNull();
+    await waitFor(() => expect(screen.getByLabelText("Vista image of Living room")).toBeTruthy(), { timeout: 8_000 });
+    expect(screen.queryByLabelText("Vista image of Living room, being made")).toBeNull();
   }, 15_000);
 
   it("an image that leaves the account while being made says so", async () => {
@@ -796,7 +796,7 @@ describe("C24 · AI image — working and result", () => {
       .mockRejectedValue(new ApiError("http", 404, "Project not found: p1"));
     renderRouter("./app", { initialUrl: "/ai-image/r1?projectId=p1" });
     await waitFor(() => expect(screen.getByTestId("ai-image-working")).toBeTruthy());
-    await waitFor(() => expect(screen.getByText("This AI image isn't on your account any more")).toBeTruthy(), { timeout: 6_000 });
+    await waitFor(() => expect(screen.getByText("This Vista image isn't on your account any more")).toBeTruthy(), { timeout: 6_000 });
   }, 10_000);
 
   it("a picture that won't show is asked for afresh once, then offered again by hand", async () => {
@@ -854,14 +854,14 @@ describe("C24 · AI image — working and result", () => {
     mockMe.renders.mockResolvedValue([{ id: "r1", projectId: "p1", projectName: "Living room", status: "READY", imageUrl: "https://x/r1.jpg" }]);
     mockProjects.render.mockResolvedValue(ready());
     renderRouter("./app", { initialUrl: "/ai-image/r1" });
-    await waitFor(() => expect(screen.getByText("Your AI image is ready")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Your Vista image is ready")).toBeTruthy());
     expect(mockProjects.render).toHaveBeenCalledWith("p1", "r1");
   });
 });
 
 // ── The ways in and out ───────────────────────────────────────────────────────
 
-describe("AI images, from elsewhere", () => {
+describe("Vista images, from elsewhere", () => {
   it("C25 offers a finished image of an option, and nothing for a failed one", async () => {
     signedIn();
     mockProjects.renders.mockResolvedValue([ready({ id: "r1", comboId: "c1" }), image({ id: "r2", comboId: "c2", status: "FAILED" })]);
@@ -879,11 +879,11 @@ describe("AI images, from elsewhere", () => {
     mockProjects.renders.mockRejectedValue(new ApiError("network", 0, "Network error"));
     renderRouter("./app", { initialUrl: "/board/p1" });
     await waitFor(() => expect(screen.getByTestId("board-renders-failed")).toBeTruthy());
-    expect(screen.getByTestId("board-combo-c1")).toHaveTextContent(/An AI image was asked for/);
-    expect(screen.getByTestId("board-combo-c2")).not.toHaveTextContent(/An AI image was asked for/);
+    expect(screen.getByTestId("board-combo-c1")).toHaveTextContent(/A Vista image was asked for/);
+    expect(screen.getByTestId("board-combo-c2")).not.toHaveTextContent(/A Vista image was asked for/);
   });
 
-  it("signing out clears the AI images kept on the phone", async () => {
+  it("signing out clears the Vista images kept on the phone", async () => {
     signedIn();
     renderRouter("./app", { initialUrl: "/account" });
     await waitFor(() => expect(screen.getByTestId("account-sign-out")).toBeTruthy());
@@ -894,20 +894,20 @@ describe("AI images, from elsewhere", () => {
     expect(mockFiles.clearRenderFiles).toHaveBeenCalled();
   });
 
-  it("the Boards tab opens on the AI images when asked to", async () => {
+  it("the Boards tab opens on the Vista images when asked to", async () => {
     signedIn();
     mockMe.renders.mockResolvedValue([{ id: "r1", projectId: "p1", projectName: "Living room", status: "READY", imageUrl: "https://x/r1.jpg" }]);
     renderRouter("./app", { initialUrl: "/boards?tab=ai" });
-    await waitFor(() => expect(screen.getByLabelText("AI image of Living room")).toBeTruthy());
+    await waitFor(() => expect(screen.getByLabelText("Vista image of Living room")).toBeTruthy());
   });
 
-  it("the AI images stay when reading them again fails", async () => {
+  it("the Vista images stay when reading them again fails", async () => {
     signedIn();
     mockMe.renders
       .mockResolvedValueOnce([{ id: "r1", projectId: "p1", projectName: "Living room", status: "READY", imageUrl: "https://x/r1.jpg" }])
       .mockRejectedValue(new ApiError("http", 503, ""));
     renderRouter("./app", { initialUrl: "/boards?tab=ai" });
-    await waitFor(() => expect(screen.getByLabelText("AI image of Living room")).toBeTruthy());
+    await waitFor(() => expect(screen.getByLabelText("Vista image of Living room")).toBeTruthy());
     await act(async () => {
       await queryClient.invalidateQueries({ queryKey: keys.renders });
     });
@@ -915,11 +915,11 @@ describe("AI images, from elsewhere", () => {
     await act(async () => {
       jest.advanceTimersByTime(100);
     });
-    expect(screen.getByLabelText("AI image of Living room")).toBeTruthy();
+    expect(screen.getByLabelText("Vista image of Living room")).toBeTruthy();
     expect(screen.queryByText("Try again")).toBeNull();
   });
 
-  it("C25 keeps the board when reading its options again fails (as each AI image's end does)", async () => {
+  it("C25 keeps the board when reading its options again fails (as each Vista image's end does)", async () => {
     signedIn();
     mockProjects.combos.mockResolvedValueOnce([combo("c1", 1, 0, ["HV0118"])]).mockRejectedValue(new ApiError("http", 503, ""));
     renderRouter("./app", { initialUrl: "/board/p1" });

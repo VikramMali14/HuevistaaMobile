@@ -11,7 +11,7 @@ import { Text } from "./Text";
  * space on screen — never fine print.
  *
  * - `shades` on anything showing shades
- * - `ai` on anything AI-generated
+ * - `ai` on anything computer-generated
  */
 export function Disclaimer({ kind }: { kind: "shades" | "ai" }) {
   const { colors, radius, space } = useTheme();

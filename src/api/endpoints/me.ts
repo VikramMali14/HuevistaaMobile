@@ -1,5 +1,5 @@
 /**
- * The signed-in customer's own things: balance, rooms, AI images, shop codes.
+ * The signed-in customer's own things: balance, rooms, Vista images, shop codes.
  * Backend: account/controller/{CustomerEntitlementController,AccessCodeController},
  * billing/controller/{RewardPointsController,AiCreditController},
  * project/controller/{ProjectController,MyRendersController}. Screens: C1, C4, C5, C27, C30, C31.

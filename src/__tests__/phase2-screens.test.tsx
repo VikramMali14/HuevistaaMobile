@@ -172,7 +172,7 @@ describe("C1 · Home", () => {
     await waitFor(() => expect(screen.getByText("3 rooms ready")).toBeTruthy());
     expect(screen.getByText("1 of your shop's 3 rooms used · 1 you bought")).toBeTruthy();
     expect(screen.getByText("3 rooms left")).toBeTruthy();
-    expect(screen.getByText("12 AI credits")).toBeTruthy();
+    expect(screen.getByText("12 Vista credits")).toBeTruthy();
     expect(screen.getByText(/Good (morning|afternoon|evening), Priya/)).toBeTruthy();
     press("Start a new room");
     await waitFor(() => expect(screen).toHavePathname("/room/new"));
@@ -209,12 +209,12 @@ describe("C1 · Home", () => {
     expect(screen.queryByText("No rooms yet")).toBeNull();
   });
 
-  it("hides AI credits an account cannot hold", async () => {
+  it("hides Vista credits an account cannot hold", async () => {
     signedInAs(person());
     mockMe.aiCredits.mockResolvedValue({ balance: 0, eligible: false });
     renderRouter("./app", { initialUrl: "/home" });
     await waitFor(() => expect(screen.getByText("No rooms left")).toBeTruthy());
-    expect(screen.queryByText(/AI credit/)).toBeNull();
+    expect(screen.queryByText(/Vista credit/)).toBeNull();
   });
 
   it("lists rooms in progress and opens one at its step", async () => {

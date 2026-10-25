@@ -19,7 +19,7 @@ describe("projectsApi", () => {
     expect(mockRequest).toHaveBeenCalledWith("api/projects/p1/recommendations", { method: "POST", query: { round: 2 } });
   });
 
-  it("asks for an AI image with the time a full AI queue can take, and polls it by room and id", async () => {
+  it("asks for a Vista image with the time a full AI queue can take, and polls it by room and id", async () => {
     mockRequest.mockResolvedValue({});
     const body = {
       comboId: "c1",

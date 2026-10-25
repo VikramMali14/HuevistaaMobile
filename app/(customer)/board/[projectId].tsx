@@ -38,7 +38,7 @@ import { hairline, useTheme } from "@/theme";
  *
  * A finished room opens here (CR): its photo, the day its board was taken, and every
  * option on the board with the codes large enough to read out at a counter. Each option
- * leads to an AI image of it; the job, once done, to a review. A board made on this phone
+ * leads to a Vista image of it; the job, once done, to a review. A board made on this phone
  * can be sent again.
  */
 export default function BoardDetail() {
@@ -48,7 +48,7 @@ export default function BoardDetail() {
   const { projectId: id = "" } = useLocalSearchParams<{ projectId: string }>();
   const room = useRoom(id);
   const combos = useQuery({ queryKey: keys.combos(id), queryFn: () => projectsApi.combos(id), enabled: Boolean(id) });
-  // Which options have a finished AI image (an option's own `rendered` counts failed asks).
+  // Which options have a finished Vista image (an option's own `rendered` counts failed asks).
   const renders = useQuery({ queryKey: keys.roomRenders(id), queryFn: () => projectsApi.renders(id), enabled: Boolean(id) });
   const scheme = useShadeScheme();
   const made = useMadeBoard(id);
@@ -71,7 +71,7 @@ export default function BoardDetail() {
       </View>
     );
   } else if ((room.isError && !room.data) || (combos.isError && !combos.data)) {
-    // Only when there is nothing to show: a read again that fails (each AI image's end reads
+    // Only when there is nothing to show: a read again that fails (each Vista image's end reads
     // the options again) leaves the board as it was.
     body = (
       <ErrorState

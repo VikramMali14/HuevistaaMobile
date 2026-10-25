@@ -2,7 +2,7 @@ import { api } from "../instance";
 
 /**
  * Push notifications (Phase 8): the phone's Expo push token, kept against the signed-in
- * account so the server can say when walls or an AI image are ready, a voucher is settled
+ * account so the server can say when walls or a Vista image are ready, a voucher is settled
  * or the team has replied. Registering again is harmless, and a token another account had
  * on this phone moves to this one. The server drops a phone's tokens itself on sign-out,
  * a password change and account deletion — the phone can't always say so in time.

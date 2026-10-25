@@ -6,7 +6,7 @@ export type NextStep = "ready" | "exhausted" | "missing";
 export interface Balance {
   /** Shop rooms left + rooms bought. */
   rooms: number;
-  /** AI credits, or null when this account cannot hold them (never show "0"). */
+  /** Vista credits, or null when this account cannot hold them (never show "0"). */
   credits: number | null;
   /** At least one of the three answered — otherwise show nothing, never "0 rooms". */
   loaded: boolean;

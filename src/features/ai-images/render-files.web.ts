@@ -45,19 +45,19 @@ function download(href: string, name: string) {
 }
 
 export async function saveRenderToPhotos(uri: string): Promise<"saved" | "denied"> {
-  download(uri, "HueVistaa-AI-image.jpg");
+  download(uri, "HueVistaa-Vista-image.jpg");
   return "saved";
 }
 
 export function openPhotoSettings(): void {}
 
 export async function shareRender(uri: string, _title: string): Promise<void> {
-  download(uri, "HueVistaa-AI-image.jpg");
+  download(uri, "HueVistaa-Vista-image.jpg");
 }
 
 export async function sharePdf(pdf: Uint8Array, _renderId: string, roomName: string, _title: string): Promise<void> {
   const link = URL.createObjectURL(new Blob([pdf as BlobPart], { type: "application/pdf" }));
-  download(link, `HueVistaa-AI-image-${fileSlug(roomName)}.pdf`);
+  download(link, `HueVistaa-Vista-image-${fileSlug(roomName)}.pdf`);
   setTimeout(() => URL.revokeObjectURL(link), 60_000);
 }
 
