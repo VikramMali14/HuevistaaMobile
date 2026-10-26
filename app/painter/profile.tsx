@@ -10,6 +10,7 @@ import { keys } from "@/api/query-keys";
 import { useSession } from "@/auth/session";
 import { BackButton, Banner, Button, Chip, ErrorState, ListGroup, ListRow, Screen, Skeleton, Text, TextField, useToast } from "@/components/ui";
 import { addItem, AREAS, rupees, SPECIALTIES, tradeBody, wholeNumber } from "@/features/painter/listing";
+import { OwnHome } from "@/features/painter/OwnHome";
 import { displayPhone } from "@/features/painter/redeem";
 import { isNoProfile, usePainterProfile } from "@/features/painter/use-painter";
 import { t } from "@/i18n";
@@ -270,6 +271,8 @@ function TradeForm({ profile, onRefresh }: { profile: PainterProfile; onRefresh:
         />
         <ListRow icon="settings" title={t("painter.profile.settings")} onPress={() => router.push("/settings")} testID="profile-settings" />
       </ListGroup>
+
+      <OwnHome />
 
       <ListGroup>
         <ListRow icon="life-buoy" title={t("account.helpSupport")} onPress={() => router.push("/help")} testID="profile-help" />

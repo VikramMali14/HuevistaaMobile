@@ -502,12 +502,30 @@ describe("C5 · Account", () => {
     await waitFor(() => expect(screen.getByText("Work as a painter")).toBeTruthy());
   });
 
-  it("hides painter work, and shows My products, for a shop customer", async () => {
+  /** A shop's code no longer stands in the way: the backend keeps it on a customer profile. */
+  it("offers painter work to a shop customer too, beside My products", async () => {
     signedInAs(person());
     mockMe.entitlement.mockResolvedValue(entitlement(1));
     renderRouter("./app", { initialUrl: "/account" });
     await waitFor(() => expect(screen.getByText("My products")).toBeTruthy());
+    expect(screen.getByText("Work as a painter")).toBeTruthy();
+  });
+
+  it("a painter's customer profile switches back to painting with no code", async () => {
+    signedInAs(person({ name: "Ravi Kumar", linkedProfile: true, switchTo: "PAINTER" }));
+    mockAuth.switchProfile.mockImplementation(async () => {
+      mockAuth.profile.mockResolvedValue(person({ name: "Ravi Kumar", role: "PAINTER", switchTo: "CUSTOMER" }));
+      return { accessToken: "access-2", refreshToken: "refresh-2" };
+    });
+    renderRouter("./app", { initialUrl: "/account" });
+    await waitFor(() => expect(screen.getByTestId("switch-back")).toBeTruthy());
+    expect(screen.getByText("Switch back to painting")).toBeTruthy();
     expect(screen.queryByText("Work as a painter")).toBeNull();
+    fireEvent.press(screen.getByTestId("switch-back"));
+    await waitFor(() => expect(screen.getByText("Switch back to painting?")).toBeTruthy());
+    fireEvent.press(screen.getByText("Switch to painting"));
+    await waitFor(() => expect(screen).toHavePathname("/painter"));
+    expect(mockAuth.switchProfile).toHaveBeenCalledTimes(1);
   });
 
   it("a shop's customer profile switches back to the shop, taking the emailed code in place", async () => {
@@ -764,7 +782,8 @@ describe("Phase 2 audit", () => {
     mockAuth.switchProfile.mockResolvedValue({ accessToken: "a-shop", refreshToken: "r-shop" });
     renderRouter("./app", { initialUrl: "/account" });
     await waitFor(() => expect(screen.getByTestId("switch-back")).toBeTruthy());
-    await waitFor(() => expect(queryClient.getQueryData(keys.projects)).toBeTruthy());
+    // The rooms another screen of this profile had loaded.
+    queryClient.setQueryData(keys.projects, [room({ name: "Customer room" })]);
     mockAuth.profile.mockResolvedValue(person({ id: "u1", name: "Sharma Paints", role: "RETAILER", switchTo: "CUSTOMER" }));
     fireEvent.press(screen.getByTestId("switch-back"));
     await waitFor(() => expect(screen.getByText("Switch to the shop")).toBeTruthy());

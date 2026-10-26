@@ -222,3 +222,8 @@ mobile is never sent from here (only S4 changes it). A painter account with no p
 profile behind it gets **Set it up**. Rows to name (S2), mobile (S4), listing (P5) and
 settings (S1).
 
+**Your own home:** the painter's customer profile — a CUSTOMER account behind the same
+sign-in, as a shop owner has. One button turns it on if it's off
+(`POST /api/auth/profiles/customer`) and switches to it (`POST /api/auth/profiles/switch`);
+no code is asked either way. The customer screens' account tab switches back (C5).
+

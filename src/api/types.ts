@@ -26,12 +26,12 @@ export interface UserProfile {
   namePending?: boolean;
   /** Never shown around the app — drives the first run (A10/A11). */
   welcomePending?: boolean;
-  /** A shop's customer profile: no sign-in of its own, reached by switching. */
+  /** A shop's or a painter's customer profile: no sign-in of its own, reached by switching. */
   linkedProfile?: boolean;
-  /** A shop only: whether its customer profile is switched on. */
+  /** A shop or a painter only: whether its customer profile is switched on. */
   customerProfileEnabled?: boolean | null;
-  /** What this session can switch to right now. */
-  switchTo?: "CUSTOMER" | "SHOP" | null;
+  /** What this session can switch to right now — SHOP or PAINTER is a profile's way back. */
+  switchTo?: "CUSTOMER" | "SHOP" | "PAINTER" | null;
   createdAt?: string;
   updatedAt?: string;
 }

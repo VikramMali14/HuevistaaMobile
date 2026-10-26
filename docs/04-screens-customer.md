@@ -165,9 +165,12 @@ C24, All my AI images), it opens on the AI images, once.
 - **Painters and shops near you** → C32.
 - **Help:** Help & support → S6 · Questions & answers → S8.
 - **Sign-in details:** Name → S2 · Email → S3 · Mobile → S4 · Password → S5.
-- **More:** Work as a painter → C33 — shown only once the account is known to have no
-  shop code and no rooms (the backend refuses otherwise) · Settings → S1.
+- **More:** Work as a painter → C33 — shown to every account but a customer profile; rooms
+  and a shop code are kept on a customer profile, not in the way · Settings → S1.
 - **Sign out** (`ConfirmSheet`) · app version in `caption`.
+- A painter's customer profile (`switchTo = "PAINTER"`) gets **Switch back to painting**
+  instead; a painter has no emailed code, so it signs straight in and the guard moves on
+  to `/painter`. Its note says its sign-in details are the painter account's.
 - A shop's customer profile (`switchTo = "SHOP"`) gets **Switch back to your shop**,
   which explains that shop tools are on the website (S10). Its sign-in details are the
   shop's to change, so they are replaced by a note. Going back into the shop can ask for
@@ -955,11 +958,13 @@ settings**; location off or no fix → said, and **Use my location** tries again
 **Route** `become-painter.tsx` · **Phase** 6
 
 Explains what a painter account does, and plainly: "This changes this account into a
-painter's account for good. A painter account can't plan its own rooms." **Make this a
+painter's account for good. A painter account doesn't plan rooms itself." **Make this a
 painter account** → `POST /api/painters/me` → reload profile → `/painter`.
 
-Refused (rooms or a shop code on the account) → the backend's reason: "Sign up
-separately to work as a painter."
+Rooms or a shop code already on the account are not a refusal any more: the backend moves
+them to a customer profile behind the same sign-in, and the screen says so before the tap.
+P12's **Your own home** switches to it. Refused (a shop, distributor or admin account, or
+a customer profile) → the backend's reason.
 
 **As built:** the change is confirmed first in a sheet that says it's for good. Refused →
 the server's own sentence. No new token comes back (the role is read on every request),

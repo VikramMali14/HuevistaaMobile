@@ -112,4 +112,11 @@ export const authApi = {
   /** S10. A shop ⇄ its customer profile. May answer emailCodeRequired. */
   switchProfile: (body: { deviceToken?: string; refreshToken?: string }) =>
     api.request<AuthResponse>("api/auth/profiles/switch", { body }),
+
+  /**
+   * Turn this shop's or painter's customer profile on (creating it the first time) or off.
+   * Off keeps everything on it. Answers with this account, `customerProfileEnabled` set.
+   */
+  setCustomerProfile: (on: boolean) =>
+    api.request<UserProfile>("api/auth/profiles/customer", { method: on ? "POST" : "DELETE" }),
 };
