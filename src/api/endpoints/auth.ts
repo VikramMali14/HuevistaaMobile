@@ -28,8 +28,20 @@ export const authApi = {
   login: (body: { email: string; password: string; deviceToken?: string }) =>
     api.request<AuthResponse>("api/auth/login", { ...open, body }),
 
-  /** A6. */
-  register: (body: { name: string; email: string; password: string; phone?: string }) =>
+  /**
+   * A6. With `phoneCode` — the code `phoneStart` texted to `phone` — the account opens with
+   * the number confirmed, or not at all: 409 PHONE_IN_USE when another account has it
+   * confirmed; 409 PHONE_ON_UNCONFIRMED_ACCOUNT when one holds it unconfirmed, answered by
+   * the same code again with `notMyAccount`, as on `phoneVerify`.
+   */
+  register: (body: {
+    name: string;
+    email: string;
+    password: string;
+    phone?: string;
+    phoneCode?: string;
+    notMyAccount?: boolean;
+  }) =>
     api.request<AuthResponse>("api/auth/register", { ...open, body }),
 
   /** A8. A shop's emailed code. Save the returned deviceToken. */

@@ -13,6 +13,14 @@ export function isPhoneOnUnconfirmedAccount(err: unknown): boolean {
 }
 
 /**
+ * Email sign-up with a texted code (A6): the code was right, but the number already signs
+ * in to another account (409). Nothing was created; they sign in with the number instead.
+ */
+export function isPhoneInUse(err: unknown): boolean {
+  return isApiError(err) && err.code === "PHONE_IN_USE";
+}
+
+/**
  * The sentence for a failed sign-in call.
  *
  * Sign-in endpoints answer without a session, so their 401 and 403 are not "your

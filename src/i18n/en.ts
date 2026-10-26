@@ -92,6 +92,10 @@ export const en = {
       haveAccount: "Already have an account? Sign in",
       emailTaken: "That email already has an account.",
       signInInstead: "Sign in instead",
+      mobileHint: "We'll text it a code to confirm it's yours.",
+      // 409 PHONE_IN_USE: the code was right, but the number signs in to another account.
+      phoneInUse: "This number already signs in to a HueVistaa account. Sign in with it instead, or use a different number.",
+      signInWithMobile: "Sign in with your mobile",
     },
     forgot: {
       title: "Forgot password",
