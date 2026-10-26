@@ -39,7 +39,7 @@ HuevistaaMobile/
 │   ├── sign-in/callback.tsx          # A9 Google return
 │   ├── (onboarding)/                 # first run                  A10–A11
 │   ├── (customer)/                   # CUSTOMER only
-│   │   ├── (tabs)/                   # Home · Studio · Catalogue · Boards · Account
+│   │   ├── (tabs)/                   # Home · Studio · Catalogue · Boards · Nearby · Account
 │   │   ├── room/                     # the studio pipeline        C6–C18
 │   │   ├── shade/[brand]/[code].tsx  # C19
 │   │   ├── library/                  # C20–C21

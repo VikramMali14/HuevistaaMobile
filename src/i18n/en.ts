@@ -946,8 +946,6 @@ export const en = {
     inProgress: "Rooms in progress",
     seeAll: "See all",
     latestImage: "Your latest Vista image",
-    nearbyTitle: "Find a painter or a shop near you",
-    nearbyBody: "Painters who'll do the job, and shops that stock your shades.",
     readyRooms: "Ready-made rooms",
     readyRoomsLead: "No photo? Paint one of ours.",
     account: "Your account",

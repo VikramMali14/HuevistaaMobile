@@ -41,8 +41,7 @@ than "0 rooms". This lives in one hook, `useBalance()`, used everywhere.
 4. **Rooms in progress** — horizontal strip: photo, name, status chip, days left. Tap
    resumes at the right step. "See all" → Studio tab.
 5. **Latest AI image** (if any) — large card → C24.
-6. **Find a painter or a shop near you** → C32.
-7. **Ready-made rooms** strip (only when the library has rooms) → C21. "No photo? Paint
+6. **Ready-made rooms** strip (only when the library has rooms) → C21. "No photo? Paint
    one of ours."
 
 **States:** first visit with nothing → the next-step card fills the screen with a
@@ -918,7 +917,7 @@ Shown only to shop customers.
 
 ### C32 · Painters and shops near you
 
-**Route** `nearby.tsx` · **Phase** 7 · **Web reference** `components/app/nearby-finder.tsx`, `lib/geolocation.ts`, `lib/nearby.ts`
+**Route** `(tabs)/nearby.tsx` (the **Nearby** tab) · **Phase** 7 · **Web reference** `components/app/nearby-finder.tsx`, `lib/geolocation.ts`, `lib/nearby.ts`
 
 **Layout:** segmented **Painters / Shops** · distance chips (2 · 5 · 10 · 25 · 50 km) ·
 list, nearest first.

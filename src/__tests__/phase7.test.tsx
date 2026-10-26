@@ -249,6 +249,26 @@ describe("C32 · Painters and shops near you", () => {
     await waitFor(() => expect(screen.getByTestId("nearby-shops")).toBeTruthy());
   });
 
+  // It was a card on Home; it is a tab of its own now, beside Boards and Account.
+  it("is a tab of its own, and no longer a card on Home", async () => {
+    signedInAs("CUSTOMER");
+    renderRouter("./app", { initialUrl: "/home" });
+    await waitFor(() => expect(screen.getByTestId("tab-nearby")).toBeTruthy());
+    expect(screen.queryByText("Find a painter or a shop near you")).toBeNull();
+    fireEvent.press(screen.getByTestId("tab-nearby"));
+    await waitFor(() => expect(screen).toHavePathname("/nearby"));
+    expect(screen.getByText("Find a painter near you.")).toBeTruthy();
+  });
+
+  // A shade's "Find a shop near you" can arrive while the tab is already up on Painters.
+  it("follows ?tab= when it is opened again while already up", async () => {
+    signedInAs("CUSTOMER");
+    renderRouter("./app", { initialUrl: "/nearby" });
+    await waitFor(() => expect(screen.getByText("Find a painter near you.")).toBeTruthy());
+    act(() => router.push({ pathname: "/nearby", params: { tab: "shops" } }));
+    await waitFor(() => expect(screen.getByText("Find a paint shop near you.")).toBeTruthy());
+  });
+
   // Each number asked for counts against 20 a day — never asked twice.
   it("asks for a painter's number only on Call, dials it, and keeps it", async () => {
     signedInAs("CUSTOMER");
