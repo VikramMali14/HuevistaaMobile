@@ -27,8 +27,10 @@ export interface Palette {
   accentSoft: string;
   /** The deep cut of brass (website --accent-deep). Not a pressed-button fill: ink on it fails. */
   accentDeep: string;
-  /** The brand mark (website --hv-mark): the soft cut on dark, the deep cut on paper. */
+  /** The brand mark's sky — left chip and crossbar (website --hv-mark): the bright cut on dark, the deep cut on paper. */
   mark: string;
+  /** The brand mark's cobalt — right chip (website --hv-mark-deep). Same in both themes. */
+  markDeep: string;
   warmText: string;
   /** Warm secondary as a fill — the destructive button (website .btn-warm). White text. */
   warmFill: string;
@@ -59,7 +61,8 @@ export const dark: Palette = {
   accentText: "#d0a165",
   accentSoft: "#d6a66e",
   accentDeep: "#9a6a33",
-  mark: "#d6a66e",
+  mark: "#00a0e1",
+  markDeep: "#1c6abc",
   warmText: "#d9705a",
   warmFill: "#8a3a2e",
   danger: "#c2402a",
@@ -86,7 +89,8 @@ export const light: Palette = {
   accentText: "#8a5f28",
   accentSoft: "#d6a66e",
   accentDeep: "#8a5f28",
-  mark: "#8a5f28",
+  mark: "#008dc6",
+  markDeep: "#1c6abc",
   warmText: "#9c3f2c",
   warmFill: "#8a3a2e",
   danger: "#a83b22",

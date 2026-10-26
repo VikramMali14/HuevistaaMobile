@@ -42,7 +42,8 @@ fails if a change makes any text pairing unreadable.
 | `accentText` | `#d0a165` | `#8a5f28` | Brass **as text** (links, active tab) |
 | `accentSoft` | `#d6a66e` | `#d6a66e` | The lifted cut of brass |
 | `accentDeep` | `#9a6a33` | `#8a5f28` | The deep cut of brass. **Not** a pressed fill — ink on it fails (3.3–3.9:1) |
-| `mark` (`--hv-mark`) | `#d6a66e` | `#8a5f28` | The brand mark |
+| `mark` (`--hv-mark`) | `#00a0e1` | `#008dc6` | The brand mark's sky — left chip and crossbar |
+| `markDeep` (`--hv-mark-deep`) | `#1c6abc` | `#1c6abc` | The brand mark's cobalt — right chip |
 | `warmText` (`--accent-warm`) | `#d9705a` | `#9c3f2c` | Warm secondary, as text |
 | `warmFill` (`--accent-warm-fill`) | `#8a3a2e` | `#8a3a2e` | The destructive button (white text) |
 | `danger` (`--terracotta`) | `#c2402a` | `#a83b22` | Errors as a fill, marks |
@@ -168,7 +169,7 @@ that need it. ✅ = included in the starting scaffold.
 | `WorkingState` ✅ | The AI working pattern: stage name, plain sentence, elapsed time, rough estimate, "Leave this running" | — |
 | `Skeleton` ✅ | Blocks shaped like the content, breathing slowly; still under "Reduce motion" | — |
 | `Disclaimer` ✅ | The two fixed texts (`shades`, `ai`) | — |
-| `BrandMark` ✅ | The two-chip H, in `mark` | — |
+| `BrandMark` ✅ | The two-chip H: `mark` for the left chip and crossbar, `markDeep` for the right | — |
 | `OfflineBanner` ✅ | X1 — the slim bar shown while offline. `Screen` renders it at the top of every page, **in the flow** (it pushes content down, never covers a back button); canvas screens can turn it off | online (hidden) · offline · unknown (hidden) |
 | `Avatar` ✅ | Initials in `accentText` on `surfaceSoft`, brass hairline | — |
 | `RemoteImage` ✅ | A picture the backend serves (adds the token for its own `/api/…` files); soft surface while loading, a quiet icon if it fails | loading · loaded · failed |
