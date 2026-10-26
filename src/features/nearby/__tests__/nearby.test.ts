@@ -1,5 +1,5 @@
 /** Ported with nearby.ts from HueVistaFrontEnd/src/lib/__tests__/nearby.test.ts, plus the app's own rules. */
-import { dialable, directionsHref, distanceLabel, isRadius, painterFacts, searchPoint, shopHours, shopPlace, telHref, trackRecord, whatsappHref, widerRadius } from "../nearby";
+import { dialable, directionsHref, distanceLabel, isRadius, painterFacts, placeLabel, searchPoint, shopHours, shopPlace, telHref, trackRecord, whatsappHref, widerRadius } from "../nearby";
 
 describe("distanceLabel", () => {
   it("speaks in metres under a kilometre, never below 100 m", () => {
@@ -109,5 +109,19 @@ describe("a painter's row", () => {
   it("gives years and day rate when they're set", () => {
     expect(painterFacts({ yearsExperience: 12, dayRateInr: 1500 })).toBe("12 yrs experience · ₹1,500/day");
     expect(painterFacts({ yearsExperience: null, dayRateInr: null })).toBe("");
+  });
+});
+
+describe("placeLabel", () => {
+  it("names a city by its state", () => {
+    expect(placeLabel({ name: "Pune", region: "Maharashtra", pincode: null })).toBe("Pune, Maharashtra");
+  });
+
+  it("gives a locality its district and its PIN", () => {
+    expect(placeLabel({ name: "Kothrud", region: "Pune, Maharashtra", pincode: "411038" })).toBe("Kothrud, Pune, Maharashtra · 411038");
+  });
+
+  it("says a PIN search is a PIN, and where it is", () => {
+    expect(placeLabel({ name: "411038", region: "Pune, Maharashtra", pincode: "411038" })).toBe("PIN 411038 · Pune, Maharashtra");
   });
 });

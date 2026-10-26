@@ -12,7 +12,7 @@ import { AccessibilityInfo, Linking } from "react-native";
 
 import { ApiError } from "@/api/errors";
 import type { BoardReviewState, MyQuestions, OwnQuestion, QuestionPage } from "@/api/endpoints/community";
-import type { NearbyPainter, NearbyShop } from "@/api/endpoints/nearby";
+import type { NearbyPainter, NearbyPlace, NearbyShop } from "@/api/endpoints/nearby";
 import type { SharedRoom } from "@/api/endpoints/share";
 import type { Conversation, ConversationSummary } from "@/api/endpoints/support";
 import { queryClient } from "@/api/query-client";
@@ -53,7 +53,7 @@ const mockNever = () => new Promise<never>(() => {});
 jest.mock("@/api/endpoints/me", () => ({
   meApi: new Proxy({}, { get: () => () => new Promise<never>(() => {}) }),
 }));
-const mockNearby = { painters: jest.fn(), shops: jest.fn(), painterPhone: jest.fn() };
+const mockNearby = { painters: jest.fn(), shops: jest.fn(), painterPhone: jest.fn(), places: jest.fn() };
 jest.mock("@/api/endpoints/nearby", () => ({
   get nearbyApi() {
     return mockNearby;
@@ -348,6 +348,116 @@ describe("C32 · Painters and shops near you", () => {
     await waitFor(() => expect(screen.getByText(/Too many of these from your account/)).toBeTruthy());
     for (let i = 0; i < 4; i++) await tick(10_000);
     expect(mockNearby.painters).toHaveBeenCalledTimes(1);
+  });
+
+  // ── A city, area or PIN typed instead of the location ──
+
+  const BELAGAVI_PIN: NearbyPlace = { name: "590001", region: "Belagavi, Karnataka", pincode: "590001", latitude: 15.8577, longitude: 74.5113 };
+  const AURANGABAD_MH: NearbyPlace = { name: "Aurangabad", region: "Maharashtra", pincode: null, latitude: 19.8776, longitude: 75.3423 };
+  const AURANGABAD_BR: NearbyPlace = { name: "Aurangabad", region: "Bihar", pincode: null, latitude: 24.7521, longitude: 84.3742 };
+
+  const searchFor = async (typed: string) => {
+    await waitFor(() => expect(screen.getByTestId("nearby-place")).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId("nearby-place"), typed);
+    // The lookup answers at once here; let it land inside act, as a person's wait would.
+    await act(async () => fireEvent.press(screen.getByTestId("nearby-place-search")));
+  };
+
+  it("searches near a PIN typed instead, without asking for the location", async () => {
+    signedInAs("CUSTOMER");
+    mockNearby.places.mockResolvedValue([BELAGAVI_PIN]);
+    mockNearby.painters.mockResolvedValue([painterRow("p1")]);
+    mockNearby.shops.mockResolvedValue([shopRow()]);
+    renderRouter("./app", { initialUrl: "/nearby" });
+    await searchFor("590001");
+    await waitFor(() => expect(screen.getByTestId("nearby-painters")).toBeTruthy());
+
+    expect(mockNearby.places).toHaveBeenCalledWith("590001");
+    expect(mockNearby.painters).toHaveBeenCalledWith({ lat: 15.858, lon: 74.511, radiusKm: 10 });
+    expect(mockNearby.shops).toHaveBeenCalledWith({ lat: 15.858, lon: 74.511, radiusKm: 10 });
+    expect(mockLocation.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
+    expect(screen.getByTestId("nearby-near")).toHaveTextContent(/^Near PIN 590001 · Belagavi, Karnataka/);
+    expect(screen.getByTestId("nearby-place-credit")).toHaveTextContent(/India Post.*GeoNames/);
+    // The phone's own location is still one press away.
+    expect(screen.getByTestId("nearby-relocate")).toHaveTextContent(/Use my location/);
+  });
+
+  it("searches the likeliest of two places with one name, and offers the other", async () => {
+    signedInAs("CUSTOMER");
+    mockNearby.places.mockResolvedValue([AURANGABAD_MH, AURANGABAD_BR]);
+    mockNearby.painters.mockResolvedValue([painterRow("p1")]);
+    mockNearby.shops.mockResolvedValue([]);
+    renderRouter("./app", { initialUrl: "/nearby" });
+    await searchFor("Aurangabad");
+    await waitFor(() => expect(mockNearby.painters).toHaveBeenCalledWith({ lat: 19.878, lon: 75.342, radiusKm: 10 }));
+    expect(screen.getByTestId("nearby-near")).toHaveTextContent(/^Near Aurangabad, Maharashtra/);
+
+    fireEvent.press(screen.getByText("Aurangabad, Bihar"));
+    await waitFor(() => expect(mockNearby.painters).toHaveBeenLastCalledWith({ lat: 24.752, lon: 84.374, radiusKm: 10 }));
+    expect(screen.getByTestId("nearby-near")).toHaveTextContent(/^Near Aurangabad, Bihar/);
+    expect(screen.getByText("Aurangabad, Maharashtra")).toBeTruthy();
+  });
+
+  it("says so when a typed place can't be found, and searches nothing", async () => {
+    signedInAs("CUSTOMER");
+    mockNearby.places.mockResolvedValue([]);
+    renderRouter("./app", { initialUrl: "/nearby" });
+    await searchFor("Atlantis");
+    await waitFor(() => expect(screen.getByTestId("nearby-place-problem")).toHaveTextContent(/We couldn't find “Atlantis”/));
+    expect(mockNearby.painters).not.toHaveBeenCalled();
+    // Still there to try instead.
+    expect(screen.getByTestId("nearby-locate")).toBeTruthy();
+  });
+
+  it("passes on the server's word for digits that aren't a PIN, and asks for something to search", async () => {
+    signedInAs("CUSTOMER");
+    mockNearby.places.mockRejectedValue(new ApiError("http", 400, "That isn't a PIN code. A PIN has six digits, like 590001."));
+    renderRouter("./app", { initialUrl: "/nearby" });
+    await searchFor("5900");
+    await waitFor(() => expect(screen.getByTestId("nearby-place-problem")).toHaveTextContent(/A PIN has six digits/));
+
+    fireEvent.changeText(screen.getByTestId("nearby-place"), "   ");
+    fireEvent.press(screen.getByTestId("nearby-place-search"));
+    await waitFor(() => expect(screen.getByTestId("nearby-place-problem")).toHaveTextContent(/Type a city, an area or a PIN code\./));
+    expect(mockNearby.places).toHaveBeenCalledTimes(1);
+    expect(mockNearby.painters).not.toHaveBeenCalled();
+  });
+
+  // The fix the screen goes for by itself can land after the customer typed somewhere else.
+  it("keeps a typed place when the location found on arrival turns up late", async () => {
+    signedInAs("CUSTOMER");
+    let arrive: (fix: unknown) => void = () => {};
+    mockLocation.getForegroundPermissionsAsync.mockResolvedValue({ granted: true, canAskAgain: true });
+    mockLocation.requestForegroundPermissionsAsync.mockResolvedValue({ granted: true, canAskAgain: true });
+    mockLocation.getCurrentPositionAsync.mockReturnValue(new Promise((resolve) => (arrive = resolve)));
+    mockNearby.places.mockResolvedValue([BELAGAVI_PIN]);
+    mockNearby.painters.mockResolvedValue([painterRow("p1")]);
+    mockNearby.shops.mockResolvedValue([]);
+    renderRouter("./app", { initialUrl: "/nearby" });
+    await searchFor("590001");
+    await waitFor(() => expect(screen.getByTestId("nearby-painters")).toBeTruthy());
+
+    await act(async () => arrive({ coords: { latitude: 15.852347, longitude: 74.504981, accuracy: 30 } }));
+    await tick();
+    expect(mockNearby.painters).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("nearby-near")).toHaveTextContent(/^Near PIN 590001 · Belagavi, Karnataka/);
+  });
+
+  it("goes back to the phone's location when asked, after a typed place", async () => {
+    signedInAs("CUSTOMER");
+    here();
+    mockNearby.places.mockResolvedValue([AURANGABAD_MH, AURANGABAD_BR]);
+    mockNearby.painters.mockResolvedValue([painterRow("p1")]);
+    mockNearby.shops.mockResolvedValue([]);
+    renderRouter("./app", { initialUrl: "/nearby" });
+    await searchFor("Aurangabad");
+    await waitFor(() => expect(screen.getByTestId("nearby-near")).toBeTruthy());
+
+    fireEvent.press(screen.getByTestId("nearby-relocate"));
+    await waitFor(() => expect(mockNearby.painters).toHaveBeenLastCalledWith({ lat: 15.852, lon: 74.505, radiusKm: 10 }));
+    expect(screen.queryByTestId("nearby-near")).toBeNull();
+    expect(screen.queryByText("Aurangabad, Bihar")).toBeNull();
+    expect(screen.getByTestId("nearby-relocate")).toHaveTextContent(/Update my location/);
   });
 });
 

@@ -928,10 +928,15 @@ list, nearest first.
 - **Shop row:** name, address, hours, distance · **Call** · **Directions** (opens Maps).
 
 **Location:** ask with a reason first ("To find painters and shops near you"). Denied →
-"Type your area" is not supported by the backend yet, so say "Turn on location to
-search near you" + **Open settings**.
+"Turn on location to search near you" + **Open settings** — and the place search below
+still works without it.
 
-**API:** `GET /api/nearby/painters?lat&lon&radiusKm` · `GET /api/nearby/shops?lat&lon&radiusKm`.
+**Or type a place:** a **City, area or PIN code** field with **Search**, above the
+distance chips, for someone who won't share the location or is looking for a house they
+aren't in. `GET /api/nearby/places?q=` turns it into the point the searches take.
+
+**API:** `GET /api/nearby/painters?lat&lon&radiusKm` · `GET /api/nearby/shops?lat&lon&radiusKm` ·
+`GET /api/nearby/places?q`.
 
 **As built:** location is asked for only on **Use my location** (a card that says why,
 and that it's used for this search only); when it was allowed before, the search starts
@@ -952,6 +957,14 @@ settings**; location off or no fix → said, and **Use my location** tries again
   refusal is shown in the server's words and never retried by itself; nothing reloads on
   focus or reconnect.
 - The painter's P5 preview shows their own card as customers see it.
+- **A typed place:** a PIN (Hindi digits too), a city by any of its names — Bangalore,
+  Belgaum, or पुणे / मुंबई in Devanagari for most big cities — or an area (Kothrud). The
+  likeliest is searched at once and "Near Kothrud, Pune, Maharashtra · 411038" says
+  where; others of the same name are offered as chips under **Did you mean**. Nothing
+  found → said under the field, and nothing is searched. The phone's own location is
+  then one press away (**Use my location** beside the chips), and a fix the screen went
+  for by itself on arrival never replaces a place typed meanwhile. India Post and
+  GeoNames are credited under the list, as their licences ask.
 
 ### C33 · Work as a painter
 

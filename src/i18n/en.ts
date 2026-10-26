@@ -1431,7 +1431,7 @@ export const en = {
     radius: "{km} km",
     findPainter: "Find a painter near you.",
     findShop: "Find a paint shop near you.",
-    why: "Share your location to see who is close by, nearest first. It's used for this search only and never kept.",
+    why: "Share your location, or search for your city, area or PIN code, to see who is close by, nearest first. It's used for this search only and never kept.",
     useLocation: "Use my location",
     updateLocation: "Update my location",
     finding: "Finding you…",
@@ -1471,6 +1471,18 @@ export const en = {
     whatsapp: "WhatsApp",
     directions: "Directions",
     callHint: "Shows the painter's number and calls it.",
+    /** A city, area or PIN typed instead of sharing the location. */
+    placeField: "City, area or PIN code",
+    placePlaceholder: "e.g. Kothrud or 411038",
+    placeSearch: "Search",
+    placeEmpty: "Type a city, an area or a PIN code.",
+    placeNotFound: "We couldn't find “{place}”. Try the name of your city, or your PIN code.",
+    pinNotFound: "We don't know the PIN code {pin}. Check it, or type your city instead.",
+    placeFailed: "Couldn't look that place up. Try again.",
+    near: "Near {place}",
+    didYouMean: "Did you mean",
+    pin: "PIN {pin}",
+    placeCredit: "Places from India Post (data.gov.in) and GeoNames.",
   },
   /** P1–P12 · the painter's app (docs/05). Words as on the painter website. */
   painter: {

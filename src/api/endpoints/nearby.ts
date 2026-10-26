@@ -54,6 +54,21 @@ export interface PainterContact {
   phone: string;
 }
 
+/**
+ * GET /api/nearby/places (PlaceResponse) — a city, area or PIN code typed instead of
+ * sharing a location, as the point to search near. Public geography, never an address.
+ */
+export interface NearbyPlace {
+  /** "Pune", "Kothrud" — for a PIN search, the PIN itself. */
+  name: string;
+  /** "Pune, Maharashtra", or just a state for a city. */
+  region: string;
+  /** Its own PIN when it has one: a PIN, or a post office's locality. Null for a city. */
+  pincode: string | null;
+  latitude: number;
+  longitude: number;
+}
+
 export interface NearbySearch {
   lat: number;
   lon: number;
@@ -74,4 +89,11 @@ export const nearbyApi = {
    * they've unlisted or their mobile is no longer confirmed.
    */
   painterPhone: (id: string) => api.request<PainterContact>(`api/nearby/painters/${encodeURIComponent(id)}/phone`),
+
+  /**
+   * Up to 6 places the words could mean, the likeliest first; empty when none. Answered
+   * from a file on the server, so what is typed goes nowhere else. 400 with a sentence for
+   * an empty search or digits that aren't a PIN. Not counted against the searches' allowance.
+   */
+  places: (q: string) => api.request<NearbyPlace[]>("api/nearby/places", { query: { q } }),
 };

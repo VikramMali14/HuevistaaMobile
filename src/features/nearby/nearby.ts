@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 
-import type { NearbyPainter, NearbyShop } from "@/api/endpoints/nearby";
+import type { NearbyPainter, NearbyPlace, NearbyShop } from "@/api/endpoints/nearby";
 import { t } from "@/i18n";
 
 /**
@@ -92,6 +92,20 @@ export function directionsHref(latitude: number, longitude: number, os: string =
   return os === "ios"
     ? `https://maps.apple.com/?daddr=${latitude},${longitude}`
     : `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+}
+
+/**
+ * A typed place as the search says it is centred: "Pune, Maharashtra", "Kothrud, Pune,
+ * Maharashtra · 411038", or "PIN 411038 · Pune, Maharashtra" — enough to see it is the
+ * place meant, and not the other one of that name. As the website's placeLabel.
+ */
+export function placeLabel(place: Pick<NearbyPlace, "name" | "region" | "pincode">): string {
+  const region = place.region?.trim();
+  if (place.pincode && place.name === place.pincode) {
+    return [t("nearby.pin", { pin: place.pincode }), region].filter(Boolean).join(" · ");
+  }
+  const named = [place.name, region].filter(Boolean).join(", ");
+  return place.pincode ? `${named} · ${place.pincode}` : named;
 }
 
 /** "12 MG Road · Belagavi, Karnataka", from whichever parts the shop gave. */
