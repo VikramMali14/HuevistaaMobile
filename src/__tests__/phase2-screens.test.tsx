@@ -38,6 +38,8 @@ const mockAuth = {
   confirmEmailCode: jest.fn(),
   sendPhoneCode: jest.fn(),
   confirmPhoneCode: jest.fn(),
+  sendPhoneMoveCode: jest.fn(),
+  confirmPhoneMove: jest.fn(),
   changePassword: jest.fn(async () => ({})),
   setPassword: jest.fn(async () => ({})),
   deleteAccount: jest.fn(async () => undefined),
@@ -594,6 +596,49 @@ describe("S1–S9 · account screens", () => {
     press("Send code");
     await waitFor(() => expect(screen.getByText("We texted a code to *******0123.")).toBeTruthy());
     expect(mockAuth.sendPhoneCode).toHaveBeenCalledWith("+919123450123");
+  });
+
+  /** A painter's own customer account holds the number: S4 moves it in rather than stopping. */
+  it("S4: moves in the customer account a number already signs in to, and confirms the number", async () => {
+    signedInAs(person({ name: "Ravi Kumar", role: "PAINTER" }));
+    mockAuth.sendPhoneCode.mockRejectedValue(
+      new ApiError("http", 409, "That mobile number already signs in to a separate customer account.", undefined, "PHONE_ON_CUSTOMER_ACCOUNT"),
+    );
+    mockAuth.sendPhoneMoveCode.mockResolvedValue({ channel: "PHONE_MOVE", destination: "*******0123", expiresInSeconds: 600, cooldownSeconds: 30 });
+    mockAuth.confirmPhoneMove.mockResolvedValue({
+      profile: person({ name: "Ravi Kumar", role: "PAINTER", phoneNumber: "+919123450123", phoneVerified: true, switchTo: "CUSTOMER" }),
+      accountMoved: true,
+      projectsMoved: 1,
+      imagesMoved: 1,
+      projectAllowanceMoved: 0,
+      aiCreditsMoved: 0,
+    });
+    renderRouter("./app", { initialUrl: "/mobile-number" });
+    await waitFor(() => expect(screen.getByText("Send code")).toBeTruthy());
+    type(/Mobile number/, "9123450123");
+    press("Send code");
+    await waitFor(() => expect(screen.getByTestId("verify-move")).toBeTruthy());
+    expect(screen.getByText("That mobile number already signs in to a separate customer account.")).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId("verify-move"));
+    await waitFor(() =>
+      expect(screen.getByText("We texted a code to *******0123. It moves the customer account on that number into your customer profile.")).toBeTruthy(),
+    );
+    expect(mockAuth.sendPhoneMoveCode).toHaveBeenCalledWith("+919123450123");
+    fireEvent.changeText(screen.getByTestId("verify-code"), "123456");
+    await waitFor(() => expect(mockAuth.confirmPhoneMove).toHaveBeenCalledWith("123456"));
+    expect(mockAuth.confirmPhoneCode).not.toHaveBeenCalled();
+  });
+
+  it("S4: offers no move for a number on any other kind of account", async () => {
+    signedInAs(person({ role: "PAINTER" }));
+    mockAuth.sendPhoneCode.mockRejectedValue(new ApiError("http", 409, "That mobile number is already in use on another account."));
+    renderRouter("./app", { initialUrl: "/mobile-number" });
+    await waitFor(() => expect(screen.getByText("Send code")).toBeTruthy());
+    type(/Mobile number/, "9123450123");
+    press("Send code");
+    await waitFor(() => expect(screen.getByText("That mobile number is already in use on another account.")).toBeTruthy());
+    expect(screen.queryByTestId("verify-move")).toBeNull();
   });
 
   it("S5: a changed password signs out everywhere and lands on email sign-in, without a second logout", async () => {

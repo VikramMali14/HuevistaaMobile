@@ -51,9 +51,12 @@ instead — its sign-in is the shop's. (S3 and S4 share `src/features/account/Ve
 - **Add / confirm / change:** `POST /api/auth/verify/phone/send { phoneNumber? }` →
   `POST /api/auth/verify/phone/confirm { code }`. Changing the number is the same call
   with the new number; it moves onto the account only when the code comes back.
-- `…/verify/phone/move/*` is **not** for customers: it is how a shop proves a number
-  that signs a separate customer account in and moves that account into the shop's
-  customer profile (the website's `phone-move.tsx`).
+- `…/verify/phone/move/*` is **not** for customers: it is how a painter (here) or a shop
+  (the website's `phone-move.tsx`) proves a number that signs a separate customer account
+  in and moves that account into its own customer profile. A send refused with
+  `PHONE_ON_CUSTOMER_ACCOUNT` shows the backend's sentence and **Move that account in**:
+  `POST …/move/send { phoneNumber }` → the code → `POST …/move/confirm { code }`, which
+  answers `{ profile, accountMoved, projectsMoved, … }` with the number confirmed.
 - Say plainly that this number signs the account in.
 
 ### S5 · Password

@@ -1169,6 +1169,10 @@ export const en = {
     resend: "Send a new code",
     confirmed: "Mobile number confirmed.",
     differentNumber: "Use a different number",
+    // 409 PHONE_ON_CUSTOMER_ACCOUNT: the number signs in to a customer account the owner can move in.
+    moveOffer: "Move that account in",
+    moveSentTo: "We texted a code to {destination}. It moves the customer account on that number into your customer profile.",
+    moved: "Mobile number confirmed. The customer account on it is on your customer profile now.",
   },
   passwordScreen: {
     titleChange: "Password",

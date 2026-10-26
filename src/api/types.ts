@@ -66,6 +66,16 @@ export interface PhoneCodeSent {
   resendAfterSeconds: number;
 }
 
+/** POST /api/auth/verify/phone/move/confirm: what moved, and this account afterwards. */
+export interface PhoneMoveResponse {
+  profile: UserProfile;
+  accountMoved: boolean;
+  projectsMoved: number;
+  imagesMoved: number;
+  projectAllowanceMoved: number;
+  aiCreditsMoved: number;
+}
+
 /** POST /api/auth/verify/{email|phone}/send */
 export interface VerificationStatus {
   channel: "EMAIL" | "PHONE" | "PHONE_MOVE";
