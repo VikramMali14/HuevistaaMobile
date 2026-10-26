@@ -1,12 +1,22 @@
 import Feather from "@expo/vector-icons/Feather";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Linking, ScrollView, StyleSheet, View } from "react-native";
+import { Keyboard, Linking, ScrollView, StyleSheet, View } from "react-native";
 
+import { nearbyApi, type NearbyPlace } from "@/api/endpoints/nearby";
 import { messageFor } from "@/api/errors";
-import { BackButton, Banner, Button, Card, Chip, ErrorState, Screen, Segmented, Skeleton, Text } from "@/components/ui";
+import { BackButton, Banner, Button, Card, Chip, ErrorState, Screen, Segmented, Skeleton, Text, TextField } from "@/components/ui";
 import { alreadyAllowed, locate, type Located } from "@/features/nearby/locate";
-import { DEFAULT_RADIUS_KM, MAX_RESULTS, RADII_KM, widerRadius, type RadiusKm, type SearchPoint } from "@/features/nearby/nearby";
+import {
+  DEFAULT_RADIUS_KM,
+  MAX_RESULTS,
+  RADII_KM,
+  placeLabel,
+  searchPoint,
+  widerRadius,
+  type RadiusKm,
+  type SearchPoint,
+} from "@/features/nearby/nearby";
 import { PainterCard, ShopCard } from "@/features/nearby/NearbyCards";
 import { useNearbyPainters, useNearbyShops } from "@/features/nearby/use-nearby";
 import { t } from "@/i18n";
@@ -25,6 +35,10 @@ type Tab = "painters" | "shops";
  * never written down, and leaves the phone rounded to about 100 m. Both lists are read for
  * each point and distance (the tabs show both counts), and kept five minutes: they share
  * a small hourly allowance. A painter's number is asked for only when Call is pressed.
+ *
+ * Or a city, area or PIN code typed instead (GET /api/nearby/places) — for someone who
+ * won't share where the phone is, or is finding a painter for a house they aren't in. The
+ * likeliest place is searched at once and any others of that name are offered beside it.
  */
 export default function Nearby() {
   const { space, colors } = useTheme();
@@ -34,28 +48,76 @@ export default function Nearby() {
   const [point, setPoint] = useState<SearchPoint | null>(null);
   const [locating, setLocating] = useState(false);
   const [problem, setProblem] = useState<Exclude<Located, { kind: "fix" }> | null>(null);
+  const [query, setQuery] = useState("");
+  const [finding, setFinding] = useState(false);
+  const [placeProblem, setPlaceProblem] = useState<string | null>(null);
+  /** The typed place being searched near — null when the point is the phone's own. */
+  const [place, setPlace] = useState<NearbyPlace | null>(null);
+  /** Every place the last typed name could mean, `place` among them. */
+  const [places, setPlaces] = useState<NearbyPlace[]>([]);
   const live = useRef(true);
+  // Set once a typed place is searched, so the fix the screen goes for by itself on arrival
+  // — which can land seconds later — neither replaces it nor reports its failure.
+  const placeChosen = useRef(false);
   const painters = useNearbyPainters(point, radius);
   const shops = useNearbyShops(point, radius);
   const pull = usePullToRefresh(async () => {
     if (point) await Promise.all([painters.refetch(), shops.refetch()]);
   });
 
-  const find = async () => {
+  /** `onArrival`: the search the screen starts by itself, which gives way to a place typed meanwhile. */
+  const find = async (onArrival = false) => {
     setLocating(true);
     setProblem(null);
     const where = await locate();
     if (!live.current) return;
     setLocating(false);
-    if (where.kind === "fix") setPoint(where.point);
-    else setProblem(where);
+    if (onArrival && placeChosen.current) return;
+    if (where.kind === "fix") {
+      setPoint(where.point);
+      setPlace(null);
+      setPlaces([]);
+    } else setProblem(where);
+  };
+
+  const searchNear = (chosen: NearbyPlace) => {
+    const at = searchPoint(chosen.latitude, chosen.longitude);
+    if (!at) return;
+    placeChosen.current = true;
+    setPoint(at);
+    setPlace(chosen);
+    setProblem(null);
+  };
+
+  const findPlace = async () => {
+    const typed = query.trim();
+    Keyboard.dismiss();
+    if (!typed) {
+      setPlaceProblem(t("nearby.placeEmpty"));
+      return;
+    }
+    setFinding(true);
+    setPlaceProblem(null);
+    try {
+      const found = await nearbyApi.places(typed);
+      if (!live.current) return;
+      setPlaces(found);
+      if (found.length > 0) searchNear(found[0]!);
+      else setPlaceProblem(/^[\d\s\u0966-\u096F]+$/.test(typed) ? t("nearby.pinNotFound", { pin: typed }) : t("nearby.placeNotFound", { place: typed }));
+    } catch (err) {
+      if (!live.current) return;
+      setPlaces([]);
+      setPlaceProblem(messageFor(err, t("nearby.placeFailed")));
+    } finally {
+      if (live.current) setFinding(false);
+    }
   };
 
   // A customer who already let HueVistaa use the location needn't be asked to press for it.
   useEffect(() => {
     live.current = true;
     void alreadyAllowed().then((yes) => {
-      if (yes && live.current) void find();
+      if (yes && live.current) void find(true);
     });
     return () => {
       live.current = false;
@@ -67,6 +129,7 @@ export default function Nearby() {
   const paintersCount = count(painters);
   const shopsCount = count(shops);
   const wider = widerRadius(radius);
+  const otherPlaces = place ? places.filter((p) => p !== place) : [];
 
   let body: React.ReactNode;
   if (!point) {
@@ -152,13 +215,62 @@ export default function Nearby() {
         ]}
       />
 
+      <View style={{ gap: space.sm }}>
+        <View style={[styles.row, styles.bottom, { gap: space.sm }]}>
+          <View style={styles.fill}>
+            <TextField
+              label={t("nearby.placeField")}
+              placeholder={t("nearby.placePlaceholder")}
+              value={query}
+              onChangeText={(next) => {
+                setQuery(next);
+                setPlaceProblem(null);
+              }}
+              autoCorrect={false}
+              autoComplete="off"
+              returnKeyType="search"
+              maxLength={80}
+              onSubmitEditing={() => void findPlace()}
+              testID="nearby-place"
+            />
+          </View>
+          <Button variant="secondary" block={false} label={t("nearby.placeSearch")} loading={finding} onPress={() => void findPlace()} testID="nearby-place-search" />
+        </View>
+        {placeProblem ? <Banner tone="warning" message={placeProblem} testID="nearby-place-problem" /> : null}
+        {place ? (
+          <View style={{ gap: space.xs }} accessibilityLiveRegion="polite" testID="nearby-near">
+            <Text variant="body" tone="soft">
+              {t("nearby.near", { place: placeLabel(place) })}
+            </Text>
+            {otherPlaces.length > 0 ? (
+              <View style={[styles.row, styles.wrap, { gap: space.xs }]}>
+                <Text variant="small" tone="mute">
+                  {t("nearby.didYouMean")}
+                </Text>
+                {otherPlaces.map((p, i) => (
+                  <Chip key={`${p.name}|${p.region}|${p.latitude},${p.longitude}`} label={placeLabel(p)} selected={false} onPress={() => searchNear(p)} testID={`nearby-other-${i}`} />
+                ))}
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+      </View>
+
       <View style={{ gap: space.xs }}>
         <View style={[styles.row, { gap: space.sm }]}>
           <Text variant="fieldLabel" style={styles.fill}>
             {t("nearby.within")}
           </Text>
           {point ? (
-            <Button variant="ghost" block={false} icon="crosshair" label={locating ? t("nearby.finding") : t("nearby.updateLocation")} loading={locating} onPress={() => void find()} testID="nearby-relocate" />
+            <Button
+              variant="ghost"
+              block={false}
+              icon="crosshair"
+              label={locating ? t("nearby.finding") : place ? t("nearby.useLocation") : t("nearby.updateLocation")}
+              loading={locating}
+              onPress={() => void find()}
+              testID="nearby-relocate"
+            />
           ) : null}
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.xs }} accessibilityRole="radiogroup">
@@ -170,6 +282,14 @@ export default function Nearby() {
       </View>
 
       {body}
+
+      {place ? (
+        // India Post's directory is published under the Government Open Data License and
+        // GeoNames under CC BY 4.0; both ask to be credited where their data is used.
+        <Text variant="caption" tone="mute" testID="nearby-place-credit">
+          {t("nearby.placeCredit")}
+        </Text>
+      ) : null}
     </Screen>
   );
 }
@@ -187,5 +307,8 @@ function problemMessage(problem: Exclude<Located, { kind: "fix" }>): string {
 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center" },
+  // The Search button level with the box, under the field's label.
+  bottom: { alignItems: "flex-end" },
+  wrap: { flexWrap: "wrap" },
   fill: { flex: 1 },
 });
