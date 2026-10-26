@@ -64,6 +64,7 @@ describe.each(themes)("%s palette", (_name, c) => {
 
   it("the brand mark stands out from the page", () => {
     expect(contrast(c.mark, c.bg)).toBeGreaterThanOrEqual(3);
+    expect(contrast(c.markDeep, c.bg)).toBeGreaterThanOrEqual(3);
   });
 });
 
