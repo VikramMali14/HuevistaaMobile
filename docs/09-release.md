@@ -60,9 +60,9 @@ real-time developer notifications, the secrets — is in the backend repository'
 
   > See your walls in your chosen colour — before you paint a single stroke.
   >
-  > Photograph a room and HueVistaa finds the walls for you. Try real shades from the
-  > paint companies' own shade cards on your own walls: as many as you like, with the
-  > light and shadow of your room kept true.
+  > Photograph a room and HueVistaa finds the walls for you. Try real paint shades on
+  > your own walls: as many as you like, with the light and shadow of your room kept
+  > true.
   >
   > • Every shade with a code you can read out at the counter.
   > • Save the combinations you like, and take one colour board — a PDF with each wall's
@@ -72,7 +72,7 @@ real-time developer notifications, the secrets — is in the backend repository'
   > • Painters: scan a finished colour board's QR to earn points, and spend them on kit.
   > • In English and हिन्दी.
   >
-  > Shade colours are taken from the paint companies' own shade cards and fan decks.
+  > Shade colours here are on-screen approximations, not the paint itself.
   > Screens, printing and lighting all shift colour, so what you see here can differ
   > from the paint on the wall. Always check the physical shade card at the counter
   > before you buy.

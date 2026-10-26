@@ -16,7 +16,11 @@ describe("t", () => {
   });
 
   it("keeps the two disclaimers word for word", () => {
-    expect(t("disclaimer.shades")).toMatch(/^Shade colours are taken from the paint companies' own shade cards/);
+    expect(t("disclaimer.shades")).toMatch(/^Shade colours here are on-screen approximations, not the paint itself\./);
+    // No source and no paint company: the catalogue is imported colour data, not read off
+    // anyone's printed shade card, and a disclaimer that misstates its source is worse
+    // than none.
+    expect(t("disclaimer.shades")).not.toMatch(/taken from|compan|fan deck/i);
     expect(t("disclaimer.ai")).toMatch(/^Previews are computer-generated\./);
   });
 });

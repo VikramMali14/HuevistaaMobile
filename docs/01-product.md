@@ -124,7 +124,7 @@ These come from the product, not from taste. A screen that breaks one is not don
    brass. See [02-design-system.md](02-design-system.md).
 2. **Two disclaimers, word for word, with real space** — not fine print:
    - On anything showing shades:
-     > Shade colours are taken from the paint companies' own shade cards and fan decks.
+     > Shade colours here are on-screen approximations, not the paint itself.
      > Screens, printing and lighting all shift colour, so what you see here can differ
      > from the paint on the wall. Always check the physical shade card at the counter
      > before you buy.

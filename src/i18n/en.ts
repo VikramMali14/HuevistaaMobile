@@ -1844,8 +1844,10 @@ export const en = {
     nameShort: "Use at least two letters.",
   },
   disclaimer: {
+    // Names no source: the catalogue is imported digital colour data, not read off the
+    // companies' printed cards, and the website says the same (accuracy-note.tsx).
     shades:
-      "Shade colours are taken from the paint companies' own shade cards and fan decks. Screens, printing and lighting all shift colour, so what you see here can differ from the paint on the wall. Always check the physical shade card at the counter before you buy.",
+      "Shade colours here are on-screen approximations, not the paint itself. Screens, printing and lighting all shift colour, so what you see here can differ from the paint on the wall. Always check the physical shade card at the counter before you buy.",
     ai: "Previews are computer-generated. They are a guide to how a colour might look, not an exact picture of the finished wall — edges, textures and lighting can come out differently, and results are not guaranteed.",
   },
   notFound: {
