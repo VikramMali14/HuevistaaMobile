@@ -58,7 +58,7 @@ export const screens = {
 
   // ── Customer ──────────────────────────────────────────────────────────────
   C1: { title: "Home", area: "customer", href: "/home", phase: 2, spec: CUSTOMER, status: "built",
-    summary: "What I hold, the one next step, my rooms, painters near me.", next: ["C6", "C27", "C32", "C20", "C24"] },
+    summary: "What I hold, the one next step, my rooms, my latest Vista image.", next: ["C6", "C27", "C20", "C24"] },
   C2: { title: "Studio — my rooms", area: "customer", href: "/studio", phase: 3, spec: CUSTOMER, status: "built",
     summary: "Every room with its status, and New room.", next: ["C6", "CR", "C17"] },
   C3: { title: "Catalogue", area: "customer", href: "/catalogue", phase: 2, spec: CUSTOMER, status: "built",

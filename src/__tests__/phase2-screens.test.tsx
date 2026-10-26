@@ -206,7 +206,7 @@ describe("C1 · Home", () => {
     mockMe.projectOptions.mockRejectedValue(new ApiError("network", 0, "offline"));
     mockMe.aiCredits.mockRejectedValue(new ApiError("network", 0, "offline"));
     renderRouter("./app", { initialUrl: "/home" });
-    await waitFor(() => expect(screen.getByText("Find a painter or a shop near you")).toBeTruthy());
+    await waitFor(() => expect(screen.getByLabelText("Your account")).toBeTruthy());
     expect(screen.queryByText(/rooms? left/)).toBeNull();
     expect(screen.queryByText("No rooms yet")).toBeNull();
   });

@@ -5,7 +5,7 @@ import { Keyboard, Linking, ScrollView, StyleSheet, View } from "react-native";
 
 import { nearbyApi, type NearbyPlace } from "@/api/endpoints/nearby";
 import { messageFor } from "@/api/errors";
-import { BackButton, Banner, Button, Card, Chip, ErrorState, Screen, Segmented, Skeleton, Text, TextField } from "@/components/ui";
+import { Banner, Button, Card, Chip, ErrorState, Screen, Segmented, Skeleton, Text, TextField } from "@/components/ui";
 import { alreadyAllowed, locate, type Located } from "@/features/nearby/locate";
 import {
   DEFAULT_RADIUS_KM,
@@ -39,11 +39,20 @@ type Tab = "painters" | "shops";
  * Or a city, area or PIN code typed instead (GET /api/nearby/places) — for someone who
  * won't share where the phone is, or is finding a painter for a house they aren't in. The
  * likeliest place is searched at once and any others of that name are offered beside it.
+ *
+ * A tab of its own (it was a card on Home), so it has no back button. A shade's "Find a
+ * shop near you" still opens it at /nearby?tab=shops.
  */
 export default function Nearby() {
   const { space, colors } = useTheme();
   const params = useLocalSearchParams<{ tab?: string }>();
   const [tab, setTab] = useState<Tab>(params.tab === "shops" ? "shops" : "painters");
+  // The tab can already be up when a link asks for one of its lists, so follow ?tab= as it changes.
+  const [seenTabParam, setSeenTabParam] = useState(params.tab);
+  if (params.tab !== seenTabParam) {
+    setSeenTabParam(params.tab);
+    if (params.tab === "shops" || params.tab === "painters") setTab(params.tab);
+  }
   const [radius, setRadius] = useState<RadiusKm>(DEFAULT_RADIUS_KM);
   const [point, setPoint] = useState<SearchPoint | null>(null);
   const [locating, setLocating] = useState(false);
@@ -193,9 +202,8 @@ export default function Nearby() {
   }
 
   return (
-    <Screen scroll onRefresh={point ? pull.onRefresh : undefined} refreshing={pull.refreshing} contentStyle={{ gap: space.lg, paddingBottom: space.xl }}>
-      <BackButton fallback="/home" />
-      <View style={{ gap: space.xs }}>
+    <Screen scroll edges={["top"]} onRefresh={point ? pull.onRefresh : undefined} refreshing={pull.refreshing} contentStyle={{ gap: space.lg, paddingBottom: space.xl }}>
+      <View style={{ gap: space.xs, marginTop: space.md }}>
         <Text variant="label" tone="accent">
           {t("nearby.eyebrow")}
         </Text>

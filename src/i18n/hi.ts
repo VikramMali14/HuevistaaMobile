@@ -909,8 +909,6 @@ export const hi: Translation = {
     inProgress: "चल रहे कमरे",
     seeAll: "सभी देखें",
     latestImage: "आपकी सबसे नई Vista इमेज",
-    nearbyTitle: "अपने पास कोई पेंटर या दुकान ढूँढें",
-    nearbyBody: "काम करने वाले पेंटर, और आपके शेड रखने वाली दुकानें।",
     readyRooms: "तैयार कमरे",
     readyRoomsLead: "फ़ोटो नहीं है? हमारे किसी कमरे में रंग लगाएँ।",
     account: "आपका अकाउंट",

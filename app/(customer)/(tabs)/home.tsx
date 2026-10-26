@@ -1,4 +1,3 @@
-import Feather from "@expo/vector-icons/Feather";
 import { useRouter } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 
@@ -38,12 +37,12 @@ function greeting(name: string | null): string {
  * C1 · Home. Spec: docs/04-screens-customer.md — C1.
  *
  * What this person holds and the one thing to do next, then their rooms, their latest
- * Vista image, help nearby and the ready-made rooms. A first visit with nothing yet is the
- * next step alone, filling the screen.
+ * Vista image and the ready-made rooms. A first visit with nothing yet is the next step
+ * alone, filling the screen. Painters and shops near you have their own tab now (C32).
  */
 export default function Home() {
   const router = useRouter();
-  const { colors, space } = useTheme();
+  const { space } = useTheme();
   const { profile } = useSession();
   const balance = useBalance();
   const projects = useProjects();
@@ -151,19 +150,6 @@ export default function Home() {
         </View>
       ) : null}
 
-      <Card onPress={() => router.push("/nearby")} accessibilityLabel={t("home.nearbyTitle")}>
-        <View style={styles.nearby}>
-          <Feather name="map-pin" size={22} color={colors.accentText} />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text variant="bodyStrong">{t("home.nearbyTitle")}</Text>
-            <Text variant="small" tone="mute">
-              {t("home.nearbyBody")}
-            </Text>
-          </View>
-          <Feather name="chevron-right" size={18} color={colors.fgMute} />
-        </View>
-      </Card>
-
       {library.live ? (
         <View style={{ gap: space.sm, marginBottom: space.xl }}>
           <SectionHeader
@@ -195,6 +181,5 @@ const styles = StyleSheet.create({
   greeting: { flex: 1 },
   chips: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
   image: { width: "100%", aspectRatio: 16 / 10 },
-  nearby: { flexDirection: "row", alignItems: "center", gap: 12 },
   failed: { flexDirection: "row", alignItems: "center", gap: 8 },
 });

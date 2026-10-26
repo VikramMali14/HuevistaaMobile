@@ -13,10 +13,13 @@ const tabs: { name: string; label: MessageKey; icon: IconName }[] = [
   { name: "studio", label: "tabs.studio", icon: "camera" },
   { name: "catalogue", label: "tabs.catalogue", icon: "droplet" },
   { name: "boards", label: "tabs.boards", icon: "layers" },
+  // Painters and shops near you (C32). A tab, not a card on Home: whoever opens the app
+  // to find a painter shouldn't have to scroll past their rooms to reach the search.
+  { name: "nearby", label: "tabs.nearby", icon: "map-pin" },
   { name: "account", label: "tabs.account", icon: "user" },
 ];
 
-/** Customer tabs: Home · Studio · Catalogue · Boards · Account (docs/01-product.md). */
+/** Customer tabs: Home · Studio · Catalogue · Boards · Nearby · Account (docs/01-product.md). */
 export default function CustomerTabs() {
   const options = useTabBarOptions();
   return (

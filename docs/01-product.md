@@ -78,14 +78,15 @@ reason (they need a separate account).
 
 ## Navigation map
 
-### Customer — five tabs
+### Customer — six tabs
 
 | Tab | What it holds | Main screens |
 |---|---|---|
-| **Home** | What I hold, the one next step, rooms in progress, latest AI image, painters & shops near me, ready-made rooms | C1 |
+| **Home** | What I hold, the one next step, rooms in progress, latest AI image, ready-made rooms | C1 |
 | **Studio** | Every room, and "New room" | C2 → C6 … C18 |
 | **Catalogue** | All shades, filters, shade detail, ready-made rooms | C3, C19–C21 |
 | **Boards** | Finished colour boards and AI images | C4, C22–C26 |
+| **Nearby** | Painters and shops near me, nearest first | C32 |
 | **Account** | Rooms & credits, shop code, my products, nearby, help, settings | C5, C27–C33, S1–S9 |
 
 The tab bar **hides** inside the studio's canvas steps (C10, C11, C14), so the room
