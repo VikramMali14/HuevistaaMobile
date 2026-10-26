@@ -7,7 +7,6 @@ import { Avatar, Banner, ConfirmSheet, ListGroup, ListRow, Screen, Text } from "
 import { givenName } from "@/features/account/display-name";
 import { SwitchToShop } from "@/features/account/SwitchToShop";
 import { useBalance } from "@/features/account/use-balance";
-import { useProjects } from "@/features/rooms/use-rooms";
 import { t } from "@/i18n";
 import { appVersion } from "@/lib/app-version";
 import { useSubmit } from "@/lib/use-submit";
@@ -26,7 +25,6 @@ export default function Account() {
   const { space } = useTheme();
   const { profile, signOut } = useSession();
   const balance = useBalance();
-  const projects = useProjects();
   const leaving = useSubmit();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -34,9 +32,11 @@ export default function Account() {
   if (!profile) return null;
   const linked = Boolean(profile.linkedProfile);
   const hasShop = Boolean(balance.entitlement);
-  // The backend refuses to make a painter of an account with rooms or a shop code, so
-  // the offer only appears once both are known to be empty.
-  const canBecomePainter = !linked && balance.nextStep !== null && !hasShop && projects.isSuccess && projects.data.length === 0;
+  // Rooms and a shop's code no longer stand in the way: the backend keeps them in a
+  // customer profile behind the same sign-in. Only a profile cannot become a painter.
+  const canBecomePainter = !linked;
+  /** A painter's customer profile goes back to painting; a shop's, to the shop. */
+  const backToPainter = profile.switchTo === "PAINTER";
 
   const balanceValue = balance.loaded
     ? [
@@ -91,7 +91,14 @@ export default function Account() {
         {!linked ? <ListRow icon="key" title={t("account.addCode")} onPress={() => router.push("/add-shop-code")} /> : null}
         {hasShop ? <ListRow icon="package" title={t("account.myProducts")} onPress={() => router.push("/my-products")} /> : null}
         <ListRow icon="map-pin" title={t("account.nearby")} onPress={() => router.push("/nearby")} />
-        {linked ? <ListRow icon="repeat" title={t("account.switchBack")} onPress={() => setSwitching(true)} testID="switch-back" /> : null}
+        {linked ? (
+          <ListRow
+            icon="repeat"
+            title={backToPainter ? t("account.switchBackPainter") : t("account.switchBack")}
+            onPress={() => setSwitching(true)}
+            testID="switch-back"
+          />
+        ) : null}
       </ListGroup>
 
       <ListGroup title={t("account.help")}>
@@ -100,7 +107,7 @@ export default function Account() {
       </ListGroup>
 
       {linked ? (
-        <Banner tone="info" message={t("account.linkedNote")} />
+        <Banner tone="info" message={backToPainter ? t("account.linkedNotePainter") : t("account.linkedNote")} />
       ) : (
         <ListGroup title={t("account.signIn")}>
           <ListRow title={t("account.name")} value={name ?? t("account.noName")} onPress={() => router.push("/edit-name")} />
@@ -149,7 +156,9 @@ export default function Account() {
         onConfirm={() => void leaving.run(() => signOut())}
         onCancel={() => setConfirmSignOut(false)}
       />
-      {linked ? <SwitchToShop visible={switching} onClose={() => setSwitching(false)} /> : null}
+      {linked ? (
+        <SwitchToShop visible={switching} onClose={() => setSwitching(false)} owner={backToPainter ? "painter" : "shop"} />
+      ) : null}
     </Screen>
   );
 }

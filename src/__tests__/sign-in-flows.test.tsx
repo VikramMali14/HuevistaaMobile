@@ -330,23 +330,104 @@ describe("A6 · create an account", () => {
     expect(screen.getByLabelText("Email").props.value).toBe("priya@example.com");
   });
 
-  it("creates the account, with the mobile in +91 form, and asks About you next", async () => {
-    mockAuth.register.mockResolvedValue(tokensFor());
-    willSignInAs(person({ welcomePending: true }));
+  /** Through the form and the first press, to the code boxes under the mobile. */
+  async function toRegisterCode() {
+    mockAuth.phoneStart.mockResolvedValue({ phone: "*********3210", expiresInSeconds: 600, resendAfterSeconds: 30 });
     renderRouter("./app", { initialUrl: "/register" });
     await waitFor(() => expect(screen.getByText("Create an account")).toBeTruthy());
     type("Name", " Priya ");
     type("Email", "priya@example.com");
     type("Password", "secret123");
     type(/Mobile number \(optional\)/, "9876543210");
+    press("Send code");
+    await waitFor(() => expect(screen.getByTestId("register-code-input")).toBeTruthy());
+  }
+
+  it("creates the account with no code when no mobile is typed", async () => {
+    mockAuth.register.mockResolvedValue(tokensFor());
+    willSignInAs(person({ welcomePending: true }));
+    renderRouter("./app", { initialUrl: "/register" });
+    await waitFor(() => expect(screen.getByText("Create an account")).toBeTruthy());
+    type("Name", "Priya");
+    type("Email", "priya@example.com");
+    type("Password", "secret123");
     press("Create account");
+    await waitFor(() => expect(screen).toHavePathname("/about-you"));
+    expect(mockAuth.phoneStart).not.toHaveBeenCalled();
+    expect(mockAuth.register).toHaveBeenCalledWith({ name: "Priya", email: "priya@example.com", password: "secret123" });
+  });
+
+  it("confirms a typed mobile with a code, then creates the account and asks About you next", async () => {
+    mockAuth.register.mockResolvedValue(tokensFor());
+    willSignInAs(person({ welcomePending: true }));
+    await toRegisterCode();
+    // The first press texts the number; nothing is created yet.
+    expect(mockAuth.phoneStart).toHaveBeenCalledWith("+919876543210");
+    expect(mockAuth.register).not.toHaveBeenCalled();
+    expect(screen.getByText("We texted a code to +91 98765 43210.")).toBeTruthy();
+    expect(screen.getByText("Resend in 0:30")).toBeTruthy();
+
+    fireEvent.changeText(screen.getByTestId("register-code-input"), "123456");
     await waitFor(() => expect(screen).toHavePathname("/about-you"));
     expect(mockAuth.register).toHaveBeenCalledWith({
       name: "Priya",
       email: "priya@example.com",
       password: "secret123",
       phone: "+919876543210",
+      phoneCode: "123456",
     });
+  });
+
+  it("shows a wrong code at the boxes and empties them", async () => {
+    mockAuth.register.mockRejectedValue(new ApiError("http", 400, "Incorrect code. 4 attempts left."));
+    await toRegisterCode();
+    fireEvent.changeText(screen.getByTestId("register-code-input"), "000000");
+    await waitFor(() => expect(screen.getByText("Incorrect code. 4 attempts left.")).toBeTruthy());
+    expect(screen.getByTestId("register-code-input").props.value).toBe("");
+  });
+
+  it("asks for a new code when the number is changed", async () => {
+    await toRegisterCode();
+    type(/Mobile number \(optional\)/, "9876543211");
+    expect(screen.queryByTestId("register-code-input")).toBeNull();
+    expect(screen.getByText("Send code")).toBeTruthy();
+  });
+
+  it("offers that account's email for a number held unconfirmed, and the same code as not theirs", async () => {
+    mockAuth.register
+      .mockRejectedValueOnce(
+        new ApiError("http", 409, "This number is already on a HueVistaa account that hasn't confirmed it yet. Sign in with that account's email and password.", undefined, "PHONE_ON_UNCONFIRMED_ACCOUNT"),
+      )
+      .mockResolvedValueOnce(tokensFor());
+    willSignInAs(person({ welcomePending: true }));
+    await toRegisterCode();
+    fireEvent.changeText(screen.getByTestId("register-code-input"), "123456");
+    await waitFor(() => expect(screen.getByTestId("register-elsewhere")).toBeTruthy());
+    // Not mistaken for a taken email, though its words mention one.
+    expect(screen.queryByText("That email already has an account.")).toBeNull();
+    expect(screen.getByText("Sign in with email")).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId("register-not-mine"));
+    await waitFor(() => expect(screen).toHavePathname("/about-you"));
+    expect(mockAuth.register).toHaveBeenLastCalledWith({
+      name: "Priya",
+      email: "priya@example.com",
+      password: "secret123",
+      phone: "+919876543210",
+      phoneCode: "123456",
+      notMyAccount: true,
+    });
+  });
+
+  it("sends a number that already signs in somewhere to the mobile sign-in", async () => {
+    mockAuth.register.mockRejectedValue(new ApiError("http", 409, "In use", undefined, "PHONE_IN_USE"));
+    await toRegisterCode();
+    fireEvent.changeText(screen.getByTestId("register-code-input"), "123456");
+    await waitFor(() =>
+      expect(screen.getByText("This number already signs in to a HueVistaa account. Sign in with it instead, or use a different number.")).toBeTruthy(),
+    );
+    press("Sign in with your mobile");
+    await waitFor(() => expect(screen).toHavePathname("/phone"));
   });
 });
 

@@ -157,8 +157,23 @@ after a reset).
 letter and a number" — the backend's rule) ·
 Mobile (optional) · **Create account** · "Already have an account? Sign in".
 
-**API:** `POST /api/auth/register { name, email, password, phone? }` → `AuthResponse`.
-Then A10 (the role choice).
+**API:** `POST /api/auth/register { name, email, password, phone?, phoneCode?, notMyAccount? }`
+→ `AuthResponse`. Then A10 (the role choice).
+
+**A typed mobile is confirmed before the account exists.** With a number in the box the
+button reads **Send code** and texts it (`POST /api/auth/phone/start`); code boxes open
+under the mobile ("We texted a code to +91 …", resend on the server's countdown), and the
+sixth digit sends the form with `phoneCode`, which opens the account with the number
+confirmed. Changing the number closes the boxes and asks for a new code. Without a
+number it is one press, as before. Stored unconfirmed, the number used to be a trap: the
+owner's own A4 later met "on an account that hasn't confirmed it", one tap from taking the
+number off their account. Refusals of a right code:
+- 409 `PHONE_IN_USE` (another account has the number confirmed) → under the mobile,
+  with **Sign in with your mobile** (A3, number filled in).
+- 409 `PHONE_ON_UNCONFIRMED_ACCOUNT` → the A4 banner: **Sign in with email** first, then
+  the quieter **This isn't my account — continue**, which sends the same code with
+  `notMyAccount: true`.
+- 400 (wrong, expired or used-up code) → at the boxes, which shake and empty.
 
 **States:** 409 "Email already in use: …" → "That email already has an account." with
 a **Sign in instead** button that carries the email across. Each field's rule shows

@@ -100,7 +100,12 @@ jest.mock("@/features/painter/board-reader/BoardReader", () => {
   };
 });
 
-const mockAuth = { profile: jest.fn<Promise<UserProfile>, []>(), logout: jest.fn(async () => undefined) };
+const mockAuth = {
+  profile: jest.fn<Promise<UserProfile>, []>(),
+  logout: jest.fn(async () => undefined),
+  setCustomerProfile: jest.fn(),
+  switchProfile: jest.fn(),
+};
 jest.mock("@/api/endpoints/auth", () => ({ authApi: mockAuth }));
 const mockRewards = {
   wallet: jest.fn<Promise<PainterWallet>, []>(),
@@ -126,7 +131,7 @@ jest.mock("@/api/endpoints/painter", () => ({
     return mockPainter;
   },
 }));
-const mockMe = { entitlement: jest.fn(), projects: jest.fn(), aiCredits: jest.fn(), assignedProducts: jest.fn() };
+const mockMe = { entitlement: jest.fn(), projects: jest.fn(), aiCredits: jest.fn(), assignedProducts: jest.fn(), renders: jest.fn() };
 jest.mock("@/api/endpoints/me", () => ({ meApi: mockMe }));
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -228,6 +233,8 @@ beforeEach(async () => {
     for (const fn of Object.values(group)) if (typeof fn === "function" && "mockReset" in fn) (fn as jest.Mock).mockReset();
   }
   mockAuth.profile.mockReset();
+  mockAuth.setCustomerProfile.mockReset();
+  mockAuth.switchProfile.mockReset();
   mockReadFile.statFile.mockClear();
   mockReadFile.readFileBase64.mockClear();
   mockReader.props = null;
@@ -743,6 +750,49 @@ describe("P12 · Trade profile", () => {
     expect(screen.getByTestId("profile-save")).toBeDisabled();
   });
 
+  /** Where a switch to the customer profile lands: the customer's home, with nothing on it yet. */
+  const emptyCustomerHome = () => {
+    mockMe.entitlement.mockResolvedValue(null);
+    mockMe.aiCredits.mockResolvedValue({ balance: 0, eligible: false });
+    mockMe.projects.mockResolvedValue([]);
+    mockMe.renders.mockResolvedValue([]);
+  };
+
+  /** The painter's own home: a customer profile behind the same sign-in, one tap away. */
+  it("switches to the painter's own home, turning the customer profile on first", async () => {
+    emptyCustomerHome();
+    mockAuth.setCustomerProfile.mockResolvedValue({ id: "u1", name: "Ravi Kumar", provider: "LOCAL", role: "PAINTER", switchTo: "CUSTOMER" });
+    mockAuth.switchProfile.mockImplementation(async () => {
+      mockAuth.profile.mockResolvedValue({ id: "p1", name: "Ravi Kumar", provider: "LOCAL", role: "CUSTOMER", linkedProfile: true, switchTo: "PAINTER" });
+      return { accessToken: "access-p", refreshToken: "refresh-p" };
+    });
+    renderRouter("./app", { initialUrl: "/painter/profile" });
+    await waitFor(() => expect(screen.getByTestId("painter-own-home")).toBeTruthy());
+    expect(screen.getByText(/Planning your own rooms\?/)).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId("painter-own-home"));
+
+    await waitFor(() => expect(screen).toHavePathname("/home"));
+    expect(mockAuth.setCustomerProfile).toHaveBeenCalledWith(true);
+    expect(mockAuth.switchProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it("goes straight to a customer profile that is already on", async () => {
+    emptyCustomerHome();
+    mockAuth.profile.mockResolvedValue({ id: "u1", name: "Ravi Kumar", provider: "LOCAL", role: "PAINTER", switchTo: "CUSTOMER", customerProfileEnabled: true });
+    mockAuth.switchProfile.mockImplementation(async () => {
+      mockAuth.profile.mockResolvedValue({ id: "p1", name: "Ravi Kumar", provider: "LOCAL", role: "CUSTOMER", linkedProfile: true, switchTo: "PAINTER" });
+      return { accessToken: "access-p", refreshToken: "refresh-p" };
+    });
+    renderRouter("./app", { initialUrl: "/painter/profile" });
+    await waitFor(() => expect(screen.getByText(/Your own rooms are on your customer profile/)).toBeTruthy());
+
+    fireEvent.press(screen.getByTestId("painter-own-home"));
+
+    await waitFor(() => expect(screen).toHavePathname("/home"));
+    expect(mockAuth.setCustomerProfile).not.toHaveBeenCalled();
+  });
+
   it("sets up a painter account that has no profile behind it, in one tap", async () => {
     mockPainter.profile.mockRejectedValue(new ApiError("http", 404, "No painter profile."));
     mockPainter.becomePainter.mockResolvedValue(painter());
@@ -776,13 +826,13 @@ describe("C33 · Work as a painter", () => {
 
   it("shows the server's refusal in its own words, and stays a customer", async () => {
     signedInAs("CUSTOMER");
-    mockPainter.becomePainter.mockRejectedValue(new ApiError("http", 403, "This account already has rooms, so it stays a customer account."));
+    mockPainter.becomePainter.mockRejectedValue(new ApiError("http", 403, "This is a customer profile. Switch back to your own account to work as a painter."));
     renderRouter("./app", { initialUrl: "/become-painter" });
     await waitFor(() => expect(screen.getByTestId("become-painter")).toBeTruthy());
     fireEvent.press(screen.getByTestId("become-painter"));
     await waitFor(() => expect(screen.getByText("Make it a painter account")).toBeTruthy());
     fireEvent.press(screen.getByText("Make it a painter account"));
-    await waitFor(() => expect(screen.getAllByText("This account already has rooms, so it stays a customer account.").length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByText("This is a customer profile. Switch back to your own account to work as a painter.").length).toBeGreaterThan(0));
     await tick();
     expect(screen).toHavePathname("/become-painter");
   });

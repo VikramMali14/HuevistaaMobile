@@ -11,14 +11,25 @@ import { t } from "@/i18n";
 import { useSubmit } from "@/lib/use-submit";
 
 /**
- * C5 "Switch back to your shop", for a shop's customer profile (switchTo = SHOP).
+ * C5 "Switch back to your shop", for a shop's customer profile (switchTo = SHOP) — and
+ * "Switch back to painting" for a painter's (switchTo = PAINTER), which never meets the
+ * code below: a painter has no emailed code, so the switch signs straight in and the
+ * customer screens' guard moves on to the painter's home.
  *
  * Going back into the shop asks for the shop's emailed code unless this phone confirmed
  * one in the last 30 days. A8 cannot take that code: it lives in the signed-out screens,
  * which send a signed-in session away — so it is taken here, in a sheet. Once the shop
  * session opens, the customer screens' guard moves on to the web-only screen (S10).
  */
-export function SwitchToShop({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+export function SwitchToShop({
+  visible,
+  onClose,
+  owner = "shop",
+}: {
+  visible: boolean;
+  onClose: () => void;
+  owner?: "shop" | "painter";
+}) {
   const { completeSignIn } = useSession();
   const switching = useSubmit();
   const confirming = useSubmit();
@@ -88,9 +99,9 @@ export function SwitchToShop({ visible, onClose }: { visible: boolean; onClose: 
   return (
     <ConfirmSheet
       visible={visible}
-      title={t("account.switchBackTitle")}
-      body={t("account.switchBackBody")}
-      confirmLabel={t("account.switchBackConfirm")}
+      title={owner === "painter" ? t("account.switchBackPainterTitle") : t("account.switchBackTitle")}
+      body={owner === "painter" ? t("account.switchBackPainterBody") : t("account.switchBackBody")}
+      confirmLabel={owner === "painter" ? t("account.switchBackPainterConfirm") : t("account.switchBackConfirm")}
       loading={switching.busy}
       error={error}
       onConfirm={start}

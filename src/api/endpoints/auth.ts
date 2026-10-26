@@ -4,7 +4,7 @@
  * CustomerProfileController}.java. Screens: A2–A10, S2–S5, S9, S10.
  */
 import { api } from "../instance";
-import type { AuthResponse, PhoneCodeSent, UserProfile, VerificationStatus } from "../types";
+import type { AuthResponse, PhoneCodeSent, PhoneMoveResponse, UserProfile, VerificationStatus } from "../types";
 
 const open = { auth: false } as const;
 
@@ -28,8 +28,20 @@ export const authApi = {
   login: (body: { email: string; password: string; deviceToken?: string }) =>
     api.request<AuthResponse>("api/auth/login", { ...open, body }),
 
-  /** A6. */
-  register: (body: { name: string; email: string; password: string; phone?: string }) =>
+  /**
+   * A6. With `phoneCode` — the code `phoneStart` texted to `phone` — the account opens with
+   * the number confirmed, or not at all: 409 PHONE_IN_USE when another account has it
+   * confirmed; 409 PHONE_ON_UNCONFIRMED_ACCOUNT when one holds it unconfirmed, answered by
+   * the same code again with `notMyAccount`, as on `phoneVerify`.
+   */
+  register: (body: {
+    name: string;
+    email: string;
+    password: string;
+    phone?: string;
+    phoneCode?: string;
+    notMyAccount?: boolean;
+  }) =>
     api.request<AuthResponse>("api/auth/register", { ...open, body }),
 
   /** A8. A shop's emailed code. Save the returned deviceToken. */
@@ -97,7 +109,26 @@ export const authApi = {
   confirmPhoneCode: (code: string) =>
     api.request<UserProfile>("api/auth/verify/phone/confirm", { body: { code } }),
 
+  /**
+   * S4, after sendPhoneCode answered PHONE_ON_CUSTOMER_ACCOUNT: text a code to the number,
+   * to move the customer account it signs in to into this painter's or shop's customer
+   * profile. The text says what the code does.
+   */
+  sendPhoneMoveCode: (phoneNumber: string) =>
+    api.request<VerificationStatus>("api/auth/verify/phone/move/send", { body: { phoneNumber } }),
+
+  /** That code: the account moves in, is closed, and the number is confirmed here. */
+  confirmPhoneMove: (code: string) =>
+    api.request<PhoneMoveResponse>("api/auth/verify/phone/move/confirm", { body: { code } }),
+
   /** S10. A shop ⇄ its customer profile. May answer emailCodeRequired. */
   switchProfile: (body: { deviceToken?: string; refreshToken?: string }) =>
     api.request<AuthResponse>("api/auth/profiles/switch", { body }),
+
+  /**
+   * Turn this shop's or painter's customer profile on (creating it the first time) or off.
+   * Off keeps everything on it. Answers with this account, `customerProfileEnabled` set.
+   */
+  setCustomerProfile: (on: boolean) =>
+    api.request<UserProfile>("api/auth/profiles/customer", { method: on ? "POST" : "DELETE" }),
 };

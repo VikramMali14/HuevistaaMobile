@@ -41,6 +41,19 @@ export interface VerifyFlowProps {
   confirm: (code: string) => Promise<UserProfile>;
   /** Shown instead of everything else (a shop's customer profile cannot change these). */
   blocked?: string | null;
+  /**
+   * S4 only: a value refused because it signs in to a customer account this account may
+   * move in. `when` recognises that refusal; the code then goes out by `send`, and comes
+   * back by `confirm`, which moves the account and confirms the value in one step.
+   */
+  move?: {
+    when: (err: unknown) => boolean;
+    send: () => Promise<VerificationStatus>;
+    confirm: (code: string) => Promise<UserProfile>;
+    offer: MessageKey;
+    sentTo: MessageKey;
+    done: MessageKey;
+  };
 }
 
 /**
@@ -58,6 +71,7 @@ export function VerifyFlow({
   send,
   confirm,
   blocked,
+  move,
 }: VerifyFlowProps) {
   const router = useRouter();
   const toast = useToast();
@@ -71,18 +85,24 @@ export function VerifyFlow({
   const [inputError, setInputError] = useState<string | null>(null);
   /** A resend that failed, on the code step — not the code's fault, so not under the boxes. */
   const [resendError, setResendError] = useState<string | null>(null);
+  /** The value was refused, and the account holding it can be moved in instead. */
+  const [movable, setMovable] = useState(false);
+  /** The code out now moves that account in, rather than only confirming the value. */
+  const [moving, setMoving] = useState(false);
   const countdown = useCountdown(0);
   const sending = useSubmit();
   const confirming = useSubmit();
 
-  const sendCode = (toNew: boolean) =>
+  const sendCode = (toNew: boolean, moveIn = false) =>
     void sending.run(async () => {
       setInputError(null);
       setResendError(null);
       if (step !== "code") setError(null);
       try {
-        const status = await send(toNew);
+        const status = moveIn && move ? await move.send() : await send(toNew);
         setUsingNew(toNew);
+        setMoving(moveIn);
+        setMovable(false);
         setDestination(status.destination);
         countdown.restart(status.cooldownSeconds);
         setCode("");
@@ -90,6 +110,7 @@ export function VerifyFlow({
         setStep("code");
       } catch (err) {
         const message = authErrorMessage(err);
+        setMovable(!moveIn && Boolean(move?.when(err)));
         if (step === "enter") setInputError(message);
         else if (step === "code") setResendError(message);
         else setError(message);
@@ -101,8 +122,8 @@ export function VerifyFlow({
     void confirming.run(async () => {
       setError(null);
       try {
-        await updateProfile(await confirm(entered));
-        toast.show(t(strings.confirmed), "success");
+        await updateProfile(await (moving && move ? move.confirm(entered) : confirm(entered)));
+        toast.show(t(moving && move ? move.done : strings.confirmed), "success");
         if (router.canGoBack()) router.back();
         else router.replace("/account");
       } catch (err) {
@@ -125,7 +146,7 @@ export function VerifyFlow({
     return (
       <FormScreen
         title={title}
-        lead={t(strings.sentTo, { destination })}
+        lead={t(moving && move ? move.sentTo : strings.sentTo, { destination })}
         backFallback="/account"
         footer={
           <Button label={t(strings.confirm)} onPress={() => submitCode(code)} disabled={code.length !== 6} loading={confirming.busy} />
@@ -146,7 +167,7 @@ export function VerifyFlow({
         />
         <View>
           {countdown.done ? (
-            <Button variant="ghost" block={false} label={t(strings.resend)} onPress={() => sendCode(usingNew)} loading={sending.busy} />
+            <Button variant="ghost" block={false} label={t(strings.resend)} onPress={() => sendCode(usingNew, moving)} loading={sending.busy} />
           ) : (
             <Text variant="small" tone="mute" accessibilityLiveRegion="polite">
               {t("auth.code.resendIn", { time: formatCountdown(countdown.left) })}
@@ -159,6 +180,7 @@ export function VerifyFlow({
             onPress={() => {
               setError(null);
               setResendError(null);
+              setMoving(false);
               setStep("enter");
             }}
           />
@@ -176,7 +198,17 @@ export function VerifyFlow({
         backFallback="/account"
         footer={<Button label={t(strings.send)} onPress={() => sendCode(true)} disabled={!inputReady} loading={sending.busy} />}
       >
-        {renderInput({ error: inputError, submit: () => inputReady && sendCode(true), clearError: () => setInputError(null) })}
+        {renderInput({
+          error: inputError,
+          submit: () => inputReady && sendCode(true),
+          clearError: () => {
+            setInputError(null);
+            setMovable(false);
+          },
+        })}
+        {movable && move ? (
+          <Button variant="secondary" label={t(move.offer)} onPress={() => sendCode(true, true)} loading={sending.busy} testID="verify-move" />
+        ) : null}
         {current ? (
           <Button
             variant="ghost"
@@ -216,6 +248,9 @@ export function VerifyFlow({
         />
       </ListGroup>
       {error ? <Banner tone="danger" message={error} /> : null}
+      {movable && move ? (
+        <Button variant="secondary" label={t(move.offer)} onPress={() => sendCode(false, true)} loading={sending.busy} testID="verify-move" />
+      ) : null}
     </FormScreen>
   );
 }
