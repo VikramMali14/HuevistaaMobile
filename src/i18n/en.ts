@@ -1791,6 +1791,7 @@ export const en = {
     channelRooms: "Your rooms and Vista images",
     channelPoints: "Points and vouchers",
     channelSupport: "Replies from our team",
+    channelCertification: "HueVistaa Certified",
     askWallsTitle: "Tell you when your walls are ready?",
     askWallsBody: "Finding the walls can take a minute or two. We'll send one notification when they're ready, so you don't have to wait here.",
     askImageTitle: "Tell you when your Vista image is ready?",

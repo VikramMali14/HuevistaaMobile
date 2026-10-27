@@ -638,7 +638,10 @@ by id across pages. The ask form and the account's own questions sit in its head
   switch: it dismisses the account's notifications and resets the registration.
 - `push-routes.ts` is pure. `readPayload` accepts only known kinds with well-formed ids,
   and `pathFor` builds the screen from those ids: a notification never carries a path.
-  `invalidationsFor` lists what each kind makes stale.
+  `invalidationsFor` lists what each kind makes stale. The team's decision on a
+  painter's documents (`PAINTER_DOCUMENTS_APPROVED` / `_REJECTED`) opens the painter's
+  Home: the documents and the year's payment are on the painter website, which Home's
+  certification card opens only where `paymentsMode()` is `web`.
 - `usePushObserver`, from the root:
   - With the app open, a notification refreshes what it made stale, for the signed-in
     account only.
@@ -648,7 +651,7 @@ by id across pages. The ask form and the account's own questions sit in its head
     its notification id.
 - `setNotificationHandler`: no banner for a reply to the support chat already on
   screen (`setQuietConversation`).
-- Android channels: `rooms`, `points` and `support`, named in the current language and
+- Android channels: `rooms`, `points`, `support` and `certification`, named in the current language and
   made before any ask (Android 13 shows no prompt without one).
 - `AskForNotifications` (X3) shows a sheet before the phone's prompt, at most once per
   reason, at the four moments that wait: C8 finding walls, C24 making an AI image, P11

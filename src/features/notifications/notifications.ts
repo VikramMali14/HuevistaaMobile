@@ -29,6 +29,7 @@ export const CHANNELS = {
   rooms: "rooms",
   points: "points",
   support: "support",
+  certification: "certification",
 } as const;
 
 export function pushSupported(): boolean {
@@ -50,6 +51,7 @@ export async function ensureChannels(): Promise<void> {
     Notifications.setNotificationChannelAsync(CHANNELS.rooms, { name: t("notifications.channelRooms"), importance: Notifications.AndroidImportance.DEFAULT }),
     Notifications.setNotificationChannelAsync(CHANNELS.points, { name: t("notifications.channelPoints"), importance: Notifications.AndroidImportance.DEFAULT }),
     Notifications.setNotificationChannelAsync(CHANNELS.support, { name: t("notifications.channelSupport"), importance: Notifications.AndroidImportance.HIGH }),
+    Notifications.setNotificationChannelAsync(CHANNELS.certification, { name: t("notifications.channelCertification"), importance: Notifications.AndroidImportance.DEFAULT }),
   ]).catch(() => {});
 }
 

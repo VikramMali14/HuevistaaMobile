@@ -9,7 +9,9 @@ export type PushKind =
   | "AI_IMAGE_FAILED"
   | "VOUCHER_DELIVERED"
   | "VOUCHER_REJECTED"
-  | "SUPPORT_REPLY";
+  | "SUPPORT_REPLY"
+  | "PAINTER_DOCUMENTS_APPROVED"
+  | "PAINTER_DOCUMENTS_REJECTED";
 
 /** A notification's data as the server sends it: its kind, who it's for, and ids only. */
 export interface PushPayload {
@@ -30,6 +32,8 @@ const KINDS: readonly PushKind[] = [
   "VOUCHER_DELIVERED",
   "VOUCHER_REJECTED",
   "SUPPORT_REPLY",
+  "PAINTER_DOCUMENTS_APPROVED",
+  "PAINTER_DOCUMENTS_REJECTED",
 ];
 
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -75,6 +79,13 @@ export function pathFor(p: PushPayload): string | null {
     case "SUPPORT_REPLY":
       path = p.conversationId ? `/help/${p.conversationId}` : null;
       break;
+    case "PAINTER_DOCUMENTS_APPROVED":
+    case "PAINTER_DOCUMENTS_REJECTED":
+      // The team's decision on a painter's documents. The documents, the reason for turning
+      // them down and the year's payment are on the painter website; Home's certification
+      // card opens it where the build may (paymentsMode "web").
+      path = "/painter";
+      break;
   }
   return path && isRememberablePath(path) ? path : null;
 }
@@ -97,5 +108,9 @@ export function invalidationsFor(p: PushPayload): readonly Invalidation[] {
       return redeemChanges.map((queryKey) => ({ queryKey }));
     case "SUPPORT_REPLY":
       return [{ queryKey: keys.supportList, exact: true }, ...(p.conversationId ? [{ queryKey: keys.supportConversation(p.conversationId), exact: true }] : [])];
+    case "PAINTER_DOCUMENTS_APPROVED":
+    case "PAINTER_DOCUMENTS_REJECTED":
+      // Home's certification card reads the painter's profile.
+      return [{ queryKey: keys.painterProfile, exact: true }];
   }
 }
