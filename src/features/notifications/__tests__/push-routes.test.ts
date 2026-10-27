@@ -6,6 +6,7 @@ describe("a notification's data", () => {
   it("is read only when it's one of ours: a known kind, an account, and clean ids", () => {
     expect(readPayload({ type: "WALLS_READY", userId: "u1", projectId: "p1" })).toEqual(expect.objectContaining({ type: "WALLS_READY", userId: "u1", projectId: "p1" }));
     expect(readPayload({ type: "SOMETHING_ELSE", userId: "u1" })).toBeNull();
+    expect(readPayload({ type: "PAINTER_DOCUMENTS_REJECTED", userId: "u1" })).toEqual(expect.objectContaining({ type: "PAINTER_DOCUMENTS_REJECTED", userId: "u1" }));
     expect(readPayload({ type: "WALLS_READY" })).toBeNull();
     expect(readPayload(null)).toBeNull();
     // An id that isn't an id is dropped, not trusted into a path.
@@ -22,6 +23,9 @@ describe("a notification's data", () => {
     expect(pathFor({ type: "VOUCHER_REJECTED", userId: "u", redemptionId: "v1" })).toBe("/painter/voucher/v1");
     expect(pathFor({ type: "SUPPORT_REPLY", userId: "u", conversationId: "c1" })).toBe("/help/c1");
     expect(pathFor({ type: "SUPPORT_REPLY", userId: "u" })).toBeNull();
+    // The team's decision on a painter's documents: Home, whose certification card goes on from there.
+    expect(pathFor({ type: "PAINTER_DOCUMENTS_APPROVED", userId: "u" })).toBe("/painter");
+    expect(pathFor({ type: "PAINTER_DOCUMENTS_REJECTED", userId: "u" })).toBe("/painter");
   });
 
   it("refreshes what it made stale", () => {
@@ -33,5 +37,6 @@ describe("a notification's data", () => {
     expect(invalidationsFor({ type: "VOUCHER_REJECTED", userId: "u", redemptionId: "v1" }).map((i) => i.queryKey)).toContainEqual(keys.painterWallet);
     expect(invalidationsFor({ type: "AI_IMAGE_READY", userId: "u", projectId: "p1", renderId: "r1" })).toContainEqual({ queryKey: keys.render("p1", "r1"), exact: true });
     expect(invalidationsFor({ type: "SUPPORT_REPLY", userId: "u", conversationId: "c1" })).toContainEqual({ queryKey: keys.supportConversation("c1"), exact: true });
+    expect(invalidationsFor({ type: "PAINTER_DOCUMENTS_APPROVED", userId: "u" })).toEqual([{ queryKey: keys.painterProfile, exact: true }]);
   });
 });

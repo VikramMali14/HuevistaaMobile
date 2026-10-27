@@ -1739,6 +1739,7 @@ export const hi: Translation = {
     channelRooms: "आपके कमरे और Vista इमेज",
     channelPoints: "पॉइंट्स और वाउचर",
     channelSupport: "हमारी टीम के जवाब",
+    channelCertification: "HueVistaa सर्टिफ़िकेशन",
     askWallsTitle: "दीवारें तैयार होने पर आपको बताएँ?",
     askWallsBody: "दीवारें ढूँढने में एक-दो मिनट लग सकते हैं। तैयार होने पर हम एक नोटिफ़िकेशन भेजेंगे, ताकि आपको यहाँ रुकना न पड़े।",
     askImageTitle: "Vista इमेज तैयार होने पर आपको बताएँ?",
