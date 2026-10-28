@@ -14,6 +14,7 @@ import { askedRecently, rememberAsked } from "@/features/account/asked-shop";
 import { useBalance } from "@/features/account/use-balance";
 import { verifyPayment } from "@/features/payments/payments";
 import { usePaidButUnconfirmed } from "@/features/payments/pending-payment";
+import { buyOnWebsite, useWhereToBuy } from "@/features/payments/where-to-buy";
 import { t, type MessageKey } from "@/i18n";
 import { formatDate, toDate, validitySpan } from "@/lib/dates";
 import { formatRupees } from "@/lib/money";
@@ -42,6 +43,8 @@ function activityLine(row: AiCreditActivity): string {
  * Two counters — rooms left, and Vista credits — then how to get more: a shop's customer
  * whose rooms are used up asks the shop (who adds one free from the counter; they are never
  * sold a room), anyone else buys rooms; Vista credits are bought by anyone who can hold them.
+ * A painter's or a shop's own home buys both on the website, or — in the store build, where
+ * nothing may say where else to pay — is told only that they aren't sold here (useWhereToBuy).
  * Then the Vista credit statement. Worked out by the one balance hook (useBalance), so a
  * balance that won't load is "didn't load", never "0 rooms".
  */
@@ -54,6 +57,7 @@ export default function BalanceScreen() {
   const balance = useBalance();
   const wallet = useQuery({ queryKey: keys.aiCredits, queryFn: meApi.aiCredits });
   const shopCustomer = Boolean(balance.entitlement);
+  const where = useWhereToBuy();
   const stuck = usePaidButUnconfirmed(profile?.id);
   const pull = usePullToRefresh(() => Promise.all([balance.refetch(), wallet.refetch()]));
   const [asked, setAsked] = useState<string | null>(null);
@@ -149,11 +153,12 @@ export default function BalanceScreen() {
             {balance.nextStep === "exhausted" && !asked ? (
               <Button label={t("balanceScreen.ask")} onPress={ask} loading={asking.busy} testID="balance-ask" />
             ) : null}
-            {balance.nextStep !== null && balance.roomsKnown && !shopCustomer ? (
+            {balance.nextStep !== null && balance.roomsKnown && !shopCustomer && where !== "none" ? (
               <Button
-                label={t("balanceScreen.buyRooms")}
+                label={where === "website" ? t("balanceScreen.buyRoomsWebsite") : t("balanceScreen.buyRooms")}
+                icon={where === "website" ? "external-link" : undefined}
                 variant={balance.nextStep === "missing" ? "primary" : "secondary"}
-                onPress={() => router.push({ pathname: "/checkout", params: { rooms: "1" } })}
+                onPress={where === "website" ? () => void buyOnWebsite() : () => router.push({ pathname: "/checkout", params: { rooms: "1" } })}
                 testID="balance-buy-rooms"
               />
             ) : null}
@@ -186,14 +191,23 @@ export default function BalanceScreen() {
                     : t("balanceScreen.expiring", { n: w.expiringCredits, date: formatDate(w.soonestExpiryAt) })}
                 </Text>
               ) : null}
-              <Button
-                variant="secondary"
-                label={t("balanceScreen.buyCredits")}
-                onPress={() => router.push({ pathname: "/checkout", params: { credits: "1" } })}
-                testID="balance-buy-credits"
-              />
+              {where !== "none" ? (
+                <Button
+                  variant="secondary"
+                  label={where === "website" ? t("balanceScreen.buyCreditsWebsite") : t("balanceScreen.buyCredits")}
+                  icon={where === "website" ? "external-link" : undefined}
+                  onPress={where === "website" ? () => void buyOnWebsite() : () => router.push({ pathname: "/checkout", params: { credits: "1" } })}
+                  testID="balance-buy-credits"
+                />
+              ) : null}
             </View>
           </Card>
+        ) : null}
+
+        {where !== "app" ? (
+          <Text variant="small" tone="mute" testID="balance-not-here">
+            {where === "website" ? t("checkout.onWebsite") : t("balanceScreen.notSold")}
+          </Text>
         ) : null}
 
         {/* Not on a linked profile, as on Account. */}

@@ -56,6 +56,15 @@ and grants it once; the app hands over whatever Google still holds unfinished wh
 comes back to the front. Left for a real phone: a license tester buying each pack from
 Play internal testing (docs/09-release.md, "Google Play Billing").
 
+**Painters and shops pay on the website — never in the app, in any build.** A painter's own
+screens sell nothing (the year of HueVistaa Certified is bought on the painter website) and
+a shop gets the web-only screen. Their customer profile — their own home — is sold no rooms
+or Vista credits here either: where the app may send somebody to the website to pay
+(`paymentsMode() === "web"`), every Buy opens the website, where they continue as the
+customer; in the Play build nothing is sold and nothing says where
+(`src/features/payments/where-to-buy.ts`). The backend's Google Play counter refuses a
+customer profile too.
+
 **Phase 5 — AI images — is built.**
 - Choose a room and the option to photograph.
 - Choose how it is photographed, with each quality priced from the wallet. If credits

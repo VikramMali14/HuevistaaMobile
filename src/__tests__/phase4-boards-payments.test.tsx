@@ -6,6 +6,7 @@
  * that is ready at once and photographs each option as a file name.
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as WebBrowser from "expo-web-browser";
 import { act, fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
 
 import { Platform } from "react-native";
@@ -1159,6 +1160,105 @@ describe("C28 · Checkout", () => {
       if (before === undefined) delete process.env.EXPO_PUBLIC_PAYMENTS;
       else process.env.EXPO_PUBLIC_PAYMENTS = before;
     }
+  });
+});
+
+// ── Painters and shops pay on the website ─────────────────────────────────────
+
+// A painter's or a shop's customer profile — their own home — is sold nothing in the app
+// (features/payments/where-to-buy). Jest is iOS, so the website takes the payments unless
+// a test says Google Play does.
+describe("A painter's or a shop's own home pays on the website", () => {
+  const website = expect.stringMatching(/\/choose-profile\?next=%2Fmy-projects$/);
+  const openBrowser = WebBrowser.openBrowserAsync as jest.Mock;
+  const ownHome = (owner: "PAINTER" | "SHOP") => signedIn({ linkedProfile: true, switchTo: owner });
+  const noRooms = { subscribed: false, projectPricePoints: 0, projectPricePaise: 14900, pointsBalance: 0, validDays: 365, availableCredits: 0 };
+  beforeEach(() => openBrowser.mockClear());
+
+  it("Rooms and credits sends rooms and credits to the website, and reads the balance again on the way back", async () => {
+    ownHome("PAINTER");
+    renderRouter("./app", { initialUrl: "/balance" });
+    await waitFor(() => expect(screen.getByTestId("balance-credits-n")).toHaveTextContent("4"));
+    expect(screen.getByTestId("balance-not-here")).toHaveTextContent(
+      "Painters and shops pay on the website. Sign in there as you do here, then continue as a customer.",
+    );
+    fireEvent.press(screen.getByText("Buy rooms on the website"));
+    await waitFor(() => expect(openBrowser).toHaveBeenCalledWith(website, expect.anything()));
+    mockMe.aiCredits.mockClear();
+    fireEvent.press(screen.getByText("Buy Vista credits on the website"));
+    await waitFor(() => expect(openBrowser).toHaveBeenCalledTimes(2));
+    // The browser closed: whatever was bought there is read again.
+    await waitFor(() => expect(mockMe.aiCredits).toHaveBeenCalled());
+    expect(screen).toHavePathname("/balance");
+  });
+
+  it("Checkout opens the website, never a basket or a payment page", async () => {
+    ownHome("SHOP");
+    renderRouter("./app", { initialUrl: "/checkout?rooms=1" });
+    await waitFor(() => expect(screen.getByText("Buy on the website")).toBeTruthy());
+    expect(screen.queryByTestId("checkout-pay")).toBeNull();
+    fireEvent.press(screen.getByTestId("checkout-website"));
+    await waitFor(() => expect(openBrowser).toHaveBeenCalledWith(website, expect.anything()));
+    expect(mockBilling.cart).not.toHaveBeenCalled();
+    expect(mockBilling.cartOrder).not.toHaveBeenCalled();
+    expect(mockOpenAuth).not.toHaveBeenCalled();
+  });
+
+  it("Home's next step without a room is one bought on the website", async () => {
+    mockMe.projectOptions.mockResolvedValue(noRooms);
+    ownHome("PAINTER");
+    renderRouter("./app", { initialUrl: "/home" });
+    await waitFor(() => expect(screen.getByText("No rooms yet")).toBeTruthy());
+    expect(screen.queryByText(/₹/)).toBeNull();
+    fireEvent.press(screen.getByText("Buy a room on the website"));
+    await waitFor(() => expect(openBrowser).toHaveBeenCalledWith(website, expect.anything()));
+    expect(screen).toHavePathname("/home");
+  });
+
+  describe("in the Android store build", () => {
+    const store = jest.requireMock<{ initConnection: jest.Mock; requestPurchase: jest.Mock }>("@/features/payments/play/store");
+    let mode: jest.SpyInstance;
+    beforeEach(() => {
+      mode = jest.spyOn(env, "paymentsMode").mockReturnValue("play");
+      mockBilling.playProducts.mockResolvedValue({ enabled: true, eligible: false, validDays: 365, obfuscatedAccountId: "profile-key", products: [] });
+      store.initConnection.mockClear();
+      store.requestPurchase.mockClear();
+    });
+    afterEach(() => mode.mockRestore());
+
+    it("sells nothing and names no other place to pay — on Rooms and credits, Home and Checkout", async () => {
+      mockMe.projectOptions.mockResolvedValue(noRooms);
+      ownHome("SHOP");
+      const balance = renderRouter("./app", { initialUrl: "/balance" });
+      await waitFor(() => expect(screen.getByTestId("balance-not-here")).toHaveTextContent("Rooms and Vista credits for this account aren't sold in the app."));
+      expect(screen.getByTestId("balance-credits-n")).toHaveTextContent("4");
+      expect(screen.queryByTestId("balance-buy-rooms")).toBeNull();
+      expect(screen.queryByTestId("balance-buy-credits")).toBeNull();
+      expect(screen.queryByText(/website/i)).toBeNull();
+      balance.unmount();
+
+      const home = renderRouter("./app", { initialUrl: "/home" });
+      await waitFor(() => expect(screen.getByText("Rooms for this account aren't sold in the app. Given a code by a paint shop? Use that.")).toBeTruthy());
+      expect(screen.queryByText(/website/i)).toBeNull();
+      expect(screen.queryByText(/^Buy/)).toBeNull();
+      fireEvent.press(screen.getByTestId("next-step"));
+      await waitFor(() => expect(screen).toHavePathname("/add-shop-code"));
+      home.unmount();
+
+      renderRouter("./app", { initialUrl: "/checkout" });
+      await waitFor(() => expect(screen.getByText("Buying isn't available on this account.")).toBeTruthy());
+      expect(screen.queryByText(/website/i)).toBeNull();
+      expect(screen.queryByTestId("checkout-pay")).toBeNull();
+      expect(store.requestPurchase).not.toHaveBeenCalled();
+      expect(mockBilling.playIntent).not.toHaveBeenCalled();
+      expect(openBrowser).not.toHaveBeenCalled();
+    });
+
+    it("still hands over a Google Play purchase made before, so nothing paid for is lost", async () => {
+      ownHome("PAINTER");
+      renderRouter("./app", { initialUrl: "/balance" });
+      await waitFor(() => expect(store.initConnection).toHaveBeenCalled());
+    });
   });
 });
 

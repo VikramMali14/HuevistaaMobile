@@ -324,6 +324,35 @@ As built (`src/features/payments/play`):
 - Crash reports redact any opaque run of 40 or more characters (`[token]`), and no
   purchase object is ever logged: a purchase token is as good as the purchase.
 
+### Painters and shops pay on the website
+
+Painters and shops pay on the website, never in the app, in every build. A painter's own
+session sells nothing: the year of HueVistaa Certified is bought on the painter website,
+and P1 and P5 link to it only where `paymentsMode()` is `web`. A shop's own session is S10,
+which opens the website. But either can be a customer too, and their **customer profile**
+(their own home, `linkedProfile`) opens the customer's screens. `whereToBuy(profile)` in
+`src/features/payments/where-to-buy.ts` decides what those screens sell:
+
+- `"app"` — every account that is nobody's profile: C28 as above (Google Play in the store
+  build, Razorpay elsewhere).
+- `"website"` — a customer profile where `paymentsMode()` is `web`: every Buy (C1's next
+  step, C27, C23) opens `{SITE}/choose-profile?next=%2Fmy-projects` in the in-app browser,
+  and C28 says how buying works there, with **Open the website**. The person signs in there
+  as they do here, chooses "A customer", and lands on `/my-projects`, the customer's
+  balance, which sells rooms and Vista credits. Back in the app the balances are read again
+  (`paymentChanges`): when the browser closes on iOS, and on Android — whose browser
+  answers as soon as it opens — when the app is back in front.
+- `"none"` — a customer profile in the Android store build: nothing is sold, and nothing
+  names another place to pay (Play's anti-steering rule). C27 and C23 say the rooms and
+  credits "aren't sold in the app" for this account, C1's next step without a room is the
+  shop code, and C28 says "Buying isn't available on this account.", as the Play counter
+  does for any account the server won't sell to.
+
+The backend holds the same line: `GET /api/billing/play/products` answers a customer
+profile `eligible: false`, and `POST /api/billing/play/intents` refuses it, so no version of
+the app can sell to one through Google Play. `enabled` and the account's keys stay, so
+`PlayPurchaseWatcher` still hands over a purchase made before.
+
 ## The colour engine (the biggest risk)
 
 `src/features/studio/engine/`. The website's `lib/webgl-recolor.ts` shaders (`VERT`,
