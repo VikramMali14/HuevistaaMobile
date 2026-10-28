@@ -8,6 +8,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { onlineManager } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { act, fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
+import * as WebBrowser from "expo-web-browser";
 
 import { ApiError } from "@/api/errors";
 import { queryClient } from "@/api/query-client";
@@ -120,10 +121,10 @@ jest.mock("@/api/endpoints/billing", () => ({
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
-function signedIn() {
+function signedIn(extra: Partial<UserProfile> = {}) {
   mockSecure["hv.access"] = "access-0";
   mockSecure["hv.refresh"] = "refresh-0";
-  mockAuth.profile.mockResolvedValue({ id: "u1", name: "Priya Sharma", provider: "LOCAL", role: "CUSTOMER", phoneNumber: "+919876543210" });
+  mockAuth.profile.mockResolvedValue({ id: "u1", name: "Priya Sharma", provider: "LOCAL", role: "CUSTOMER", phoneNumber: "+919876543210", ...extra });
 }
 const room = (extra: Partial<RoomDetail> = {}): RoomDetail => ({
   id: "p1",
@@ -397,6 +398,35 @@ describe("C23 · Vista image — options", () => {
       fireEvent.press(screen.getByTestId("ai-buy"));
       await waitFor(() => expect(screen).toHavePathname("/checkout"));
       expect(screen).toHaveSearchParams({ credits: "2", from: "ai-image" });
+    } finally {
+      mode.mockRestore();
+    }
+  });
+
+  it("a painter's or a shop's own home buys the missing credits on the website", async () => {
+    signedIn({ linkedProfile: true, switchTo: "PAINTER" });
+    mockMe.aiCredits.mockResolvedValue(wallet({ balance: 0 }));
+    open();
+    await waitFor(() => expect(screen.getByTestId("ai-buy")).toBeTruthy());
+    expect(screen.getByTestId("ai-cost")).toHaveTextContent("You need 1 more Vista credit for this image, at ₹70.");
+    fireEvent.press(screen.getByText("Buy 1 Vista credit on the website"));
+    await waitFor(() =>
+      expect(WebBrowser.openBrowserAsync).toHaveBeenCalledWith(expect.stringMatching(/\/choose-profile\?next=%2Fmy-projects$/), expect.anything()),
+    );
+    expect(screen).toHavePathname("/ai-image/options");
+  });
+
+  it("in the store build, a painter's or a shop's own home is told only that the credits aren't sold here", async () => {
+    const mode = jest.spyOn(env, "paymentsMode").mockReturnValue("play");
+    try {
+      signedIn({ linkedProfile: true, switchTo: "SHOP" });
+      mockBilling.playProducts.mockResolvedValue({ enabled: true, eligible: false, validDays: 365, obfuscatedAccountId: "profile-key", products: [] });
+      mockMe.aiCredits.mockResolvedValue(wallet({ balance: 0 }));
+      open();
+      await waitFor(() => expect(screen.getByTestId("ai-not-sold")).toHaveTextContent("Vista credits for this account aren't sold in the app."));
+      expect(screen.getByTestId("ai-cost")).toHaveTextContent("You need 1 more Vista credit for this image.");
+      expect(screen.queryByTestId("ai-buy")).toBeNull();
+      expect(screen.queryByText(/website|₹/i)).toBeNull();
     } finally {
       mode.mockRestore();
     }

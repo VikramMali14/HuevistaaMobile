@@ -16,6 +16,7 @@ import { packingLine, roomsAndImages } from "@/features/payments/basket-words";
 import { payForBasket, PriceChangedError, verifyPayment } from "@/features/payments/payments";
 import { usePaidButUnconfirmed } from "@/features/payments/pending-payment";
 import { PlayCounter } from "@/features/payments/play/PlayCounter";
+import { buyOnWebsite, useWhereToBuy, type WhereToBuy } from "@/features/payments/where-to-buy";
 import { t } from "@/i18n";
 import { packCart, packSingly } from "@/lib/cart-pack";
 import { validitySpan } from "@/lib/dates";
@@ -38,11 +39,42 @@ const images = (n: number) => (n === 1 ? t("checkout.oneImage") : t("checkout.im
  * C29's retry) works in both builds: the Android store build sells packs through Google
  * Play (PlayCounter — Play's payments policy requires it for digital goods, and nothing
  * there may send anyone to the website to pay); everywhere else Razorpay sells the basket
- * below. Which one is read when the screen opens (config/env `paymentsMode`).
+ * below. Which one is read when the screen opens (config/env `paymentsMode`). A painter's
+ * or a shop's own home gets neither: painters and shops pay on the website (NotSoldHere).
  */
 export default function Checkout() {
   const params = useLocalSearchParams<{ rooms?: string; credits?: string; from?: string }>();
+  const where = useWhereToBuy();
+  if (where !== "app") return <NotSoldHere where={where} />;
   return paymentsMode() === "play" ? <PlayCounter rooms={params.rooms} credits={params.credits} from={params.from} /> : <RazorpayCheckout />;
+}
+
+/**
+ * C28 for a painter's or a shop's own home, which is sold nothing in the app
+ * (features/payments/where-to-buy). Where the app may send somebody to the website to pay,
+ * it says how buying works there and opens it; in the Android store build it says only
+ * that buying isn't available here, as the Play counter does for an account it won't sell to.
+ */
+function NotSoldHere({ where }: { where: Exclude<WhereToBuy, "app"> }) {
+  const { space } = useTheme();
+  const website = where === "website";
+  return (
+    <Screen
+      scroll
+      contentStyle={{ gap: space.lg, paddingBottom: space.xl }}
+      footer={
+        website ? (
+          <Button label={t("checkout.websiteOpen")} icon="external-link" onPress={() => void buyOnWebsite()} testID="checkout-website" />
+        ) : undefined
+      }
+    >
+      <BackButton fallback="/balance" />
+      <Text variant="title1" accessibilityRole="header">
+        {website ? t("checkout.websiteTitle") : t("checkout.title")}
+      </Text>
+      {website ? <Text variant="lead">{t("checkout.onWebsite")}</Text> : <EmptyState icon="slash" title={t("checkout.notForYou")} />}
+    </Screen>
+  );
 }
 
 /**

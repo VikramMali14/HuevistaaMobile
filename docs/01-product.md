@@ -83,7 +83,8 @@ answers `chooseProfile`, and **A12** asks which to continue as before the routin
 customer tabs. They get there by turning the profile on (P12, S10, the website), by
 starting as a painter from a customer account that was used (C33), or by signing up as
 a customer on A6 with their own email and that account's password. Somebody with one
-side is never asked.
+side is never asked. Their customer side is sold nothing in the app: painters and shops
+pay on the website ("Thinking as the business").
 
 ## Navigation map
 
@@ -192,5 +193,10 @@ What a painter needs: open the app → Scan is right there → points land with 
   charged; a refused charge stops the hand-over (see C15).
 - **Keep the shop in the loop.** Shop customers ask their shop for more rooms; they are
   never sold around the shop.
+- **Painters and shops pay on the website, never in the app.** A painter's year of
+  HueVistaa Certified, a shop's plan, and the rooms and Vista credits of either one's own
+  home are all bought on the website. Where the app may send somebody there to pay, it
+  opens it; the Android store build doesn't say where, because Play's anti-steering rule
+  forbids it (07 "Painters and shops pay on the website").
 - **Measure what matters** (once analytics is added, Phase 8): time from sign-in to
   first painted wall, studio drop-off per step, board taken per room, painter claims.

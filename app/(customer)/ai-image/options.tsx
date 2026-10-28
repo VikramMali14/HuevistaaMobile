@@ -40,6 +40,7 @@ import { trackRender } from "@/features/ai-images/in-flight";
 import { startRender, type StartOutcome } from "@/features/ai-images/start-render";
 import { isBeingMade } from "@/features/ai-images/use-render";
 import { imageInProgress } from "@/features/boards/combos";
+import { buyOnWebsite, useWhereToBuy } from "@/features/payments/where-to-buy";
 import { useRoom } from "@/features/studio/use-room";
 import { t } from "@/i18n";
 import { announce } from "@/lib/announce";
@@ -63,7 +64,9 @@ type Problem = { kind: StartOutcome["kind"]; message: string; balance?: number }
  * so first), which photo to paint from (only when the room has a cleaned one), time of
  * day, borders, light, furniture and look — the website's choices and words — and a note.
  * The cost is read from the wallet for the quality chosen, with the balance beside it, and
- * only once the wallet has answered; short, the button buys what is missing (C28).
+ * only once the wallet has answered; short, the button buys what is missing (C28) — on the
+ * website for a painter's or a shop's own home, and in the store build not at all
+ * (useWhereToBuy).
  *
  * Make my image spends the credits on the server in that one request, so it is never sent
  * twice (start-render.ts): back is held while it is out, with a line saying why; offline,
@@ -99,6 +102,7 @@ export default function AiImageOptions() {
     refetchInterval: () => (Date.now() < watchUntil ? WATCH_EVERY_MS : false),
   });
   const wallet = useQuery({ queryKey: keys.aiCredits, queryFn: meApi.aiCredits });
+  const where = useWhereToBuy();
 
   // The wallet read again on coming back to this screen (from buying credits, or an image
   // that failed and handed them back) — never offered from what it said before.
@@ -256,18 +260,26 @@ export default function AiImageOptions() {
               ? t("aiImage.shortOne", { price: formatRupees(w.pricePaise) })
               : t("aiImage.short", { n: short, price: formatRupees(w.pricePaise) })}
         </Text>
-        <Button
-          label={
-            play
-              ? t("aiImage.buyPlain", { short: creditWords(short) })
-              : t("aiImage.buy", { short: creditWords(short), total: formatRupees(w.pricePaise * short) })
-          }
-          icon="shopping-bag"
-          onPress={buy}
-          // A balance being read again may already be enough.
-          disabled={making.busy || wallet.isFetching}
-          testID="ai-buy"
-        />
+        {where === "none" ? (
+          <Text variant="small" tone="mute" align="center" testID="ai-not-sold">
+            {t("aiImage.notSold")}
+          </Text>
+        ) : (
+          <Button
+            label={
+              where === "website"
+                ? t("aiImage.buyWebsite", { short: creditWords(short) })
+                : play
+                  ? t("aiImage.buyPlain", { short: creditWords(short) })
+                  : t("aiImage.buy", { short: creditWords(short), total: formatRupees(w.pricePaise * short) })
+            }
+            icon={where === "website" ? "external-link" : "shopping-bag"}
+            onPress={where === "website" ? () => void buyOnWebsite() : buy}
+            // A balance being read again may already be enough.
+            disabled={making.busy || wallet.isFetching}
+            testID="ai-buy"
+          />
+        )}
       </View>
     );
   } else {

@@ -657,6 +657,8 @@ As built, against the spec:
 | 15 | HueVista | ~~Account deletion kept rooms, photos and chats while S9 said they went.~~ Done on the same branch: deleting an account removes what S9 lists (rooms with their photos, boards and AI images, unused rooms and credits, points, undelivered vouchers, the listing) plus support chats and push tokens. Payment records stay. | Phase 8 (merge) |
 | 16 | HueVista | A staging backend for the end-to-end tests: its own host and database, with the accounts and data listed in 09-release.md. | Before release |
 | 17 | HueVista | Selling rooms and AI credits in store builds: Play Billing on Android (verify the purchase, grant it idempotently); none on iOS v1 (09-release.md, 1). | Before release |
+| 18 | HueVista | Painters and shops pay on the website: Google Play sells to no painter's or shop's customer profile. `GET /api/billing/play/products` answers it `eligible: false` (keeping `enabled` and its keys, so a purchase made before is still handed over and granted), and `POST /api/billing/play/intents` refuses it. Done on branch `claude/zealous-davinci-xm9w3y`. | With the app (merge) |
+| 19 | HueVistaFrontEnd | `/choose-profile?next=…`: "A customer" carries on to `next` when it is a page only a customer opens, so the app's `/choose-profile?next=%2Fmy-projects` (a painter's or a shop's own home, buying) ends on the customer's balance rather than the dashboard. Done on branch `claude/zealous-davinci-xm9w3y`. | With the app (merge) |
 
 ## Decisions to confirm
 

@@ -13,6 +13,12 @@ export const webPages = {
   shopDashboard: "/dashboard",
   /** Admin tools; a signed-out browser is sent on to the shops' site to sign in. */
   admin: "/admin",
+  /**
+   * Where a painter's or a shop's own home buys rooms and Vista credits (features/payments
+   * where-to-buy): "Continue as…" — after signing in there, if this browser hasn't — then
+   * the customer's balance, which sells them.
+   */
+  buyForOwnHome: "/choose-profile?next=%2Fmy-projects",
 } as const;
 
 /** Open a page of the website in the in-app browser. */

@@ -717,6 +717,9 @@ export const en = {
     make: "Make my image · {cost}",
     buy: "Buy {short} · {total}",
     buyPlain: "Buy {short}",
+    // A painter's or a shop's own home pays on the website; in the store build, nothing says where.
+    buyWebsite: "Buy {short} on the website",
+    notSold: "Vista credits for this account aren't sold in the app.",
     walletLoading: "Reading your Vista credits…",
     walletFailed: "Your Vista credits didn't load, so we can't say what this costs yet.",
     notEligible: "This account can't hold Vista credits, so it can't make a Vista image.",
@@ -830,6 +833,11 @@ export const en = {
     roomsFailed: "Your rooms didn't load.",
     buyRooms: "Buy rooms",
     buyCredits: "Buy Vista credits",
+    // A painter's or a shop's own home pays on the website (features/payments/where-to-buy).
+    buyRoomsWebsite: "Buy rooms on the website",
+    buyCreditsWebsite: "Buy Vista credits on the website",
+    // ...and in the Android store build, where nothing may say where else to pay.
+    notSold: "Rooms and Vista credits for this account aren't sold in the app.",
     addCode: "Add a shop code",
     statement: "Vista credit statement",
     left: "{n} left",
@@ -886,6 +894,10 @@ export const en = {
     shopRooms: "Your shop adds your rooms — ask them from Rooms and credits.",
     noFinishedRoom: "A Vista image is made from a room you've taken a colour board from, and there isn't one yet. Buying now is fine — it keeps for {span} — but the room comes first.",
     notForYou: "Buying isn't available on this account.",
+    // A painter's or a shop's own home, where the app may send them to the website to pay.
+    onWebsite: "Painters and shops pay on the website. Sign in there as you do here, then continue as a customer.",
+    websiteTitle: "Buy on the website",
+    websiteOpen: "Open the website",
     stuck: "We're still confirming your last payment. Don't pay again — it'll be added on its own.",
     checkNow: "Check now",
     playLead: "Choose a pack. Everything in it lasts {span}.",
@@ -957,6 +969,9 @@ export const en = {
     missingBodyPlain: "Buy a room to start, or add a code from your paint shop.",
     buy: "Buy a room — {price}",
     buyPlain: "Buy a room",
+    // A painter's or a shop's own home pays on the website; in the store build, nothing says where.
+    buyWebsite: "Buy a room on the website",
+    missingBodyNone: "Rooms for this account aren't sold in the app. Given a code by a paint shop? Use that.",
     haveCode: "I have a shop code",
     tryReady: "Or paint a ready-made room, free",
     inProgress: "Rooms in progress",

@@ -7,6 +7,7 @@ import { Button, Card, Text } from "@/components/ui";
 import { paymentsMode } from "@/config/env";
 import type { Balance } from "@/features/account/balance";
 import { welcomeFrames } from "@/features/auth/welcome-frames";
+import { buyOnWebsite, useWhereToBuy } from "@/features/payments/where-to-buy";
 import { t } from "@/i18n";
 import { validitySpan } from "@/lib/dates";
 import { formatRupees } from "@/lib/money";
@@ -15,7 +16,9 @@ import { useTheme } from "@/theme";
 /**
  * The one thing to do next, worked out from what the account holds (docs/04 "The three
  * next-step states", from the website's customer-next-step.tsx): start a room, ask the
- * shop for another, or buy one. Every second choice is a quiet link beside it.
+ * shop for another, or buy one. Every second choice is a quiet link beside it. A painter's
+ * or a shop's own home buys its room on the website, or — in the store build, where nothing
+ * may say where else to pay — is offered its shop code instead (useWhereToBuy).
  *
  * `hero`: a first visit with nothing yet — the card takes the screen, a room above it.
  * The words and buttons stay on the card's own surface, so every button reads in both
@@ -32,12 +35,14 @@ export function NextStepCard({
 }) {
   const router = useRouter();
   const { colors, space } = useTheme();
+  const where = useWhereToBuy();
   const { nextStep, rooms, entitlement: ent, options } = balance;
   if (!nextStep) return null;
 
+  const go = (to: "/room/new" | "/balance" | "/checkout" | "/add-shop-code") => () => router.push(to);
   let headline: string;
   let detail: string;
-  let main: { label: string; to: "/room/new" | "/balance" | "/checkout" };
+  let main: { label: string; onPress: () => void };
   const extras: { label: string; to: "/add-shop-code" | "/library"; variant: "secondary" | "ghost" }[] = [];
 
   if (nextStep === "ready") {
@@ -49,7 +54,7 @@ export function NextStepCard({
           : t("home.shopUsed", { created: ent.projectsCreated, allowance: ent.projectAllowance })) +
         (bought > 0 ? t("home.boughtToo", { n: bought }) : "")
       : t("home.boughtOnly");
-    main = { label: t("home.start"), to: "/room/new" };
+    main = { label: t("home.start"), onPress: go("/room/new") };
   } else if (nextStep === "exhausted") {
     headline =
       ent && ent.projectAllowance > 1
@@ -59,8 +64,19 @@ export function NextStepCard({
           : t("home.noneOnCode");
     detail = t("home.exhaustedBody");
     // Shop customers are never sold a room: their shop adds one free from the counter.
-    main = { label: t("home.ask"), to: "/balance" };
+    main = { label: t("home.ask"), onPress: go("/balance") };
     extras.push({ label: t("home.freshCode"), to: "/add-shop-code", variant: "ghost" });
+  } else if (where === "none") {
+    // A painter's or a shop's own home in the store build: no room is sold here, and
+    // nothing may say where else to buy one.
+    headline = t("home.missingTitle");
+    detail = t("home.missingBodyNone");
+    main = { label: t("home.haveCode"), onPress: go("/add-shop-code") };
+  } else if (where === "website") {
+    headline = t("home.missingTitle");
+    detail = t("checkout.onWebsite");
+    main = { label: t("home.buyWebsite"), onPress: () => void buyOnWebsite() };
+    extras.push({ label: t("home.haveCode"), to: "/add-shop-code", variant: "secondary" });
   } else {
     headline = t("home.missingTitle");
     // Google Play charges its own price for a room, so the website's is never quoted there.
@@ -70,7 +86,7 @@ export function NextStepCard({
       : t("home.missingBodyPlain");
     main = {
       label: priced ? t("home.buy", { price: formatRupees(priced.projectPricePaise) }) : t("home.buyPlain"),
-      to: "/checkout",
+      onPress: go("/checkout"),
     };
     extras.push({ label: t("home.haveCode"), to: "/add-shop-code", variant: "secondary" });
   }
@@ -87,7 +103,7 @@ export function NextStepCard({
         </Text>
       </View>
       <View style={{ gap: space.xs }}>
-        <Button label={main.label} onPress={() => router.push(main.to)} testID="next-step" />
+        <Button label={main.label} onPress={main.onPress} testID="next-step" />
         {extras.map((x) => (
           <Button key={x.to} label={x.label} variant={x.variant} onPress={() => router.push(x.to)} />
         ))}

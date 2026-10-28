@@ -23,6 +23,11 @@ than "0 rooms". This lives in one hook, `useBalance()`, used everywhere.
 | `exhausted` | A shop is behind this account and its rooms are used up | **Ask your shop for another room** → C27 (shop customers are never sold a room) |
 | `missing` | No shop, nothing bought | **Buy a room — ₹…** → C28, with "I have a shop code" → C30 beside it |
 
+A painter's or a shop's own home (their customer profile, `linkedProfile`) is never sold
+anything here: painters and shops pay on the website. In `missing` its one button is **Buy
+a room on the website**, which opens it — or, in the Android store build, where nothing may
+say where else to pay, **I have a shop code** (07 "Painters and shops pay on the website").
+
 ---
 
 ## Tabs
@@ -53,7 +58,8 @@ when the data reloads by itself).
 
 The rooms strip shows rooms not finished and not past their time, newest activity
 first; a room opens at `/room/{id}` (CR picks the step). Shop customers in the
-`exhausted` state are never offered a purchase.
+`exhausted` state are never offered a purchase, and a painter's or a shop's own home is
+never offered one in the app (the table above).
 
 **API:** balance hook · `GET /api/projects` · `GET /api/me/renders` (first item) ·
 `GET /api/free-projects`.
@@ -660,7 +666,9 @@ As built:
   shows as soon as money would be spent: short, "You need 1 more AI credit for this image,
   at ₹70" ("…at ₹70 each" for more than one) and **Buy 1 AI credit · ₹70** (→ C28 with `from=ai-image`). The wallet is
   read again when the customer comes back, so a balance from before a purchase is never
-  offered. An account that can't hold credits is told so.
+  offered. An account that can't hold credits is told so. A painter's or a shop's own
+  home gets **Buy 1 Vista credit on the website** instead, which opens it; in the store
+  build it gets no button, only "Vista credits for this account aren't sold in the app."
 - **Make my image** spends the credits on the server in that one request, and the server
   has no idempotency key. So:
   - The request is never sent twice: a second tap does nothing, the choices lock, a line
@@ -794,7 +802,11 @@ the shop whose rooms these are (`retailerOrgId`), which is the one the server em
 figure shows only once both of its sources have answered. A linked profile has no Add a
 shop code (as on Account). The price per credit shows the list price beside it while a
 launch discount runs; credits lapsing within a month are coloured as a warning. A payment
-still being confirmed shows a banner with **Check now** (D3).
+still being confirmed shows a banner with **Check now** (D3). A painter's or a shop's own
+home buys on the website: **Buy rooms on the website** and **Buy Vista credits on the
+website** open it, with a line saying how buying works there. In the store build it gets
+no Buy button at all, only "Rooms and Vista credits for this account aren't sold in the
+app."
 
 ### C28 · Checkout
 
@@ -847,6 +859,13 @@ purchase on the spot: added (and the pack can be bought again), still waiting fo
 or another HueVistaa account's on this Google account — each said in a sentence. Nothing in
 this counter opens the website or mentions paying anywhere else: no Razorpay banner, no
 "UPI · cards · netbanking" (it says "Paid through Google Play"), no link to D3.
+
+**A painter's or a shop's own home, as built.** Neither counter: painters and shops pay on
+the website (07 "Painters and shops pay on the website"). Where `paymentsMode()` is `web`
+the screen is "Buy on the website" — the person signs in there as they do here and
+continues as a customer — with **Open the website**, which opens
+`{SITE}/choose-profile?next=%2Fmy-projects`; nothing is ordered here. In the store build it
+is only "Buying isn't available on this account.", with nothing about the website.
 
 ### C29 · Payment result
 

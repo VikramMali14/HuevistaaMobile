@@ -123,7 +123,8 @@ export const screens = {
     status: "built", summary: "What I hold, and how to get more.", next: ["C28", "C30"] },
   // One route, two counters: Razorpay's basket, or — in the Android store build — the packs
   // sold through Google Play (config/env paymentsMode). C29 follows a Play purchase by its
-  // token (?play=…) instead of a Razorpay order (?order=…).
+  // token (?play=…) instead of a Razorpay order (?order=…). A painter's or a shop's own home
+  // gets neither: painters and shops pay on the website (features/payments/where-to-buy).
   C28: { title: "Checkout", area: "customer", href: "/checkout", phase: 4, spec: CUSTOMER, status: "built",
     summary: "A short basket in exact ₹ through Razorpay — or a Google Play pack in the store build.", next: ["C29"] },
   C29: { title: "Payment result", area: "customer", href: "/payment-result", phase: 4, spec: CUSTOMER,
