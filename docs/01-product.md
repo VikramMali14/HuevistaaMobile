@@ -72,9 +72,18 @@ profile and sends the person to the right half:
 **Becoming a painter.** Every new account starts as a customer. On the first-run
 screen (A10) the person picks "I'm painting my home" or "I paint for a living". The
 second choice calls `POST /api/painters/me`, which turns the account into a painter
-for good. An existing customer can do the same later from **C33**, unless they
-already have rooms or a shop code — the backend refuses then, and the app shows its
-reason (they need a separate account).
+for good. An existing customer can do the same later from **C33**, and keeps their
+customer side: the backend moves it — rooms, a shop code and all — to a customer
+profile behind the same sign-in.
+
+**One sign-in, two sides.** A painter or a shop owner whose customer profile is on
+signs in with one email and one mobile and is two people here. Every sign-in of theirs
+answers `chooseProfile`, and **A12** asks which to continue as before the routing above
+— the painter's tabs (S10 for a shop), or the switch to the customer profile and the
+customer tabs. They get there by turning the profile on (P12, S10, the website), by
+starting as a painter from a customer account that was used (C33), or by signing up as
+a customer on A6 with their own email and that account's password. Somebody with one
+side is never asked.
 
 ## Navigation map
 

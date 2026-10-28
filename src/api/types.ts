@@ -54,7 +54,7 @@ export interface AuthResponse {
   /** Issued once a shop's emailed code is confirmed; skips the code for 30 days. */
   deviceToken?: string | null;
   deviceTokenExpiresIn?: number | null;
-  /** A shop with its customer profile on: ask which of the two to continue as. */
+  /** A shop or a painter with its customer profile on: ask which of the two to continue as (A12). */
   chooseProfile?: boolean | null;
 }
 

@@ -9,7 +9,7 @@ when things go wrong.
 |---|---|
 | [01-product.md](01-product.md) | Who uses the app, which roles it serves, the navigation map, and the rules every screen follows |
 | [02-design-system.md](02-design-system.md) | Colours, type, spacing, components, patterns, accessibility, voice |
-| [03-screens-auth.md](03-screens-auth.md) | Signing in and the first run — screens **A1–A11** |
+| [03-screens-auth.md](03-screens-auth.md) | Signing in and the first run — screens **A1–A12** |
 | [04-screens-customer.md](04-screens-customer.md) | The homeowner's app — screens **C1–C33** |
 | [05-screens-painter.md](05-screens-painter.md) | The painter's app — screens **P1–P12** |
 | [06-screens-shared.md](06-screens-shared.md) | Account screens both roles use, deep links, and system states — **S1–S10, D1–D3, X1–X6** |

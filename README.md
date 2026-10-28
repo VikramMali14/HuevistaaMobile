@@ -24,8 +24,8 @@ the 69 planned screens.
 
 **Phase 1 — signing in and the first run — is done.** Welcome, mobile number and code,
 email sign-in, create an account, forgot password, a shop's emailed code, Google
-sign-in, About you, the tour, and the web-only screen — and a link opened while signed
-out comes back after sign-in.
+sign-in, About you, the tour, the web-only screen, and "Continue as" for a painter or shop
+owner on two sides — and a link opened while signed out comes back after sign-in.
 
 **Phase 2 — Home, catalogue, account — is done.** Home with the one next step, the
 shade catalogue (search by code or colour word, works offline), a shade's own page,
@@ -136,7 +136,7 @@ Everything is planned page by page in [`docs/`](docs/README.md):
 |---|---|
 | [01 · Product](docs/01-product.md) | Users, roles, navigation map, the rules every screen follows |
 | [02 · Design system](docs/02-design-system.md) | Ink, paper and brass — colours, type, components, voice |
-| [03 · Signing in](docs/03-screens-auth.md) | A1–A11 |
+| [03 · Signing in](docs/03-screens-auth.md) | A1–A12 |
 | [04 · Homeowner](docs/04-screens-customer.md) | C1–C33 |
 | [05 · Painter](docs/05-screens-painter.md) | P1–P12 |
 | [06 · Shared, links, states](docs/06-screens-shared.md) | S1–S10, D1–D3, X1–X6 |

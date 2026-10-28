@@ -324,7 +324,9 @@ describe("A6 · create an account", () => {
     type("Email", "priya@example.com");
     type("Password", "secret123");
     press("Create account");
-    await waitFor(() => expect(screen.getByText("That email already has an account.")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/^That email already has an account\./)).toBeTruthy());
+    // A painter or a shop owner can use theirs as a customer too: said to everyone, so it gives nothing away.
+    expect(screen.getByText(/If it's your painter or shop account, use that account's password/)).toBeTruthy();
     press("Sign in instead");
     await waitFor(() => expect(screen).toHavePathname("/email-sign-in"));
     expect(screen.getByLabelText("Email").props.value).toBe("priya@example.com");
@@ -354,7 +356,12 @@ describe("A6 · create an account", () => {
     press("Create account");
     await waitFor(() => expect(screen).toHavePathname("/about-you"));
     expect(mockAuth.phoneStart).not.toHaveBeenCalled();
-    expect(mockAuth.register).toHaveBeenCalledWith({ name: "Priya", email: "priya@example.com", password: "secret123" });
+    expect(mockAuth.register).toHaveBeenCalledWith({
+      name: "Priya",
+      email: "priya@example.com",
+      password: "secret123",
+      accountType: "customer",
+    });
   });
 
   it("confirms a typed mobile with a code, then creates the account and asks About you next", async () => {
@@ -373,6 +380,7 @@ describe("A6 · create an account", () => {
       name: "Priya",
       email: "priya@example.com",
       password: "secret123",
+      accountType: "customer",
       phone: "+919876543210",
       phoneCode: "123456",
     });
@@ -404,7 +412,7 @@ describe("A6 · create an account", () => {
     fireEvent.changeText(screen.getByTestId("register-code-input"), "123456");
     await waitFor(() => expect(screen.getByTestId("register-elsewhere")).toBeTruthy());
     // Not mistaken for a taken email, though its words mention one.
-    expect(screen.queryByText("That email already has an account.")).toBeNull();
+    expect(screen.queryByText(/^That email already has an account\./)).toBeNull();
     expect(screen.getByText("Sign in with email")).toBeTruthy();
 
     fireEvent.press(screen.getByTestId("register-not-mine"));
@@ -413,6 +421,7 @@ describe("A6 · create an account", () => {
       name: "Priya",
       email: "priya@example.com",
       password: "secret123",
+      accountType: "customer",
       phone: "+919876543210",
       phoneCode: "123456",
       notMyAccount: true,
@@ -601,6 +610,142 @@ describe("A11 · tour", () => {
     press("Next");
     press("I have a code from my shop");
     await waitFor(() => expect(screen).toHavePathname("/add-shop-code"));
+  });
+});
+
+describe("A12 · continue as", () => {
+  const painterOnTwoSides = (extra: Partial<UserProfile> = {}) =>
+    person({ name: "Ravi", role: "PAINTER", switchTo: "CUSTOMER", customerProfileEnabled: true, ...extra });
+  const choose = (side: "own" | "customer") => {
+    fireEvent.press(screen.getByTestId(`choose-side-${side}`));
+    fireEvent.press(screen.getByTestId("choose-side-continue"));
+  };
+
+  /** A painter whose customer side is on signs in with a texted code, and is asked. */
+  async function painterSignsIn(profile = painterOnTwoSides()) {
+    mockAuth.phoneVerify.mockResolvedValue({ ...tokensFor(), chooseProfile: true });
+    willSignInAs(profile);
+    renderRouter("./app", { initialUrl: "/phone-code?phone=%2B919876543210&masked=*********3210&resendAfter=30" });
+    await waitFor(() => expect(screen.getByText("Enter the code")).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId("phone-code-input"), "123456");
+    await waitFor(() => expect(screen).toHavePathname("/choose-profile"));
+  }
+
+  it("asks a painter on two sides which to continue as, and carries on as the painter", async () => {
+    await painterSignsIn();
+    expect(screen.getByText("Continue as…")).toBeTruthy();
+    expect(screen.getByText("Welcome back, Ravi. This sign-in has two sides — which one now?")).toBeTruthy();
+    expect(screen.getByText("A painter")).toBeTruthy();
+    choose("own");
+    await waitFor(() => expect(screen).toHavePathname("/painter"));
+    expect(mockAuth.switchProfile).not.toHaveBeenCalled();
+  });
+
+  it("switches to the customer side with no second code, and opens the customer's home", async () => {
+    await painterSignsIn();
+    mockAuth.switchProfile.mockResolvedValue(tokensFor("refresh-customer"));
+    mockAuth.profile.mockResolvedValue(person({ name: "Ravi", linkedProfile: true, switchTo: "PAINTER" }));
+    choose("customer");
+    await waitFor(() => expect(screen).toHavePathname("/home"));
+    expect(mockAuth.switchProfile).toHaveBeenCalledWith({ deviceToken: undefined, refreshToken: "refresh-1" });
+    expect(mockSecure["hv.refresh"]).toBe("refresh-customer");
+  });
+
+  it("starts a customer side that was never shown around on its own first run", async () => {
+    await painterSignsIn();
+    mockAuth.switchProfile.mockResolvedValue(tokensFor("refresh-customer"));
+    mockAuth.profile.mockResolvedValue(
+      person({ name: "Ravi", linkedProfile: true, switchTo: "PAINTER", welcomePending: true }),
+    );
+    choose("customer");
+    // Nothing to ask a profile (its name is the painter's): straight on to the tour.
+    await waitFor(() => expect(screen).toHavePathname("/tour"));
+  });
+
+  it("asks for a choice before going on", async () => {
+    await painterSignsIn();
+    fireEvent.press(screen.getByTestId("choose-side-continue"));
+    expect(screen.getByText("Choose one to continue.")).toBeTruthy();
+    expect(screen).toHavePathname("/choose-profile");
+  });
+
+  it("says why when the switch fails, and stays", async () => {
+    await painterSignsIn();
+    mockAuth.switchProfile.mockRejectedValue(new ApiError("http", 409, "This customer profile has been turned off."));
+    choose("customer");
+    await waitFor(() => expect(screen.getByText("This customer profile has been turned off.")).toBeTruthy());
+    expect(screen).toHavePathname("/choose-profile");
+  });
+
+  it("offers a shop its shop — on the website — or the customer side, after its emailed code", async () => {
+    mockAuth.shopEmailCode.mockResolvedValue({ ...tokensFor(), deviceToken: "device-1", chooseProfile: true });
+    willSignInAs(person({ name: "Sharma Paints", role: "RETAILER", switchTo: "CUSTOMER" }));
+    renderRouter("./app", { initialUrl: "/email-code?challenge=ch-1&hint=s***%40example.com" });
+    await waitFor(() => expect(screen.getByText("Check your email")).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId("shop-code-input"), "654321");
+    await waitFor(() => expect(screen).toHavePathname("/choose-profile"));
+    expect(screen.getByText("Your shop")).toBeTruthy();
+    choose("own");
+    await waitFor(() => expect(screen).toHavePathname("/web-only"));
+  });
+
+  it("asks nothing of a painter on one side", async () => {
+    mockAuth.phoneVerify.mockResolvedValue(tokensFor());
+    willSignInAs(person({ name: "Ravi", role: "PAINTER" }));
+    renderRouter("./app", { initialUrl: "/phone-code?phone=%2B919876543210&masked=*********3210&resendAfter=30" });
+    await waitFor(() => expect(screen.getByText("Enter the code")).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId("phone-code-input"), "123456");
+    await waitFor(() => expect(screen).toHavePathname("/painter"));
+  });
+
+  it("asks only right after signing in — not every time the app opens", async () => {
+    signedInAs(painterOnTwoSides());
+    renderRouter("./app", { initialUrl: "/" });
+    await waitFor(() => expect(screen).toHavePathname("/painter"));
+  });
+
+  it("goes on to the page opened before signing in once the painter has chosen", async () => {
+    const token = "0VkTlzUw5CGJ-bTtxixeiS0nVfg";
+    renderRouter("./app", { initialUrl: `/painter/claim/${token}` });
+    await waitFor(() => expect(screen).toHavePathname("/welcome"));
+    mockAuth.login.mockResolvedValue({ ...tokensFor(), chooseProfile: true });
+    willSignInAs(painterOnTwoSides());
+    press("Use email instead");
+    await waitFor(() => expect(screen.getByText("Sign in with email")).toBeTruthy());
+    type("Email", "ravi@example.com");
+    type("Password", "secret123");
+    press("Sign in");
+    await waitFor(() => expect(screen).toHavePathname("/choose-profile"));
+    choose("own");
+    await waitFor(() => expect(screen).toHavePathname(`/painter/claim/${token}`));
+  });
+
+  it("is where signing up as a customer with a painter's own email ends", async () => {
+    mockAuth.register.mockResolvedValue({ ...tokensFor(), chooseProfile: true });
+    willSignInAs(painterOnTwoSides());
+    renderRouter("./app", { initialUrl: "/register" });
+    await waitFor(() => expect(screen.getByText("Create an account")).toBeTruthy());
+    type("Name", "Ravi");
+    type("Email", "ravi@example.com");
+    type("Password", "secret123");
+    press("Create account");
+    await waitFor(() => expect(screen).toHavePathname("/choose-profile"));
+    expect(mockAuth.register).toHaveBeenCalledWith(expect.objectContaining({ accountType: "customer" }));
+  });
+
+  it("is never kept from one sign-in for the next person on the phone", async () => {
+    await painterSignsIn();
+    press("Not you? Sign out");
+    await waitFor(() => expect(screen).toHavePathname("/welcome"));
+
+    mockAuth.login.mockResolvedValue(tokensFor());
+    willSignInAs(person({ name: "Anil" }));
+    press("Use email instead");
+    await waitFor(() => expect(screen.getByText("Sign in with email")).toBeTruthy());
+    type("Email", "anil@example.com");
+    type("Password", "secret123");
+    press("Sign in");
+    await waitFor(() => expect(screen).toHavePathname("/home"));
   });
 });
 

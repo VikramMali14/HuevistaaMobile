@@ -1,4 +1,4 @@
-# 03 · Signing in and the first run (A1–A11)
+# 03 · Signing in and the first run (A1–A12)
 
 How to read a screen spec:
 **Route** is the file in `app/`. **Phase** is when it is built (see
@@ -21,6 +21,9 @@ does this job — read it before building; its edge cases are already solved the
    (`POST /api/auth/refresh`); if that fails, clear the session → A2.
 4. Profile loaded → route by role (see the diagram in [01-product.md](01-product.md)):
    first run → A10; `CUSTOMER` → `/home`; `PAINTER` → `/painter`; anyone else → S10.
+   Right after a sign-in that answered `chooseProfile` — a painter or shop owner on two
+   sides — **A12** asks which to continue as first. Not on a restore: the question
+   belongs to the sign-in.
 5. A page a signed-out person tried to open — a deep link (D1, D2), or the page they
    were on when the session ran out — is remembered and opened after sign-in instead of
    home (after the first run, for a new account). It is kept in memory only, and is
@@ -157,8 +160,15 @@ after a reset).
 letter and a number" — the backend's rule) ·
 Mobile (optional) · **Create account** · "Already have an account? Sign in".
 
-**API:** `POST /api/auth/register { name, email, password, phone?, phoneCode?, notMyAccount? }`
+**API:** `POST /api/auth/register { name, email, password, accountType: "customer", deviceToken?, phone?, phoneCode?, notMyAccount? }`
 → `AuthResponse`. Then A10 (the role choice).
+
+**A painter's or shop's own email.** `accountType: "customer"` says this is a customer
+signup. An email that already signs in to a painter or a shop, with **that account's own
+password**, creates nothing: it signs in to that account and opens its customer side
+(one sign-in, two sides — see the backend's README). The answer is a sign-in's: a shop on
+a new phone confirms its emailed code first (A8), and either then goes to **A12**. A
+wrong password counts toward that account's lock and is answered as any address in use.
 
 **A typed mobile is confirmed before the account exists.** With a number in the box the
 button reads **Send code** and texts it (`POST /api/auth/phone/start`); code boxes open
@@ -175,8 +185,10 @@ number off their account. Refusals of a right code:
   `notMyAccount: true`.
 - 400 (wrong, expired or used-up code) → at the boxes, which shake and empty.
 
-**States:** 409 "Email already in use: …" → "That email already has an account." with
-a **Sign in instead** button that carries the email across. Each field's rule shows
+**States:** 409 "Email already in use: …" → "That email already has an account. If it's
+your painter or shop account, use that account's password here to use it as a customer
+too." with a **Sign in instead** button that carries the email across. Said to everyone,
+so it tells nobody which addresses are painters' or shops'. Each field's rule shows
 under it after the first try; the backend's `fieldErrors` go under their fields. The
 name needs two characters and stops at 80 (the backend's limits). "Already have an
 account?" and "Sign in instead" go back to the A5 already underneath, rather than
@@ -221,7 +233,8 @@ here to reach their customer profile.
 **API:** `POST /api/auth/login/email-code { challengeToken, code }`; resend
 `POST /api/auth/login/email-code/resend { challengeToken }`. Save the returned
 `deviceToken` in secure storage and send it with later sign-ins so the code is skipped
-for 30 days. Then S10 (with "Continue as customer" when the profile allows). Each resend
+for 30 days. Then A12 when the answer says `chooseProfile` — the shop's customer side is
+on — and otherwise S10. Each resend
 answers with a new `challengeToken` (and hint), which replaces the old one.
 
 **States:** opened without a pending sign-in (a stale link, or the app restarted
@@ -279,7 +292,8 @@ who signed in with the wrong Google account has a way out that is not through.
   - **I paint for a living** — "Scan colour boards for points and get found by
     customers nearby."
 - When the painter card is chosen, a note appears: "A painter account is for work.
-  You can't use it to plan your own rooms — that needs a separate account."
+  Your own home goes on a customer profile behind the same sign-in — switch to it from
+  your trade profile."
 - **Continue**.
 
 **API:** `PATCH /api/auth/profile { name }` when the name changed. Painter →
@@ -314,3 +328,38 @@ If it does not get through, the first run is still over on this phone, and the s
 sends it again at the next start (`hv.welcomeSeenPending`) — so a dropped request never
 asks the role question a second time. "Show me around" in S1 replays it (an account whose first run
 is over: nothing is written, and Start goes back).
+
+---
+
+## A12 · Continue as (one sign-in, two sides)
+
+**Route** `app/(onboarding)/choose-profile.tsx` · **Phase** 1 · **Web reference** `HueVistaFrontEnd/src/app/choose-profile/page.tsx`
+
+**Why it exists:** a painter or a shop owner can use HueVistaa as a customer too, with
+the same email and mobile — their customer side is a customer profile behind their own
+sign-in. Somebody with one side signs in simply; somebody with two is asked, once, right
+after signing in, which to continue as.
+
+**When:** a sign-in answer (A4, A5, A6, A8, A9) says `chooseProfile: true`. It is noted
+before the session opens (`src/auth/side-choice.ts`), so the signed-out screens send the
+person here instead of home. Not on A1's restore, and never after a sign-out: the
+question belongs to that one sign-in, and settles the moment this screen opens.
+
+**Layout:** "Continue as…", "Welcome back, Ravi. This sign-in has two sides — which one
+now?", two large choice cards, "You can switch between them any time.", **Continue**,
+and **Not you? Sign out**:
+- **A painter** — "Your points, rewards and customers near you." (for a shop: **Your
+  shop** — "Customers, codes and your plan, on the website.")
+- **A customer** — "Your own rooms and colours, kept apart from your painter work." (the
+  shop's, for a shop)
+
+**API:** painter or shop → nothing; the session is already theirs → `/painter`, or S10
+for a shop. Customer → `POST /api/auth/profiles/switch { deviceToken, refreshToken }`,
+which never asks for a code going this way → the customer profile. Then wherever the
+sign-in was going: the chosen side's first run (A10 → A11 for a customer side never shown
+around), the page remembered in A1, or its home.
+
+**States:** Continue with nothing chosen → "Choose one to continue." The switch refused
+(the profile was turned off meanwhile) → the backend's words in a banner, and the choice
+stays. Opened with nothing to choose (no customer side on, or already switched) → sent
+straight on.

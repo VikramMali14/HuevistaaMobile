@@ -11,14 +11,15 @@
  */
 
 /**
- * Never worth returning to: the sign-in and first-run screens themselves, the web-only
- * screen (it belongs to the account's role, not to a link), and the root, which only
- * routes by session. The root matters with a query too — while a guard's
- * redirect is under way it can render once more at "/?projectId=…", and that must not
- * replace the page that was really asked for.
+ * Never worth returning to: the sign-in and first-run screens themselves, the question
+ * of which side to continue as (it belongs to one sign-in), the web-only screen (it
+ * belongs to the account's role, not to a link), and the root, which only routes by
+ * session. The root matters with a query too — while a guard's redirect is under way it
+ * can render once more at "/?projectId=…", and that must not replace the page that was
+ * really asked for.
  */
 const NOT_A_DESTINATION =
-  /^\/((welcome|phone|phone-code|email-sign-in|register|forgot-password|email-code|sign-in|about-you|tour|web-only|dev)(\/|\?|$)|\?|$)/;
+  /^\/((welcome|phone|phone-code|email-sign-in|register|forgot-password|email-code|sign-in|choose-profile|about-you|tour|web-only|dev)(\/|\?|$)|\?|$)/;
 
 let remembered: string | null = null;
 

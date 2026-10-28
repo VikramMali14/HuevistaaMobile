@@ -973,10 +973,12 @@ Explains what a painter account does, and plainly: "This changes this account in
 painter's account for good. A painter account doesn't plan rooms itself." **Make this a
 painter account** → `POST /api/painters/me` → reload profile → `/painter`.
 
-Rooms or a shop code already on the account are not a refusal any more: the backend moves
-them to a customer profile behind the same sign-in, and the screen says so before the tap.
-P12's **Your own home** switches to it. Refused (a shop, distributor or admin account, or
-a customer profile) → the backend's reason.
+The customer side is kept, not lost: the backend moves it — rooms, a shop code and all —
+to a customer profile behind the same sign-in, and the screen says so before the tap. A
+customer who reaches this screen has been shown around (A10–A11), so even one with no rooms
+yet keeps a customer side: one sign-in, two sides, and every sign-in after asks which to
+continue as (A12). P12's **Your own home** switches to it too. Refused (a shop, distributor
+or admin account, or a customer profile) → the backend's reason.
 
 **As built:** the change is confirmed first in a sheet that says it's for good. Refused →
 the server's own sentence. No new token comes back (the role is read on every request),

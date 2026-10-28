@@ -1,4 +1,5 @@
 import type { AuthResponse, UserProfile } from "@/api/types";
+import { askWhichSide, settleSideChoice } from "@/auth/side-choice";
 import { secureTokenStore } from "@/auth/token-store";
 
 /**
@@ -16,6 +17,10 @@ export type SignInOutcome =
 /**
  * Turn an AuthResponse into the next step. Saves the tokens (and a shop's trusted-device
  * token) through `completeSignIn` when they are present.
+ *
+ * A painter or shop with its customer side on answers `chooseProfile`: noted before the
+ * session opens, so A12 asks which to continue as before anything else (side-choice.ts).
+ * A switch never carries it, and any answer without it clears an old one.
  */
 export async function finishSignIn(
   response: AuthResponse,
@@ -26,7 +31,15 @@ export async function finishSignIn(
     return { kind: "emailCode", challengeToken: response.challengeToken, emailHint: response.emailHint ?? null };
   }
   if (response.accessToken && response.refreshToken) {
-    return { kind: "signedIn", profile: await completeSignIn(response) };
+    if (response.chooseProfile) askWhichSide();
+    else settleSideChoice();
+    try {
+      return { kind: "signedIn", profile: await completeSignIn(response) };
+    } catch (err) {
+      // No session opened, so there is nothing to choose between.
+      settleSideChoice();
+      throw err;
+    }
   }
   throw new Error("The sign-in answer carried neither tokens nor a next step");
 }
