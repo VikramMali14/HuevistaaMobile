@@ -15,10 +15,12 @@ import { useTheme } from "@/theme";
  * HueVistaaPainter app/(app)/join/join-panel.tsx.
  *
  * What a painter account does, and plainly that the change is for good — confirmed before
- * it is made. The server refuses an account with rooms or a shop's code, and says why in
- * its own words. No new token comes back (the role is read on every request), so the
- * profile is read again; as a painter, the customer's screens hand over to /painter.
- * Pressing again after a lost answer is safe: becoming a painter twice is nothing new.
+ * it is made. The customer side is kept: rooms, a shop's code and all move to a customer
+ * profile on the same sign-in, and every sign-in after asks which to continue as (A12). A
+ * refusal (a shop's customer profile, say) is shown in the server's own words. No new
+ * token comes back (the role is read on every request), so the profile is read again; as a
+ * painter, the customer's screens hand over to /painter. Pressing again after a lost
+ * answer is safe: becoming a painter twice is nothing new.
  */
 export default function BecomePainter() {
   const { space } = useTheme();

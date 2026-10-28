@@ -7,6 +7,7 @@ import { isApiError } from "@/api/errors";
 import { Banner, Button, CodeInput, PhoneField, Text, TextField, type CodeInputHandle } from "@/components/ui";
 import { AuthScreen } from "@/features/auth/AuthScreen";
 import { authErrorMessage, fieldError, isPhoneInUse, isPhoneOnUnconfirmedAccount } from "@/features/auth/errors";
+import { deviceToken } from "@/features/auth/sign-in";
 import { formatCountdown, useCountdown } from "@/features/auth/use-countdown";
 import { useFinishSignIn } from "@/features/auth/use-finish-sign-in";
 import { t, type MessageKey } from "@/i18n";
@@ -35,7 +36,9 @@ function isEmailTaken(err: unknown): boolean {
  * A6 · Create an account with email. Spec: docs/03-screens-auth.md — A6.
  *
  * Every public sign-up is a customer; the role question comes next, in A10. The password
- * rule is shown before anyone breaks it.
+ * rule is shown before anyone breaks it. An email that already signs in to a painter or a
+ * shop, with that account's own password, opens its customer side instead — one sign-in,
+ * two sides — and A12 asks which to continue as.
  *
  * A mobile typed here is confirmed before the account exists: the first press texts a
  * code, and the code — on its sixth digit — opens the account with the number confirmed.
@@ -130,11 +133,16 @@ export default function Register() {
           name: name.trim(),
           email: email.trim(),
           password,
+          // A customer signup: a painter's or shop's own email and password open that
+          // account's customer side instead of "already has an account".
+          accountType: "customer",
+          deviceToken: await deviceToken(),
           ...(typedPhone ? { phone: typedPhone, phoneCode: entered } : {}),
           ...(notMyAccount ? { notMyAccount: true } : {}),
         });
         await finish(response);
-        // The new account goes on to A10 (the (auth) layout sees the first run).
+        // The new account goes on to A10 (the (auth) layout sees the first run); a painter's
+        // or shop's own email to A12, or a shop's emailed code (A8) first.
       } catch (err) {
         // Before the email check: this refusal's words mention email too.
         if (isPhoneOnUnconfirmedAccount(err)) {

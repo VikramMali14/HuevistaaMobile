@@ -33,6 +33,11 @@ export const authApi = {
    * the number confirmed, or not at all: 409 PHONE_IN_USE when another account has it
    * confirmed; 409 PHONE_ON_UNCONFIRMED_ACCOUNT when one holds it unconfirmed, answered by
    * the same code again with `notMyAccount`, as on `phoneVerify`.
+   *
+   * `accountType: "customer"` says it is a customer signup. Then a painter's or shop's own
+   * email with that account's password signs in to it and opens its customer side — the
+   * answer asks which to continue as (A12), or a shop's emailed code first (A8) — instead of
+   * 409. `deviceToken` lets a trusted phone skip that code.
    */
   register: (body: {
     name: string;
@@ -41,6 +46,8 @@ export const authApi = {
     phone?: string;
     phoneCode?: string;
     notMyAccount?: boolean;
+    accountType?: "customer";
+    deviceToken?: string;
   }) =>
     api.request<AuthResponse>("api/auth/register", { ...open, body }),
 

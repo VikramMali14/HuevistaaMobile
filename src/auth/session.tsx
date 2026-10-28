@@ -30,6 +30,7 @@ import { resetTrays } from "@/features/studio/tray-store";
 import type { AuthResponse, UserProfile, UserRole } from "@/api/types";
 
 import { forgetRememberedRoute } from "./pending-route";
+import { settleSideChoice } from "./side-choice";
 import { secureTokenStore } from "./token-store";
 
 /** The profile is not secret; it is cached so the app can open offline (A1). */
@@ -189,6 +190,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const forget = useCallback(async (byChoice = false, landing?: string) => {
     forgetRememberedRoute();
+    settleSideChoice();
     await tokens.clear();
     await forgetAccountData();
     await AsyncStorage.multiRemove([PROFILE_CACHE_KEY, WELCOME_SEEN_PENDING_KEY]).catch(() => {});
