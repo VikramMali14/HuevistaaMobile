@@ -88,10 +88,12 @@ confirmed mobile → a banner to S4.
 **Layout:**
 - **Show me to customers nearby** switch (off until turned on).
 - **Where you're based** — "Use my location" (kept to about a kilometre) or clear it.
-- **A line about you** (e.g. "Interior and exterior, 12 years, Pune").
-- **Preview** — exactly the row a customer sees in C32.
+- **Preview** — exactly the card a customer sees in C32: photo, name and address (set on
+  the painter website, where the painter gets certified), nothing else they filled in.
 
-**API:** `PUT /api/painters/me/listing { listedForCustomers, about, latitude, longitude, clearLocation }`.
+**API:** `PUT /api/painters/me/listing { listedForCustomers, latitude, longitude, clearLocation }`
+— the old line about the painter is no longer sent (left out, the server clears it); the
+preview's photo is `GET /api/painters/me/photo?v={photoVersion}`.
 The website coarsens the position — keep that rule on the phone too
 (`PainterService.coarsen`, two decimal places).
 

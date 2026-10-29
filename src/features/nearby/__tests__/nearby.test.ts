@@ -1,5 +1,5 @@
 /** Ported with nearby.ts from HueVistaFrontEnd/src/lib/__tests__/nearby.test.ts, plus the app's own rules. */
-import { dialable, directionsHref, distanceLabel, isRadius, painterFacts, placeLabel, searchPoint, shopHours, shopPlace, telHref, trackRecord, whatsappHref, widerRadius } from "../nearby";
+import { dialable, directionsHref, distanceLabel, isRadius, placeLabel, searchPoint, shopHours, shopPlace, telHref, trackRecord, whatsappHref, widerRadius } from "../nearby";
 
 describe("distanceLabel", () => {
   it("speaks in metres under a kilometre, never below 100 m", () => {
@@ -104,11 +104,6 @@ describe("a painter's row", () => {
     expect(trackRecord({ jobsCompleted: 3, rating: 4.56, ratingCount: 23 })).toBe("3 jobs done on HueVistaa · ★ 4.6 from 23 reviews");
     expect(trackRecord({ jobsCompleted: 1, rating: 5, ratingCount: 1 })).toBe("1 job done on HueVistaa · ★ 5.0 from 1 review");
     expect(trackRecord({ jobsCompleted: 0, rating: null, ratingCount: 0 })).toBe("New on HueVistaa — no jobs or reviews yet");
-  });
-
-  it("gives years and day rate when they're set", () => {
-    expect(painterFacts({ yearsExperience: 12, dayRateInr: 1500 })).toBe("12 yrs experience · ₹1,500/day");
-    expect(painterFacts({ yearsExperience: null, dayRateInr: null })).toBe("");
   });
 });
 

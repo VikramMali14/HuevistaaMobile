@@ -9,18 +9,27 @@ import { api } from "../instance";
  * again included). A refusal (429) says "Please wait a while" without a time.
  */
 
-/** GET /api/nearby/painters (NearbyPainterResponse). Nearest first, at most 50. */
+/**
+ * GET /api/nearby/painters (NearbyPainterResponse). Nearest first, at most 50. A painter's card:
+ * name, photo and address — and the number when asked — with the badge, the distance and their
+ * record. Nothing else a painter fills in is shown to customers.
+ */
 export interface NearbyPainter {
   /** The painter's account id — what the number is asked for by. */
   id: string;
   /** Null when the account has no name of its own yet. */
   name: string | null;
-  about: string | null;
-  serviceAreas: string[];
-  specialties: string[];
-  yearsExperience: number | null;
+  /** The photo on their card, a path on the API (`/api/nearby/painters/{id}/photo?v=…`); null until they add one. */
+  photoUrl?: string | null;
+  /** Where the painter is, in their own words. Null until they give one. */
+  address?: string | null;
+  /** No longer shown: the server sends these empty, for app versions that still read them. */
+  about?: string | null;
+  serviceAreas?: string[];
+  specialties?: string[];
+  yearsExperience?: number | null;
   /** Rupees. */
-  dayRateInr: number | null;
+  dayRateInr?: number | null;
   /** The average of published reviews, one decimal; null when there are none (never 0). */
   rating: number | null;
   ratingCount: number;

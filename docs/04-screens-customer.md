@@ -940,9 +940,10 @@ Shown only to shop customers.
 
 **Layout:** segmented **Painters / Shops** · distance chips (2 · 5 · 10 · 25 · 50 km) ·
 list, nearest first.
-- **Painter row:** name, a line about them, specialties, years, rating (★ 4.6 · 23),
-  jobs done, "3.2 km away" (a distance — never a position). **Call** reveals the number
-  (`GET /api/nearby/painters/{id}/phone`) and opens the dialler.
+- **Painter row:** the painter's card — photo (`photoUrl`, public while they're listed),
+  name and address — with the HueVistaa Certified badge, rating (★ 4.6 · 23), jobs done and
+  "3.2 km away" (a distance — never a position). Nothing else a painter fills in is shown.
+  **Call** reveals the number (`GET /api/nearby/painters/{id}/phone`) and opens the dialler.
 - **Shop row:** name, address, hours, distance · **Call** · **Directions** (opens Maps).
 
 **Location:** ask with a reason first ("To find painters and shops near you"). Denied →
