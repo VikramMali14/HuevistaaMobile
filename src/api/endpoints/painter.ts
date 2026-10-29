@@ -36,7 +36,12 @@ export interface PainterProfile {
   active?: boolean;
   createdAt?: string;
   listedForCustomers?: boolean;
+  /** No longer shown to customers or asked for; still in the response from older servers. */
   about?: string | null;
+  /** Where the painter is, in their own words — on the card customers see. Set on the painter website. */
+  address?: string | null;
+  /** Changes when the painter's photo does; null until they add one (on the painter website). */
+  photoVersion?: string | null;
   /** Already rounded by the server to two places (about a kilometre). */
   latitude?: number | null;
   longitude?: number | null;
@@ -64,13 +69,12 @@ export interface TradeProfileUpdate {
 }
 
 /**
- * PUT /api/painters/me/listing. `about` is always overwritten (left out, it is cleared), so
- * it is always sent. The position: both coordinates set it, `clearLocation` removes it,
- * neither leaves it alone.
+ * PUT /api/painters/me/listing. The position: both coordinates set it, `clearLocation` removes
+ * it, neither leaves it alone. The old line about the painter isn't sent: customers see only
+ * the painter's card now (name, photo, address), and left out it is cleared.
  */
 export interface ListingUpdate {
   listedForCustomers: boolean;
-  about: string;
   latitude?: number;
   longitude?: number;
   clearLocation?: boolean;

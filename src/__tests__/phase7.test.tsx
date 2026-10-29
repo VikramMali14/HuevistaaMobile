@@ -121,11 +121,8 @@ function signedInAs(role: UserProfile["role"] | null) {
 const painterRow = (id: string, extra: Partial<NearbyPainter> = {}): NearbyPainter => ({
   id,
   name: "Ravi Kumar",
-  about: "Interiors and textures.",
-  serviceAreas: ["Belagavi"],
-  specialties: ["Textures"],
-  yearsExperience: 12,
-  dayRateInr: 1500,
+  photoUrl: `/api/nearby/painters/${id}/photo?v=1730000000000`,
+  address: "Tilakwadi, Belagavi",
   rating: 4.6,
   ratingCount: 23,
   jobsCompleted: 3,
@@ -229,6 +226,9 @@ describe("C32 · Painters and shops near you", () => {
     expect(screen.getByText("Under 1 km away")).toBeTruthy();
     expect(screen.getByText("3 jobs done on HueVistaa · ★ 4.6 from 23 reviews")).toBeTruthy();
     expect(screen.getByText("New on HueVistaa — no jobs or reviews yet")).toBeTruthy();
+    // The painter's card: photo, name and address — and the number when Call is pressed.
+    expect(screen.getByLabelText("Photo of Ravi Kumar")).toBeTruthy();
+    expect(screen.getByTestId("painter-address-p1")).toHaveTextContent("Tilakwadi, Belagavi");
     // Only certified painters are listed, and each card says so.
     expect(screen.getAllByText("HueVistaa Certified")).toHaveLength(2);
     expect(screen.getByText("Painters · 2")).toBeTruthy();

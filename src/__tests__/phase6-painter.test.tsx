@@ -6,7 +6,7 @@
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
-import { act, fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
+import { act, fireEvent, renderRouter, screen, waitFor, within } from "expo-router/testing-library";
 import { AppState } from "react-native";
 
 import * as WebBrowser from "expo-web-browser";
@@ -652,8 +652,21 @@ describe("P5 · Nearby", () => {
     fireEvent(screen.getByTestId("nearby-switch"), "valueChange", true);
     fireEvent.press(screen.getByTestId("nearby-save"));
     await waitFor(() => expect(mockPainter.updateListing).toHaveBeenCalled());
-    expect(mockPainter.updateListing).toHaveBeenCalledWith({ listedForCustomers: true, about: "", latitude: 19.08, longitude: 72.88 });
+    expect(mockPainter.updateListing).toHaveBeenCalledWith({ listedForCustomers: true, latitude: 19.08, longitude: 72.88 });
     await waitFor(() => expect(screen.getByText("Saved. Customers near you can see you now.")).toBeTruthy());
+  });
+
+  it("previews the card a customer sees: photo, name and address, and nothing else", async () => {
+    mockPainter.profile.mockResolvedValue(painter({ address: "Naupada, Thane", photoVersion: "1730000000000", about: "Twenty years in Thane" }));
+    renderRouter("./app", { initialUrl: "/painter/nearby" });
+    await waitFor(() => expect(screen.getByTestId("nearby-preview")).toBeTruthy());
+    const card = within(screen.getByTestId("nearby-preview"));
+    expect(card.getByText("Ravi Kumar")).toBeTruthy();
+    expect(card.getByText("Naupada, Thane")).toBeTruthy();
+    expect(card.getByLabelText("Photo of Ravi Kumar")).toBeTruthy();
+    // The old line about them, their kinds of work and years stay off it, and aren't asked for.
+    expect(card.queryByText(/Twenty years|Textures|12 yrs/)).toBeNull();
+    expect(screen.queryByTestId("nearby-about")).toBeNull();
   });
 
   /**

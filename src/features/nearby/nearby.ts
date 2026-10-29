@@ -134,13 +134,3 @@ export function trackRecord(p: Pick<NearbyPainter, "jobsCompleted" | "rating" | 
   ].filter(Boolean);
   return parts.length ? parts.join(" · ") : t("nearby.newPainter");
 }
-
-/** "12 yrs experience · ₹1,500/day", from whichever the painter gave. */
-export function painterFacts(p: Pick<NearbyPainter, "yearsExperience" | "dayRateInr">): string {
-  return [
-    p.yearsExperience ? t("nearby.years", { n: p.yearsExperience }) : null,
-    p.dayRateInr ? t("nearby.dayRate", { rupees: Number(p.dayRateInr).toLocaleString("en-IN") }) : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}

@@ -13,13 +13,19 @@ export function coarsen(degrees: number): number {
 /** A fix worse than this is said to be rough (the website's ROUGH_FIX_METRES). */
 export const ROUGH_FIX_METRES = 2000;
 
-export const ABOUT_MAX = 500;
-
 /** Where the base stands while being edited: as saved, a new fix, or to be removed. */
 export type PendingLocation = { latitude: number; longitude: number; accuracy: number } | "clear" | null;
 
 export function hasSavedLocation(profile: Pick<PainterProfile, "latitude" | "longitude">): boolean {
   return profile.latitude != null && profile.longitude != null;
+}
+
+/**
+ * The painter's own photo — GET /api/painters/me/photo, which wants the session (RemoteImage
+ * adds it) — addressed by its version so a new one is fetched afresh. Null without one.
+ */
+export function ownPhotoUrl(version: string | null | undefined): string | null {
+  return version ? `/api/painters/me/photo?v=${encodeURIComponent(version)}` : null;
 }
 
 /** Whether the listing can be turned on: a base (saved or new) and a confirmed mobile. */
@@ -30,11 +36,11 @@ export function listingNeeds(profile: Pick<PainterProfile, "latitude" | "longitu
 }
 
 /**
- * The listing as sent. `about` always goes (left out, the server clears it), trimmed. A new
- * fix is coarsened HERE, before it leaves the phone — the precise position never does.
+ * The listing as sent. A new fix is coarsened HERE, before it leaves the phone — the precise
+ * position never does.
  */
-export function listingBody(listed: boolean, about: string, pending: PendingLocation): ListingUpdate {
-  const body: ListingUpdate = { listedForCustomers: listed, about: about.trim() };
+export function listingBody(listed: boolean, pending: PendingLocation): ListingUpdate {
+  const body: ListingUpdate = { listedForCustomers: listed };
   if (pending === "clear") body.clearLocation = true;
   else if (pending) {
     body.latitude = coarsen(pending.latitude);

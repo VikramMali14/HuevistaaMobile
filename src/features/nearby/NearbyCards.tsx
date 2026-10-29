@@ -3,14 +3,14 @@ import { Linking, StyleSheet, View } from "react-native";
 
 import { messageFor } from "@/api/errors";
 import type { NearbyPainter, NearbyShop } from "@/api/endpoints/nearby";
-import { Button, Card, Pill, Text } from "@/components/ui";
+import { Button, Card, Pill, RemoteImage, Text } from "@/components/ui";
 import { displayPhone } from "@/features/painter/redeem";
 import { t } from "@/i18n";
 import { useAlive } from "@/lib/use-alive";
 import { useSubmit } from "@/lib/use-submit";
 import { useTheme } from "@/theme";
 
-import { directionsHref, distanceLabel, painterFacts, shopHours, shopPlace, telHref, trackRecord, whatsappHref } from "./nearby";
+import { directionsHref, distanceLabel, shopHours, shopPlace, telHref, trackRecord, whatsappHref } from "./nearby";
 import { usePainterPhone } from "./use-nearby";
 
 /** Opens a link the phone may have nothing for (tel: on a tablet): nothing happens then. */
@@ -21,17 +21,28 @@ function open(url: string | null) {
 /**
  * One painter as a customer sees them (C32) — and as the painter sees their own listing
  * (P5's preview, with `actions` standing in for the call). Ported from the website's
- * PainterCard: name and distance, what they've done, about, specialties, where, facts.
+ * PainterCard: the painter's card — photo, name and address — with the distance, the badge and
+ * what they've done. Nothing else a painter fills in is shown to customers.
  */
 export function PainterCardBody({ painter: p, actions }: { painter: NearbyPainter; actions?: ReactNode }) {
   const { space } = useTheme();
-  const facts = painterFacts(p);
+  const name = p.name?.trim() || t("nearby.painter");
   return (
     <View style={{ gap: space.sm }}>
-      <View style={styles.head}>
-        <Text variant="title3" accessibilityRole="header" style={styles.fill}>
-          {p.name?.trim() || t("nearby.painter")}
-        </Text>
+      <View style={[styles.painterHead, { gap: space.sm }]}>
+        {p.photoUrl ? (
+          <RemoteImage url={p.photoUrl} style={styles.photo} accessibilityLabel={t("nearby.photoOf", { name })} />
+        ) : null}
+        <View style={[styles.fill, { gap: 2 }]}>
+          <Text variant="title3" accessibilityRole="header">
+            {name}
+          </Text>
+          {p.address?.trim() ? (
+            <Text variant="small" tone="mute" testID={`painter-address-${p.id}`}>
+              {p.address.trim()}
+            </Text>
+          ) : null}
+        </View>
         <Text variant="small" tone="accent">
           {distanceLabel(p.distanceKm, true)}
         </Text>
@@ -40,24 +51,6 @@ export function PainterCardBody({ painter: p, actions }: { painter: NearbyPainte
       <Text variant="small" tone="soft">
         {trackRecord(p)}
       </Text>
-      {p.about?.trim() ? <Text variant="body">{p.about.trim()}</Text> : null}
-      {p.specialties.length ? (
-        <View style={[styles.wrap, { gap: space.xs }]}>
-          {p.specialties.map((s) => (
-            <Pill key={s} label={s} />
-          ))}
-        </View>
-      ) : null}
-      {p.serviceAreas.length ? (
-        <Text variant="small" tone="mute">
-          {t("nearby.worksIn", { areas: p.serviceAreas.join(", ") })}
-        </Text>
-      ) : null}
-      {facts ? (
-        <Text variant="small" tone="mute">
-          {facts}
-        </Text>
-      ) : null}
       {actions}
     </View>
   );
@@ -157,7 +150,8 @@ export function ShopCard({ shop: s }: { shop: NearbyShop }) {
 
 const styles = StyleSheet.create({
   head: { flexDirection: "row", alignItems: "baseline", gap: 12 },
+  painterHead: { flexDirection: "row", alignItems: "center" },
+  photo: { width: 56, height: 56, borderRadius: 28 },
   row: { flexDirection: "row", alignItems: "center" },
-  wrap: { flexDirection: "row", flexWrap: "wrap" },
   fill: { flex: 1 },
 });

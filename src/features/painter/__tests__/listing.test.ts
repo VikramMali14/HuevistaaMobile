@@ -1,4 +1,4 @@
-import { addItem, AREAS, coarsen, listingBody, listingNeeds, rupees, SPECIALTIES, tradeBody, wholeNumber } from "../listing";
+import { addItem, AREAS, coarsen, listingBody, listingNeeds, ownPhotoUrl, rupees, SPECIALTIES, tradeBody, wholeNumber } from "../listing";
 
 const profile = { latitude: 19.07, longitude: 72.88, phoneVerified: true, phone: "+919876543210" };
 
@@ -7,18 +7,22 @@ describe("listing (P5)", () => {
   it("sends a position rounded to two places", () => {
     expect(coarsen(19.076543)).toBe(19.08);
     expect(coarsen(-0.004)).toBe(-0);
-    expect(listingBody(true, "  Twenty years in Thane  ", { latitude: 19.076543, longitude: 72.877712, accuracy: 30 })).toEqual({
+    expect(listingBody(true, { latitude: 19.076543, longitude: 72.877712, accuracy: 30 })).toEqual({
       listedForCustomers: true,
-      about: "Twenty years in Thane",
       latitude: 19.08,
       longitude: 72.88,
     });
   });
 
-  // The server overwrites "about" whenever it is missing, so it always goes.
-  it("always sends about, and clears the location only when asked", () => {
-    expect(listingBody(false, "", null)).toEqual({ listedForCustomers: false, about: "" });
-    expect(listingBody(false, "Hi", "clear")).toEqual({ listedForCustomers: false, about: "Hi", clearLocation: true });
+  // Customers see only the painter's card (name, photo, address), so no line about them goes.
+  it("sends nothing about the painter, and clears the location only when asked", () => {
+    expect(listingBody(false, null)).toEqual({ listedForCustomers: false });
+    expect(listingBody(false, "clear")).toEqual({ listedForCustomers: false, clearLocation: true });
+  });
+
+  it("addresses the painter's own photo by its version", () => {
+    expect(ownPhotoUrl("1730000000000")).toBe("/api/painters/me/photo?v=1730000000000");
+    expect(ownPhotoUrl(null)).toBeNull();
   });
 
   it("needs a location and a confirmed mobile", () => {

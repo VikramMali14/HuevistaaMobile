@@ -9,9 +9,9 @@ import { messageFor } from "@/api/errors";
 import { painterApi, type PainterProfile } from "@/api/endpoints/painter";
 import { keys } from "@/api/query-keys";
 import { useSession } from "@/auth/session";
-import { Banner, Button, Card, ErrorState, Screen, Skeleton, Switch, Text, TextField, useToast } from "@/components/ui";
+import { Banner, Button, Card, ErrorState, Screen, Skeleton, Switch, Text, useToast } from "@/components/ui";
 import { PainterCardBody } from "@/features/nearby/NearbyCards";
-import { ABOUT_MAX, hasSavedLocation, listingBody, listingNeeds, ROUGH_FIX_METRES, type PendingLocation } from "@/features/painter/listing";
+import { hasSavedLocation, listingBody, listingNeeds, ownPhotoUrl, ROUGH_FIX_METRES, type PendingLocation } from "@/features/painter/listing";
 import { PainterHeader } from "@/features/painter/PainterHeader";
 import { isNoProfile, usePainterProfile } from "@/features/painter/use-painter";
 import { t } from "@/i18n";
@@ -27,8 +27,8 @@ import { useTheme } from "@/theme";
  * reference: HueVistaaPainter app/(app)/(painter)/listing/listing-screen.tsx.
  *
  * Whether customers nearby see this painter, where they're based (kept to about a kilometre
- * — rounded on the phone before it is sent, and again by the server), a line about them,
- * and the row a customer would see. Listing needs a base and a confirmed mobile; what's
+ * — rounded on the phone before it is sent, and again by the server), and the card a customer
+ * would see: their photo, name and address (set on the painter website), nothing else. Listing needs a base and a confirmed mobile; what's
  * missing is said, with the way to it. Location is asked for only when "Use where I am now"
  * is pressed, with why on the screen above it.
  *
@@ -47,7 +47,7 @@ export default function PainterNearby() {
 
   if (p) {
     // A saved change starts the form afresh from what the server kept.
-    return <ListingForm key={`${p.listedForCustomers}|${p.about ?? ""}|${p.latitude}|${p.longitude}|${p.locationUpdatedAt ?? ""}`} profile={p} onRefresh={() => painter.refetch()} />;
+    return <ListingForm key={`${p.listedForCustomers}|${p.latitude}|${p.longitude}|${p.locationUpdatedAt ?? ""}`} profile={p} onRefresh={() => painter.refetch()} />;
   }
   let body;
   if (painter.isPending) {
@@ -86,7 +86,6 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
   const pull = usePullToRefresh(onRefresh);
   const { profile: account } = useSession();
   const [listed, setListed] = useState(Boolean(profile.listedForCustomers));
-  const [about, setAbout] = useState(profile.about ?? "");
   const [pending, setPending] = useState<PendingLocation>(null);
   const [locError, setLocError] = useState<{ message: string; settings: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +94,7 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
 
   const needs = listingNeeds(profile, pending);
   const certified = Boolean(profile.certified);
-  const dirty = listed !== Boolean(profile.listedForCustomers) || about.trim() !== (profile.about ?? "") || pending !== null;
+  const dirty = listed !== Boolean(profile.listedForCustomers) || pending !== null;
   const rough = pending && pending !== "clear" && Number.isFinite(pending.accuracy) && pending.accuracy > ROUGH_FIX_METRES ? pending.accuracy : null;
 
   const locate = () =>
@@ -119,7 +118,7 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
     void saving.run(async () => {
       setError(null);
       try {
-        const updated = await painterApi.updateListing(listingBody(listed, about, pending));
+        const updated = await painterApi.updateListing(listingBody(listed, pending));
         queryClient.setQueryData(keys.painterProfile, updated);
         toast.show(
           !updated.listedForCustomers
@@ -244,20 +243,6 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
         </View>
       </View>
 
-      <TextField
-        label={t("painter.nearby.about")}
-        placeholder={t("painter.nearby.aboutPlaceholder")}
-        value={about}
-        onChangeText={(next) => {
-          setError(null);
-          setAbout(next.slice(0, ABOUT_MAX));
-        }}
-        maxLength={ABOUT_MAX}
-        multiline
-        hint={t("painter.nearby.aboutCount", { n: about.length })}
-        testID="nearby-about"
-      />
-
       <View style={{ gap: space.sm }}>
         <View style={styles.row}>
           <Text variant="title3" accessibilityRole="header" style={styles.fill}>
@@ -267,16 +252,13 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
         </View>
         <Card>
           <View testID="nearby-preview">
-            {/* The row a customer sees in C32, at an example distance; the number shows only to a customer who presses Call. */}
+            {/* The card a customer sees in C32, at an example distance; the number shows only to a customer who presses Call. */}
             <PainterCardBody
               painter={{
                 id: profile.userId,
                 name,
-                about: about.trim() || null,
-                serviceAreas: profile.serviceAreas ?? [],
-                specialties: profile.specialties ?? [],
-                yearsExperience: profile.yearsExperience ?? null,
-                dayRateInr: profile.dayRateInr ?? null,
+                photoUrl: ownPhotoUrl(profile.photoVersion),
+                address: profile.address ?? null,
                 rating: profile.rating ?? null,
                 ratingCount: profile.ratingCount ?? 0,
                 jobsCompleted: profile.jobsCompleted ?? 0,
