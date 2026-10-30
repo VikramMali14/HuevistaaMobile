@@ -44,7 +44,8 @@ export function distanceLabel(km: number, coarse = false): string {
   if (!Number.isFinite(km) || km < 0) return "";
   if (km < 1) return coarse ? t("nearby.underOneKm") : t("nearby.metresAway", { m: Math.max(100, Math.round(km * 10) * 100) });
   if (km < 10) return t("nearby.kmAway", { km: km.toFixed(1) });
-  return t("nearby.kmAway", { km: String(Math.round(km)) });
+  // A painter who works in the customer's area can be a long way off: "1,237 km away".
+  return t("nearby.kmAway", { km: Math.round(km).toLocaleString("en-IN") });
 }
 
 /** A leading + and the digits, or null when it can't be dialled (fewer than 7 digits). */

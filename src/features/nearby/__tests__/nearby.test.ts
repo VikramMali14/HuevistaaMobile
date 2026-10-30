@@ -15,6 +15,8 @@ describe("distanceLabel", () => {
     expect(distanceLabel(2.4)).toBe("2.4 km away");
     expect(distanceLabel(1)).toBe("1.0 km away");
     expect(distanceLabel(18.3)).toBe("18 km away");
+    // A painter found because they work in the customer's area can be across the country.
+    expect(distanceLabel(1237.1)).toBe("1,237 km away");
   });
 
   // A painter's position is kept to about a kilometre: no metres it doesn't have.
