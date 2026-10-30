@@ -47,7 +47,9 @@ export function WorkAreasPicker({
   const others = catalogue.states.filter((s) => s !== home);
   const chosenIn = (state: WorkAreaState) => value.includes(state.code) || state.divisions.some((d) => value.includes(d.code));
   const listed = showAll ? others : others.filter(chosenIn);
-  const openOther = others.find((s) => s.code === opened) ?? null;
+  // Only under a chip that is showing: a state open as the painter's own, when a new location
+  // moves them to another, folds away with its chip rather than hanging open on its own.
+  const openOther = listed.find((s) => s.code === opened) ?? null;
 
   /** "· All" for a whole state, "· 2" for two of its divisions, nothing for none. */
   const summary = (state: WorkAreaState) => {

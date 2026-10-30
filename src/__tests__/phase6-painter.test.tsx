@@ -952,6 +952,7 @@ describe("P5 · Nearby", () => {
     mockNearby.where.mockResolvedValue({ name: "Khatodara, Surat, Gujarat", state: "GJ", division: "GJ-SOUTH" });
     renderRouter("./app", { initialUrl: "/painter/nearby" });
     await waitFor(() => expect(within(screen.getByTestId("area-home")).getByTestId("area-state-RJ")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("area-state-RJ"));
 
     fireEvent.press(screen.getByTestId("nearby-locate"));
     await waitFor(() => expect(screen.getByTestId("nearby-location-status")).toHaveTextContent("New location: near Khatodara, Surat, Gujarat. Save to use it."));
@@ -959,6 +960,8 @@ describe("P5 · Nearby", () => {
     expect(mockNearby.where).toHaveBeenCalledWith(21.17, 72.83);
     expect(within(screen.getByTestId("area-home")).getByTestId("area-state-GJ")).toBeTruthy();
     expect(screen.queryByTestId("area-state-RJ")).toBeNull();
+    // Rajasthan was open as their own state; folded away with its chip, it doesn't hang open alone.
+    expect(screen.queryByTestId("area-RJ-AJMER")).toBeNull();
   });
 
   /** With no location there is no state of their own to start at: every state waits behind one button. */
