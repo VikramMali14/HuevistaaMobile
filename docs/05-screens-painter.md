@@ -87,19 +87,37 @@ confirmed mobile → a banner to S4.
 
 **Layout:**
 - **Show me to customers nearby** switch (off until turned on).
-- **Where you're based** — "Use my location" (kept to about a kilometre) or clear it.
+- **Where you're based** — "Use my location" (kept to about a kilometre), or a town, area
+  or PIN code typed instead, or clear it. Once saved, it says which place it is in ("Near
+  Kaiser Ganj Ajmer, Ajmer, Rajasthan" — `locationName`).
+- **Where can you work?** — **Your state** first: the one the location is in (`locationState`,
+  or for a location found but not saved yet `GET /api/nearby/where`, which also names it: "New
+  location: near …"), a chip that opens its divisions below when pressed — Ajmer, Bharatpur,
+  Bikaner, Jaipur, Jodhpur, Kota, Udaipur for Rajasthan — with **All of …**. Then **Other states**
+  (folded behind **Show all states**; all of them when there is no location yet), each opening
+  its divisions — or its usual regions — the same way, one state at a time; and last **Anywhere
+  in India**. The big towns in each division are listed under its chips. Drawn from
+  `GET /api/nearby/work-areas` (every state A to Z), in English or Hindi. Customers in those
+  places find the painter however far off they live.
 - **Preview** — exactly the card a customer sees in C32: photo, name and address (set on
-  the painter website, where the painter gets certified), nothing else they filled in.
+  the painter website, where the painter gets certified), the district and state they're based
+  in (`locationPlace`, or a new location's once the server has named it) and where they can
+  work, as ticked, nothing else they filled in.
 
-**API:** `PUT /api/painters/me/listing { listedForCustomers, latitude, longitude, clearLocation }`
+**API:** `PUT /api/painters/me/listing { listedForCustomers, latitude, longitude, clearLocation, workAreas }`
+— `workAreas` only when they changed (left out, the server leaves them alone)
 — the old line about the painter is no longer sent (left out, the server clears it); the
 preview's photo is `GET /api/painters/me/photo?v={photoVersion}`.
 The website coarsens the position — keep that rule on the phone too
 (`PainterService.coarsen`, two decimal places).
 
-**As built:** the location is read once, when asked (`expo-location`, balanced accuracy),
-and rounded to 2 places (about a kilometre) before it's sent; the server keeps no more. A
-fix rougher than 2 km is warned about. **Remove** clears it on Save and turns the listing
+**As built:** the location is read once, when asked, by C32's `findFix`
+(`features/nearby/locate.ts`): location off is said as such; a fix from the last minute is
+used at once, otherwise a fresh one (balanced accuracy) gets 15 s — Android's location service
+can take far longer indoors, or never answer, which used to leave "Finding you…" spinning with
+Save greyed out — and then the last fix from the past half hour. Rounded to 2 places (about a
+kilometre) before it's sent; the server keeps no more. A fix rougher than 2 km is warned about.
+A typed place (`GET /api/nearby/places`) uses the middle of the place chosen. **Remove** clears it on Save and turns the listing
 off. The switch waits for a location and a confirmed mobile (each shown, the mobile → S4).
 `about` is always sent: the server overwrites it when it's missing.
 

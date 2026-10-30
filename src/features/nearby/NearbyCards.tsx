@@ -1,3 +1,4 @@
+import Feather from "@expo/vector-icons/Feather";
 import type { ReactNode } from "react";
 import { Linking, StyleSheet, View } from "react-native";
 
@@ -10,8 +11,9 @@ import { useAlive } from "@/lib/use-alive";
 import { useSubmit } from "@/lib/use-submit";
 import { useTheme } from "@/theme";
 
-import { directionsHref, distanceLabel, shopHours, shopPlace, telHref, trackRecord, whatsappHref } from "./nearby";
-import { usePainterPhone } from "./use-nearby";
+import { directionsHref, distanceLabel, shopHours, shopPlace, telHref, whatsappHref } from "./nearby";
+import { usePainterPhone, useWorkAreas } from "./use-nearby";
+import { workAreasText } from "./work-areas";
 
 /** Opens a link the phone may have nothing for (tel: on a tablet): nothing happens then. */
 function open(url: string | null) {
@@ -21,12 +23,16 @@ function open(url: string | null) {
 /**
  * One painter as a customer sees them (C32) — and as the painter sees their own listing
  * (P5's preview, with `actions` standing in for the call). Ported from the website's
- * PainterCard: the painter's card — photo, name and address — with the distance, the badge and
- * what they've done. Nothing else a painter fills in is shown to customers.
+ * PainterCard: the painter's card — photo, name, the district and state they're based in, and
+ * their address — where they can go for a job, and the badge. Not how far away they are, and not
+ * their jobs and reviews. Nothing else a painter fills in is shown to customers. The places are named by the catalogue (useWorkAreas); until it has loaded, or
+ * if it can't, the card simply goes without that line.
  */
 export function PainterCardBody({ painter: p, actions }: { painter: NearbyPainter; actions?: ReactNode }) {
-  const { space } = useTheme();
+  const { space, colors } = useTheme();
   const name = p.name?.trim() || t("nearby.painter");
+  const catalogue = useWorkAreas();
+  const areas = workAreasText(p.workAreas, catalogue.data);
   return (
     <View style={{ gap: space.sm }}>
       <View style={[styles.painterHead, { gap: space.sm }]}>
@@ -37,20 +43,33 @@ export function PainterCardBody({ painter: p, actions }: { painter: NearbyPainte
           <Text variant="title3" accessibilityRole="header">
             {name}
           </Text>
+          {p.place?.trim() ? (
+            <Text variant="small" tone="accent" testID={`painter-place-${p.id}`}>
+              {p.place.trim()}
+            </Text>
+          ) : null}
           {p.address?.trim() ? (
             <Text variant="small" tone="mute" testID={`painter-address-${p.id}`}>
               {p.address.trim()}
             </Text>
           ) : null}
         </View>
-        <Text variant="small" tone="accent">
-          {distanceLabel(p.distanceKm, true)}
-        </Text>
       </View>
-      {p.certified !== false ? <Pill label={t("nearby.certified")} tone="accent" testID="painter-certified" /> : null}
-      <Text variant="small" tone="soft">
-        {trackRecord(p)}
-      </Text>
+      {areas ? (
+        <View style={[styles.areas, { gap: space.xs }]}>
+          <Feather name="map" size={16} color={colors.accentText} style={styles.areasIcon} />
+          <Text variant="small" style={styles.fill} testID={`painter-areas-${p.id}`}>
+            {areas}
+          </Text>
+        </View>
+      ) : null}
+      {p.certified !== false || p.worksInYourArea ? (
+        <View style={[styles.row, styles.wrap, { gap: space.xs }]}>
+          {p.certified !== false ? <Pill label={t("nearby.certified")} tone="accent" testID="painter-certified" /> : null}
+          {/* Found because they work where the customer is, maybe from far off: said, so the distance makes sense. */}
+          {p.worksInYourArea ? <Pill label={t("nearby.worksHere")} tone="success" testID={`painter-works-here-${p.id}`} /> : null}
+        </View>
+      ) : null}
       {actions}
     </View>
   );
@@ -153,5 +172,8 @@ const styles = StyleSheet.create({
   painterHead: { flexDirection: "row", alignItems: "center" },
   photo: { width: 56, height: 56, borderRadius: 28 },
   row: { flexDirection: "row", alignItems: "center" },
+  wrap: { flexWrap: "wrap" },
+  areas: { flexDirection: "row", alignItems: "flex-start" },
+  areasIcon: { marginTop: 2 },
   fill: { flex: 1 },
 });

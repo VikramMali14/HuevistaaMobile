@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 
-import type { NearbyPainter, NearbyPlace, NearbyShop } from "@/api/endpoints/nearby";
+import type { NearbyPlace, NearbyShop } from "@/api/endpoints/nearby";
 import { t } from "@/i18n";
 
 /**
@@ -8,22 +8,14 @@ import { t } from "@/i18n";
  * the cards in components/app/nearby-finder.tsx, so a row reads the same in both places.
  */
 
-/** The distances offered. The server takes any whole or part km from 1 to 50. */
-export const RADII_KM = [2, 5, 10, 25, 50] as const;
-export type RadiusKm = (typeof RADII_KM)[number];
-/** As the server and the website default. */
-export const DEFAULT_RADIUS_KM: RadiusKm = 10;
+/**
+ * How far the search reaches: the server's widest, every time, as on the website. Customers
+ * are no longer asked to pick a distance — the lists come back nearest first, so the closest is
+ * at the top whether it is round the corner or two towns over.
+ */
+export const SEARCH_RADIUS_KM = 50;
 /** The server's cap on one answer; a full list may leave some out. */
 export const MAX_RESULTS = 50;
-
-export function isRadius(value: unknown): value is RadiusKm {
-  return typeof value === "number" && (RADII_KM as readonly number[]).includes(value);
-}
-
-/** The next distance out, for "Search further" — null at the widest. */
-export function widerRadius(km: RadiusKm): RadiusKm | null {
-  return RADII_KM.find((r) => r > km) ?? null;
-}
 
 export interface SearchPoint {
   lat: number;
@@ -44,15 +36,14 @@ export function searchPoint(latitude: number, longitude: number): SearchPoint | 
 }
 
 /**
- * "2.4 km away", "18 km away", "400 m away". A painter's position is kept to about a
- * kilometre, so for a painter anything under one reads "Under 1 km away" — never metres
- * the figure doesn't have. A shop's pin is exact.
+ * "2.4 km away", "18 km away", "400 m away" — how far a shop is, from its exact pin. A painter's
+ * card says the district and state they're based in instead (`place`).
  */
-export function distanceLabel(km: number, coarse = false): string {
+export function distanceLabel(km: number): string {
   if (!Number.isFinite(km) || km < 0) return "";
-  if (km < 1) return coarse ? t("nearby.underOneKm") : t("nearby.metresAway", { m: Math.max(100, Math.round(km * 10) * 100) });
+  if (km < 1) return t("nearby.metresAway", { m: Math.max(100, Math.round(km * 10) * 100) });
   if (km < 10) return t("nearby.kmAway", { km: km.toFixed(1) });
-  return t("nearby.kmAway", { km: String(Math.round(km)) });
+  return t("nearby.kmAway", { km: Math.round(km).toLocaleString("en-IN") });
 }
 
 /** A leading + and the digits, or null when it can't be dialled (fewer than 7 digits). */
@@ -119,18 +110,4 @@ export function shopHours(hours: string | null | undefined): string | null {
   const text = hours?.trim();
   if (!text) return null;
   return /^open\b/i.test(text) ? text : t("nearby.open", { hours: text });
-}
-
-/** What a painter has to show for themselves, or that they're new — never a blank. */
-export function trackRecord(p: Pick<NearbyPainter, "jobsCompleted" | "rating" | "ratingCount">): string {
-  const jobs = p.jobsCompleted ?? 0;
-  const parts = [
-    jobs > 0 ? (jobs === 1 ? t("nearby.jobOne") : t("nearby.jobs", { n: jobs })) : null,
-    p.rating != null && p.ratingCount > 0
-      ? p.ratingCount === 1
-        ? t("nearby.ratingOne", { rating: Number(p.rating).toFixed(1) })
-        : t("nearby.rating", { rating: Number(p.rating).toFixed(1), n: p.ratingCount })
-      : null,
-  ].filter(Boolean);
-  return parts.length ? parts.join(" · ") : t("nearby.newPainter");
 }

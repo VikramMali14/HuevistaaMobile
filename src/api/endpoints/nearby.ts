@@ -36,8 +36,24 @@ export interface NearbyPainter {
   jobsCompleted: number;
   /** HueVistaa Certified — only certified painters are listed, so true on every result. */
   certified?: boolean;
-  /** To the painter's position as stored — rounded to about a kilometre. */
+  /** To the painter's position as stored — what the list is ordered by. No longer shown: the card says `place`. */
   distanceKm: number;
+  /**
+   * Where the painter is based, to the district: "Jaipur, Rajasthan", "South Delhi" — or the state
+   * alone. Shown instead of a distance. Null when the server can't tell; absent from older servers.
+   */
+  place?: string | null;
+  /**
+   * Where the painter can go for a job, as WorkAreas codes — divisions ("RJ-AJMER"), whole
+   * states ("GJ"), or "IN" for anywhere in India — named by `nearbyApi.workAreas`. Empty when
+   * the painter hasn't said; absent from older servers.
+   */
+  workAreas?: string[];
+  /**
+   * The painter said they work in the place the search is from — its division, its whole state,
+   * or anywhere in India — and is found however far off they live. Absent from older servers.
+   */
+  worksInYourArea?: boolean;
 }
 
 /** GET /api/nearby/shops (NearbyShopResponse). Nearest first, at most 50. */
@@ -78,6 +94,53 @@ export interface NearbyPlace {
   longitude: number;
 }
 
+/**
+ * GET /api/nearby/where (AreaResponse) — which place a point is in: its name as a person says it,
+ * and its state and division as WorkAreas codes. Each null when the server can't tell.
+ */
+export interface NearbyArea {
+  /** "Kaiser Ganj Ajmer, Ajmer, Rajasthan" */
+  name: string | null;
+  /** Its district and state, as a painter's card shows them: "Ajmer, Rajasthan". Absent from older servers. */
+  place?: string | null;
+  /** "RJ" */
+  state: string | null;
+  /** "RJ-AJMER" */
+  division: string | null;
+}
+
+/** A division of a state — or, for a state without divisions, a region or a district. */
+export interface WorkAreaDivision {
+  /** "RJ-AJMER" */
+  code: string;
+  name: string;
+  nameHi: string;
+  /** The big towns in it besides any it is named after ("Bhilwara, Nagaur, Tonk"); null for one town. */
+  hint: string | null;
+  hintHi: string | null;
+}
+
+/** A state or union territory: chosen whole, or a division at a time. */
+export interface WorkAreaState {
+  /** "RJ" */
+  code: string;
+  name: string;
+  nameHi: string;
+  /** Empty for a place chosen only whole (Chandigarh). */
+  divisions: WorkAreaDivision[];
+}
+
+/**
+ * GET /api/nearby/work-areas (WorkAreasResponse) — the places a painter can say they work in:
+ * every state A to Z, each by division, and the code for anywhere in India. Each named in English
+ * and Hindi. Public, and the same for everybody; P5 puts the painter's own state first.
+ */
+export interface WorkAreas {
+  /** "IN" */
+  anywhere: string;
+  states: WorkAreaState[];
+}
+
 export interface NearbySearch {
   lat: number;
   lon: number;
@@ -85,7 +148,7 @@ export interface NearbySearch {
 }
 
 export const nearbyApi = {
-  /** 400 for a point that can't be right (or 0,0) and a radius outside 1–50 km. */
+  /** 400 for a point that can't be right (or 0,0) and a radius outside 1–50 km (left out, 50). */
   painters: ({ lat, lon, radiusKm }: NearbySearch) =>
     api.request<NearbyPainter[]>("api/nearby/painters", { query: { lat, lon, radiusKm } }),
 
@@ -105,4 +168,13 @@ export const nearbyApi = {
    * an empty search or digits that aren't a PIN. Not counted against the searches' allowance.
    */
   places: (q: string) => api.request<NearbyPlace[]>("api/nearby/places", { query: { q } }),
+
+  /** The places painters choose from, named in both languages. Not counted against any allowance. */
+  workAreas: () => api.request<WorkAreas>("api/nearby/work-areas"),
+
+  /**
+   * Which place a point is in, and its state and division. Nothing is kept; not counted against
+   * any allowance. 400 for a point that can't be right.
+   */
+  where: (lat: number, lon: number) => api.request<NearbyArea>("api/nearby/where", { query: { lat, lon } }),
 };

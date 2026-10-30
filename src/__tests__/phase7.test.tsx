@@ -7,12 +7,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { onlineManager } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { act, fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
+import { act, fireEvent, renderRouter, screen, waitFor, within } from "expo-router/testing-library";
 import { AccessibilityInfo, Linking } from "react-native";
 
 import { ApiError } from "@/api/errors";
 import type { BoardReviewState, MyQuestions, OwnQuestion, QuestionPage } from "@/api/endpoints/community";
-import type { NearbyPainter, NearbyPlace, NearbyShop } from "@/api/endpoints/nearby";
+import type { NearbyPainter, NearbyPlace, NearbyShop, WorkAreas } from "@/api/endpoints/nearby";
 import type { SharedRoom } from "@/api/endpoints/share";
 import type { Conversation, ConversationSummary } from "@/api/endpoints/support";
 import { queryClient } from "@/api/query-client";
@@ -53,7 +53,7 @@ const mockNever = () => new Promise<never>(() => {});
 jest.mock("@/api/endpoints/me", () => ({
   meApi: new Proxy({}, { get: () => () => new Promise<never>(() => {}) }),
 }));
-const mockNearby = { painters: jest.fn(), shops: jest.fn(), painterPhone: jest.fn(), places: jest.fn() };
+const mockNearby = { painters: jest.fn(), shops: jest.fn(), painterPhone: jest.fn(), places: jest.fn(), workAreas: jest.fn(), where: jest.fn() };
 jest.mock("@/api/endpoints/nearby", () => ({
   get nearbyApi() {
     return mockNearby;
@@ -128,8 +128,25 @@ const painterRow = (id: string, extra: Partial<NearbyPainter> = {}): NearbyPaint
   jobsCompleted: 3,
   certified: true,
   distanceKm: 0.6,
+  place: "Belagavi, Karnataka",
   ...extra,
 });
+/** The places painters say they work in, as the server names them — cut down to these tests'. */
+const WORK_AREAS: WorkAreas = {
+  anywhere: "IN",
+  states: [
+    {
+      code: "RJ",
+      name: "Rajasthan",
+      nameHi: "राजस्थान",
+      divisions: [
+        { code: "RJ-AJMER", name: "Ajmer", nameHi: "अजमेर", hint: null, hintHi: null },
+        { code: "RJ-JAIPUR", name: "Jaipur", nameHi: "जयपुर", hint: null, hintHi: null },
+      ],
+    },
+    { code: "GJ", name: "Gujarat", nameHi: "गुजरात", divisions: [] },
+  ],
+};
 const shopRow = (extra: Partial<NearbyShop> = {}): NearbyShop => ({
   id: "s1",
   name: "Sharma Paints",
@@ -191,6 +208,8 @@ beforeEach(async () => {
   }
   mockLocation.hasServicesEnabledAsync.mockResolvedValue(true);
   mockLocation.getLastKnownPositionAsync.mockResolvedValue(null);
+  mockNearby.workAreas.mockResolvedValue(WORK_AREAS);
+  mockNearby.where.mockResolvedValue({ name: null, state: null, division: null });
   mockLocation.getForegroundPermissionsAsync.mockResolvedValue({ granted: false, canAskAgain: true });
   mockAuth.profile.mockReset();
   mockBrowser.openBrowserAsync.mockClear();
@@ -222,10 +241,11 @@ describe("C32 · Painters and shops near you", () => {
     fireEvent.press(screen.getByTestId("nearby-locate"));
     await waitFor(() => expect(screen.getByTestId("nearby-painters")).toBeTruthy());
     // Rounded to ~100 m before it leaves the phone.
-    expect(mockNearby.painters).toHaveBeenCalledWith({ lat: 15.852, lon: 74.505, radiusKm: 10 });
-    expect(screen.getByText("Under 1 km away")).toBeTruthy();
-    expect(screen.getByText("3 jobs done on HueVistaa · ★ 4.6 from 23 reviews")).toBeTruthy();
-    expect(screen.getByText("New on HueVistaa — no jobs or reviews yet")).toBeTruthy();
+    expect(mockNearby.painters).toHaveBeenCalledWith({ lat: 15.852, lon: 74.505, radiusKm: 50 });
+    // Where each painter is based, to the district — not how far away, nor their jobs and reviews.
+    expect(screen.getByTestId("painter-place-p1")).toHaveTextContent("Belagavi, Karnataka");
+    expect(within(screen.getByTestId("nearby-painters")).queryByText(/km away|m away/)).toBeNull();
+    expect(screen.queryByText(/jobs? done|reviews?|New on HueVistaa/)).toBeNull();
     // The painter's card: photo, name and address — and the number when Call is pressed.
     expect(screen.getByLabelText("Photo of Ravi Kumar")).toBeTruthy();
     expect(screen.getByTestId("painter-address-p1")).toHaveTextContent("Tilakwadi, Belagavi");
@@ -343,17 +363,63 @@ describe("C32 · Painters and shops near you", () => {
     expect(mockNearby.painters).not.toHaveBeenCalled();
   });
 
-  it("searches further from an empty list", async () => {
+  // No distance to pick, as on the website: always 50 km, nearest first — nothing wider to offer.
+  it("searches the whole 50 km with no distance to pick", async () => {
     signedInAs("CUSTOMER");
     here();
     mockNearby.painters.mockResolvedValue([]);
     mockNearby.shops.mockResolvedValue([]);
     renderRouter("./app", { initialUrl: "/nearby" });
     await waitFor(() => expect(screen.getByTestId("nearby-locate")).toBeTruthy());
+    expect(screen.queryByTestId("radius-10")).toBeNull();
     fireEvent.press(screen.getByTestId("nearby-locate"));
-    await waitFor(() => expect(screen.getByText("No painters listed within 10 km yet.")).toBeTruthy());
-    fireEvent.press(screen.getByTestId("nearby-further"));
-    await waitFor(() => expect(mockNearby.painters).toHaveBeenCalledWith({ lat: 15.852, lon: 74.505, radiusKm: 25 }));
+    await waitFor(() => expect(screen.getByText("No painters listed within 50 km yet.")).toBeTruthy());
+    expect(screen.getByTestId("nearby-within")).toHaveTextContent("Within 50 km, nearest first");
+    expect(screen.queryByTestId("nearby-further")).toBeNull();
+    expect(mockNearby.painters).toHaveBeenCalledTimes(1);
+  });
+
+  // Where each painter can go for a job, named by the server's catalogue; nothing when they haven't said.
+  it("says where each painter can work", async () => {
+    signedInAs("CUSTOMER");
+    here();
+    mockNearby.painters.mockResolvedValue([
+      painterRow("p1", { workAreas: ["RJ-AJMER", "RJ-JAIPUR", "GJ"] }),
+      painterRow("p2", { distanceKm: 31, workAreas: ["IN"] }),
+      painterRow("p3", { distanceKm: 44, workAreas: [] }),
+    ]);
+    mockNearby.shops.mockResolvedValue([]);
+    renderRouter("./app", { initialUrl: "/nearby" });
+    await waitFor(() => expect(screen.getByTestId("nearby-locate")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("nearby-locate"));
+    await waitFor(() => expect(screen.getByTestId("painter-areas-p1")).toHaveTextContent("Works in Ajmer, Jaipur (Rajasthan) · Gujarat"));
+    expect(screen.getByTestId("painter-areas-p2")).toHaveTextContent("Works anywhere in India");
+    expect(screen.queryByTestId("painter-areas-p3")).toBeNull();
+  });
+
+  /**
+   * A painter further off who said they work where the customer is comes after the ones nearby,
+   * and the card says why it is there — and the phone's own point is named, as a typed place is.
+   */
+  it("marks a painter who works in the customer's area, and names where the search is from", async () => {
+    signedInAs("CUSTOMER");
+    here();
+    mockNearby.where.mockResolvedValue({ name: "Belagavi Camp, Belagavi, Karnataka", state: "KA", division: "KA-BELAGAVI" });
+    mockNearby.painters.mockResolvedValue([
+      painterRow("p1"),
+      painterRow("p2", { distanceKm: 1237, place: "Jaipur, Rajasthan", workAreas: ["IN"], worksInYourArea: true }),
+    ]);
+    mockNearby.shops.mockResolvedValue([]);
+    renderRouter("./app", { initialUrl: "/nearby" });
+    await waitFor(() => expect(screen.getByTestId("nearby-locate")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("nearby-locate"));
+
+    await waitFor(() => expect(screen.getByTestId("painter-works-here-p2")).toHaveTextContent("Works in your area"));
+    expect(screen.getByTestId("painter-place-p2")).toHaveTextContent("Jaipur, Rajasthan");
+    expect(screen.queryByTestId("painter-works-here-p1")).toBeNull();
+    await waitFor(() => expect(screen.getByTestId("nearby-here")).toHaveTextContent("Near Belagavi Camp, Belagavi, Karnataka"));
+    // Asked to about a kilometre: no more of the point than that leaves the phone for a name.
+    expect(mockNearby.where).toHaveBeenCalledWith(15.85, 74.51);
   });
 
   // The allowance is small and shared: a refusal is said, never tried again by itself.
@@ -393,8 +459,8 @@ describe("C32 · Painters and shops near you", () => {
     await waitFor(() => expect(screen.getByTestId("nearby-painters")).toBeTruthy());
 
     expect(mockNearby.places).toHaveBeenCalledWith("590001");
-    expect(mockNearby.painters).toHaveBeenCalledWith({ lat: 15.858, lon: 74.511, radiusKm: 10 });
-    expect(mockNearby.shops).toHaveBeenCalledWith({ lat: 15.858, lon: 74.511, radiusKm: 10 });
+    expect(mockNearby.painters).toHaveBeenCalledWith({ lat: 15.858, lon: 74.511, radiusKm: 50 });
+    expect(mockNearby.shops).toHaveBeenCalledWith({ lat: 15.858, lon: 74.511, radiusKm: 50 });
     expect(mockLocation.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
     expect(screen.getByTestId("nearby-near")).toHaveTextContent(/^Near PIN 590001 · Belagavi, Karnataka/);
     expect(screen.getByTestId("nearby-place-credit")).toHaveTextContent(/India Post.*GeoNames/);
@@ -409,11 +475,11 @@ describe("C32 · Painters and shops near you", () => {
     mockNearby.shops.mockResolvedValue([]);
     renderRouter("./app", { initialUrl: "/nearby" });
     await searchFor("Aurangabad");
-    await waitFor(() => expect(mockNearby.painters).toHaveBeenCalledWith({ lat: 19.878, lon: 75.342, radiusKm: 10 }));
+    await waitFor(() => expect(mockNearby.painters).toHaveBeenCalledWith({ lat: 19.878, lon: 75.342, radiusKm: 50 }));
     expect(screen.getByTestId("nearby-near")).toHaveTextContent(/^Near Aurangabad, Maharashtra/);
 
     fireEvent.press(screen.getByText("Aurangabad, Bihar"));
-    await waitFor(() => expect(mockNearby.painters).toHaveBeenLastCalledWith({ lat: 24.752, lon: 84.374, radiusKm: 10 }));
+    await waitFor(() => expect(mockNearby.painters).toHaveBeenLastCalledWith({ lat: 24.752, lon: 84.374, radiusKm: 50 }));
     expect(screen.getByTestId("nearby-near")).toHaveTextContent(/^Near Aurangabad, Bihar/);
     expect(screen.getByText("Aurangabad, Maharashtra")).toBeTruthy();
   });
@@ -474,8 +540,10 @@ describe("C32 · Painters and shops near you", () => {
     await waitFor(() => expect(screen.getByTestId("nearby-near")).toBeTruthy());
 
     fireEvent.press(screen.getByTestId("nearby-relocate"));
-    await waitFor(() => expect(mockNearby.painters).toHaveBeenLastCalledWith({ lat: 15.852, lon: 74.505, radiusKm: 10 }));
+    await waitFor(() => expect(mockNearby.painters).toHaveBeenLastCalledWith({ lat: 15.852, lon: 74.505, radiusKm: 50 }));
     expect(screen.queryByTestId("nearby-near")).toBeNull();
+    // A typed place is named by what was typed; the phone's own point by the server, when it can say.
+    expect(screen.queryByTestId("nearby-here")).toBeNull();
     expect(screen.queryByText("Aurangabad, Bihar")).toBeNull();
     expect(screen.getByTestId("nearby-relocate")).toHaveTextContent(/Update my location/);
   });
