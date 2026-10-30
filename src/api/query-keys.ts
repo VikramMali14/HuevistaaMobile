@@ -63,6 +63,8 @@ export const keys = {
   nearbyShops: (lat: number, lon: number, radiusKm: number) => ["nearby", "shops", lat, lon, radiusKm] as const,
   /** C32: a painter's number once asked for — kept for the session so it's never asked twice. */
   nearbyPhone: (painterId: string) => ["nearby", "phone", painterId] as const,
+  /** The names of the places painters say they work in — the same for everybody. */
+  workAreas: ["nearby", "work-areas"] as const,
 };
 
 /** What a claimed board changes: the balance, its batches and statement — and what it buys. */

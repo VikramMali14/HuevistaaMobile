@@ -1,3 +1,4 @@
+import Feather from "@expo/vector-icons/Feather";
 import type { ReactNode } from "react";
 import { Linking, StyleSheet, View } from "react-native";
 
@@ -11,7 +12,8 @@ import { useSubmit } from "@/lib/use-submit";
 import { useTheme } from "@/theme";
 
 import { directionsHref, distanceLabel, shopHours, shopPlace, telHref, trackRecord, whatsappHref } from "./nearby";
-import { usePainterPhone } from "./use-nearby";
+import { usePainterPhone, useWorkAreas } from "./use-nearby";
+import { workAreasText } from "./work-areas";
 
 /** Opens a link the phone may have nothing for (tel: on a tablet): nothing happens then. */
 function open(url: string | null) {
@@ -21,12 +23,16 @@ function open(url: string | null) {
 /**
  * One painter as a customer sees them (C32) — and as the painter sees their own listing
  * (P5's preview, with `actions` standing in for the call). Ported from the website's
- * PainterCard: the painter's card — photo, name and address — with the distance, the badge and
- * what they've done. Nothing else a painter fills in is shown to customers.
+ * PainterCard: the painter's card — photo, name and address — where they can go for a job,
+ * with the distance, the badge and what they've done. Nothing else a painter fills in is shown
+ * to customers. The places are named by the catalogue (useWorkAreas); until it has loaded, or
+ * if it can't, the card simply goes without that line.
  */
 export function PainterCardBody({ painter: p, actions }: { painter: NearbyPainter; actions?: ReactNode }) {
-  const { space } = useTheme();
+  const { space, colors } = useTheme();
   const name = p.name?.trim() || t("nearby.painter");
+  const catalogue = useWorkAreas();
+  const areas = workAreasText(p.workAreas, catalogue.data);
   return (
     <View style={{ gap: space.sm }}>
       <View style={[styles.painterHead, { gap: space.sm }]}>
@@ -47,6 +53,14 @@ export function PainterCardBody({ painter: p, actions }: { painter: NearbyPainte
           {distanceLabel(p.distanceKm, true)}
         </Text>
       </View>
+      {areas ? (
+        <View style={[styles.areas, { gap: space.xs }]}>
+          <Feather name="map" size={16} color={colors.accentText} style={styles.areasIcon} />
+          <Text variant="small" style={styles.fill} testID={`painter-areas-${p.id}`}>
+            {areas}
+          </Text>
+        </View>
+      ) : null}
       {p.certified !== false ? <Pill label={t("nearby.certified")} tone="accent" testID="painter-certified" /> : null}
       <Text variant="small" tone="soft">
         {trackRecord(p)}
@@ -153,5 +167,7 @@ const styles = StyleSheet.create({
   painterHead: { flexDirection: "row", alignItems: "center" },
   photo: { width: 56, height: 56, borderRadius: 28 },
   row: { flexDirection: "row", alignItems: "center" },
+  areas: { flexDirection: "row", alignItems: "flex-start" },
+  areasIcon: { marginTop: 2 },
   fill: { flex: 1 },
 });

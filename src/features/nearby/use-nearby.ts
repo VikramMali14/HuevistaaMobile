@@ -38,6 +38,22 @@ export function useNearbyShops(point: SearchPoint | null, radiusKm: number) {
 }
 
 /**
+ * The names of the places painters say they work in (nearbyApi.workAreas): the same for
+ * everybody and seldom changing, so read once a day at most — and a card does without its
+ * "Works in" line rather than wait for it.
+ */
+export function useWorkAreas() {
+  return useQuery({
+    queryKey: keys.workAreas,
+    queryFn: () => nearbyApi.workAreas(),
+    staleTime: 24 * 60 * 60_000,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+}
+
+/**
  * A painter's number: asked for only on a press (each one counts against 20 a day, the
  * same painter again included), then kept in memory for the session — a row scrolled
  * away and back, or the other tab and back, never asks again. Cleared on sign-out.

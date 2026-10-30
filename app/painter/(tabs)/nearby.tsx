@@ -1,6 +1,5 @@
 import Feather from "@expo/vector-icons/Feather";
 import { useQueryClient } from "@tanstack/react-query";
-import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Linking, StyleSheet, View } from "react-native";
@@ -10,9 +9,14 @@ import { painterApi, type PainterProfile } from "@/api/endpoints/painter";
 import { keys } from "@/api/query-keys";
 import { useSession } from "@/auth/session";
 import { Banner, Button, Card, ErrorState, Screen, Skeleton, Switch, Text, useToast } from "@/components/ui";
+import { findFix } from "@/features/nearby/locate";
 import { PainterCardBody } from "@/features/nearby/NearbyCards";
+import { useWorkAreas } from "@/features/nearby/use-nearby";
+import { sameAreas } from "@/features/nearby/work-areas";
 import { hasSavedLocation, listingBody, listingNeeds, ownPhotoUrl, ROUGH_FIX_METRES, type PendingLocation } from "@/features/painter/listing";
 import { PainterHeader } from "@/features/painter/PainterHeader";
+import { PlaceSearch } from "@/features/painter/PlaceSearch";
+import { WorkAreasPicker } from "@/features/painter/WorkAreasPicker";
 import { isNoProfile, usePainterProfile } from "@/features/painter/use-painter";
 import { t } from "@/i18n";
 import { formatServerDate } from "@/lib/dates";
@@ -27,10 +31,17 @@ import { useTheme } from "@/theme";
  * reference: HueVistaaPainter app/(app)/(painter)/listing/listing-screen.tsx.
  *
  * Whether customers nearby see this painter, where they're based (kept to about a kilometre
- * — rounded on the phone before it is sent, and again by the server), and the card a customer
- * would see: their photo, name and address (set on the painter website), nothing else. Listing needs a base and a confirmed mobile; what's
+ * — rounded on the phone before it is sent, and again by the server), where they can go for a
+ * job, and the card a customer would see: their photo, name and address (set on the painter
+ * website) and those places, nothing else. Listing needs a base and a confirmed mobile; what's
  * missing is said, with the way to it. Location is asked for only when "Use where I am now"
- * is pressed, with why on the screen above it.
+ * is pressed, with why on the screen above it — and given up on after fifteen seconds rather
+ * than spinning for ever (features/nearby/locate). A phone that can't say where it is is not the
+ * end of it: the painter types their town or PIN code instead. Once saved, the screen names the
+ * place the base is in, so a wrong one is plain to see.
+ *
+ * Where they can work: Rajasthan's divisions, Gujarat's regions, other states, or anywhere in
+ * India (WorkAreasPicker), named by the server's catalogue.
  *
  * Only HueVistaa Certified painters are shown to customers. The switch stays the painter's
  * to set before they are — the listing is saved and goes live once they're certified — so
@@ -47,7 +58,13 @@ export default function PainterNearby() {
 
   if (p) {
     // A saved change starts the form afresh from what the server kept.
-    return <ListingForm key={`${p.listedForCustomers}|${p.latitude}|${p.longitude}|${p.locationUpdatedAt ?? ""}`} profile={p} onRefresh={() => painter.refetch()} />;
+    return (
+      <ListingForm
+        key={`${p.listedForCustomers}|${p.latitude}|${p.longitude}|${p.locationUpdatedAt ?? ""}|${(p.workAreas ?? []).join(",")}`}
+        profile={p}
+        onRefresh={() => painter.refetch()}
+      />
+    );
   }
   let body;
   if (painter.isPending) {
@@ -88,37 +105,35 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
   const [listed, setListed] = useState(Boolean(profile.listedForCustomers));
   const [pending, setPending] = useState<PendingLocation>(null);
   const [locError, setLocError] = useState<{ message: string; settings: boolean } | null>(null);
+  const [areas, setAreas] = useState<string[]>(profile.workAreas ?? []);
   const [error, setError] = useState<string | null>(null);
   const locating = useSubmit();
   const saving = useSubmit();
+  const catalogue = useWorkAreas();
 
   const needs = listingNeeds(profile, pending);
   const certified = Boolean(profile.certified);
-  const dirty = listed !== Boolean(profile.listedForCustomers) || pending !== null;
+  // Without the catalogue the places can't be drawn or changed, so they are left as they are.
+  const areasChanged = Boolean(catalogue.data) && !sameAreas(areas, profile.workAreas ?? [], catalogue.data!);
+  const dirty = listed !== Boolean(profile.listedForCustomers) || pending !== null || areasChanged;
   const rough = pending && pending !== "clear" && Number.isFinite(pending.accuracy) && pending.accuracy > ROUGH_FIX_METRES ? pending.accuracy : null;
 
   const locate = () =>
     void locating.run(async () => {
       setLocError(null);
       setError(null);
-      try {
-        const asked = await Location.requestForegroundPermissionsAsync();
-        if (!asked.granted) {
-          setLocError({ message: t("painter.nearby.locationDenied"), settings: !asked.canAskAgain });
-          return;
-        }
-        const fix = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        setPending({ latitude: fix.coords.latitude, longitude: fix.coords.longitude, accuracy: fix.coords.accuracy ?? NaN });
-      } catch {
-        setLocError({ message: t("painter.nearby.locationFailed"), settings: false });
-      }
+      const found = await findFix();
+      if (found.kind === "fix") setPending(found.fix);
+      else if (found.kind === "denied") setLocError({ message: t("painter.nearby.locationDenied"), settings: found.settings });
+      else if (found.kind === "off") setLocError({ message: t("painter.nearby.locationOff"), settings: false });
+      else setLocError({ message: t("painter.nearby.locationFailed"), settings: false });
     });
 
   const save = () =>
     void saving.run(async () => {
       setError(null);
       try {
-        const updated = await painterApi.updateListing(listingBody(listed, pending));
+        const updated = await painterApi.updateListing(listingBody(listed, pending, areasChanged ? areas : undefined));
         queryClient.setQueryData(keys.painterProfile, updated);
         toast.show(
           !updated.listedForCustomers
@@ -135,9 +150,12 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
 
   let status: string;
   if (pending === "clear") status = t("painter.nearby.pendingClear");
-  else if (pending) status = t("painter.nearby.pendingNew");
+  else if (pending) status = pending.label ? t("painter.nearby.pendingPlace", { place: pending.label }) : t("painter.nearby.pendingNew");
+  else if (hasSavedLocation(profile) && profile.locationName) status = t("painter.nearby.near", { place: profile.locationName });
   else if (hasSavedLocation(profile)) status = profile.locationUpdatedAt ? t("painter.nearby.setOn", { date: formatServerDate(profile.locationUpdatedAt) }) : t("painter.nearby.setPlain");
   else status = t("painter.nearby.none");
+  // The date under the place, once it is named.
+  const setOn = !pending && hasSavedLocation(profile) && profile.locationName && profile.locationUpdatedAt ? t("painter.nearby.setOn", { date: formatServerDate(profile.locationUpdatedAt) }) : null;
 
   const name = (account?.namePending ? null : account?.name?.trim()) || profile.name?.trim() || t("painter.nearby.painter");
 
@@ -205,6 +223,11 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
         <Text variant="painterBody" testID="nearby-location-status">
           {status}
         </Text>
+        {setOn ? (
+          <Text variant="small" tone="mute">
+            {setOn}
+          </Text>
+        ) : null}
         <Text variant="small" tone="soft">
           {t("painter.nearby.kept")}
         </Text>
@@ -241,6 +264,45 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
             />
           ) : null}
         </View>
+        <PlaceSearch
+          disabled={locating.busy || saving.busy}
+          onPick={(place, label) => {
+            setLocError(null);
+            setError(null);
+            setPending({ latitude: place.latitude, longitude: place.longitude, accuracy: NaN, label });
+          }}
+        />
+        {pending && pending !== "clear" && pending.label ? (
+          // India Post's directory is published under the Government Open Data License and
+          // GeoNames under CC BY 4.0; both ask to be credited where their data is used.
+          <Text variant="caption" tone="mute" testID="nearby-place-credit">
+            {t("painter.nearby.placeCredit")}
+          </Text>
+        ) : null}
+      </View>
+
+      <View style={{ gap: space.sm }}>
+        <Text variant="title3" accessibilityRole="header">
+          {t("painter.nearby.areasTitle")}
+        </Text>
+        <Text variant="small" tone="soft">
+          {t("painter.nearby.areasLede")}
+        </Text>
+        {catalogue.data ? (
+          <WorkAreasPicker
+            catalogue={catalogue.data}
+            value={areas}
+            disabled={saving.busy}
+            onChange={(next) => {
+              setError(null);
+              setAreas(next);
+            }}
+          />
+        ) : catalogue.isError ? (
+          <ErrorState message={t("painter.nearby.areasLoadFailed")} onRetry={() => void catalogue.refetch()} />
+        ) : (
+          <Skeleton height={120} radius={16} />
+        )}
       </View>
 
       <View style={{ gap: space.sm }}>
@@ -264,6 +326,8 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
                 jobsCompleted: profile.jobsCompleted ?? 0,
                 certified: true,
                 distanceKm: 2.4,
+                // As ticked above, before it is saved: what the card will say.
+                workAreas: catalogue.data ? areas : (profile.workAreas ?? []),
               }}
               actions={<Button icon="phone" label={t("nearby.call")} disabled onPress={() => {}} />}
             />

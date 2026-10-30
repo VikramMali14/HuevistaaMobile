@@ -47,6 +47,16 @@ export interface PainterProfile {
   longitude?: number | null;
   locationUpdatedAt?: string | null;
   /**
+   * The place nearest that position — "Kaiser Ganj Ajmer, Ajmer, Rajasthan" — so the painter
+   * can see it is where they meant. Null without one; absent from older servers.
+   */
+  locationName?: string | null;
+  /**
+   * Where they can go for a job, as WorkAreas codes (see nearbyApi.workAreas): divisions,
+   * whole states, or "IN" for anywhere in India. Empty until they say.
+   */
+  workAreas?: string[];
+  /**
    * HueVistaa Certified right now. Only certified painters are shown to customers, so a
    * listing switched on without it is saved but not yet seen. Bought for a year on the
    * painter website (₹499); the server decides.
@@ -78,6 +88,8 @@ export interface ListingUpdate {
   latitude?: number;
   longitude?: number;
   clearLocation?: boolean;
+  /** WorkAreas codes. Left out, they are left alone; [] takes them all off. */
+  workAreas?: string[];
 }
 
 export const painterApi = {

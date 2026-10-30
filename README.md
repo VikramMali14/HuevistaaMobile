@@ -87,8 +87,10 @@ photos.
 - Claim a board: an unanswered claim is checked against the points, never repeated.
 - Rewards priced against the balance, redeemed with a key that makes a retry safe, and
   vouchers with their codes.
-- Be found nearby (a rough location; customers see the painter's photo, name and address),
-  the trade profile, and C33 for a customer becoming a painter.
+- Be found nearby (a rough location — from the phone, or a town or PIN typed — and where the
+  painter can work: Rajasthan's divisions, Gujarat's regions, other states or anywhere in India;
+  customers see the painter's photo, name, address and those places), the trade profile, and
+  C33 for a customer becoming a painter.
 
 Left for a real phone: the camera on a printed board, the reader on Android and iOS, and
 "Open with" from WhatsApp.

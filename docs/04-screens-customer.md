@@ -938,11 +938,14 @@ Shown only to shop customers.
 
 **Route** `(tabs)/nearby.tsx` (the **Nearby** tab) · **Phase** 7 · **Web reference** `components/app/nearby-finder.tsx`, `lib/geolocation.ts`, `lib/nearby.ts`
 
-**Layout:** segmented **Painters / Shops** · distance chips (2 · 5 · 10 · 25 · 50 km) ·
-list, nearest first.
+**Layout:** segmented **Painters / Shops** · "Within 50 km, nearest first" · list, nearest
+first. No distance to pick, as on the website: the search always reaches 50 km.
 - **Painter row:** the painter's card — photo (`photoUrl`, public while they're listed),
-  name and address — with the HueVistaa Certified badge, rating (★ 4.6 · 23), jobs done and
-  "3.2 km away" (a distance — never a position). Nothing else a painter fills in is shown.
+  name and address — where they can go for a job ("Works in Ajmer, Jaipur (Rajasthan) ·
+  Gujarat", or "Works anywhere in India"; the codes in `workAreas`, named by
+  `GET /api/nearby/work-areas`), with the HueVistaa Certified badge, rating (★ 4.6 · 23),
+  jobs done and "3.2 km away" (a distance — never a position). Nothing else a painter fills
+  in is shown.
   **Call** reveals the number (`GET /api/nearby/painters/{id}/phone`) and opens the dialler.
 - **Shop row:** name, address, hours, distance · **Call** · **Directions** (opens Maps).
 
@@ -950,12 +953,12 @@ list, nearest first.
 "Turn on location to search near you" + **Open settings** — and the place search below
 still works without it.
 
-**Or type a place:** a **City, area or PIN code** field with **Search**, above the
-distance chips, for someone who won't share the location or is looking for a house they
+**Or type a place:** a **City, area or PIN code** field with **Search**, for someone who won't share the location or is looking for a house they
 aren't in. `GET /api/nearby/places?q=` turns it into the point the searches take.
 
-**API:** `GET /api/nearby/painters?lat&lon&radiusKm` · `GET /api/nearby/shops?lat&lon&radiusKm` ·
-`GET /api/nearby/places?q`.
+**API:** `GET /api/nearby/painters?lat&lon&radiusKm=50` · `GET /api/nearby/shops?lat&lon&radiusKm=50` ·
+`GET /api/nearby/places?q` · `GET /api/nearby/work-areas` (the names of the places painters
+work in, read once a day at most).
 
 **As built:** location is asked for only on **Use my location** (a card that says why,
 and that it's used for this search only); when it was allowed before, the search starts
@@ -971,7 +974,7 @@ settings**; location off or no fix → said, and **Use my location** tries again
   once; it never waits for the signal and dials by itself later.
 - **Shops:** address, hours, **Directions** (Apple Maps on iOS, Google Maps elsewhere),
   and **Call** when the number can be dialled.
-- Distance chips change the search; an empty list offers the next distance up. The 50
+- Always 50 km, nearest first; an empty list says nobody is listed within 50 km yet. The 50
   nearest are shown, and the list says so. Searches share 60 an hour per account, so a
   refusal is shown in the server's words and never retried by itself; nothing reloads on
   focus or reconnect.
@@ -981,7 +984,7 @@ settings**; location off or no fix → said, and **Use my location** tries again
   likeliest is searched at once and "Near Kothrud, Pune, Maharashtra · 411038" says
   where; others of the same name are offered as chips under **Did you mean**. Nothing
   found → said under the field, and nothing is searched. The phone's own location is
-  then one press away (**Use my location** beside the chips), and a fix the screen went
+  then one press away (**Use my location** beside "Within 50 km"), and a fix the screen went
   for by itself on arrival never replaces a place typed meanwhile. India Post and
   GeoNames are credited under the list, as their licences ask.
 

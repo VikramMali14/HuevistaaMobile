@@ -8,22 +8,14 @@ import { t } from "@/i18n";
  * the cards in components/app/nearby-finder.tsx, so a row reads the same in both places.
  */
 
-/** The distances offered. The server takes any whole or part km from 1 to 50. */
-export const RADII_KM = [2, 5, 10, 25, 50] as const;
-export type RadiusKm = (typeof RADII_KM)[number];
-/** As the server and the website default. */
-export const DEFAULT_RADIUS_KM: RadiusKm = 10;
+/**
+ * How far the search reaches: the server's widest, every time, as on the website. Customers
+ * are no longer asked to pick a distance — the lists come back nearest first, so the closest is
+ * at the top whether it is round the corner or two towns over.
+ */
+export const SEARCH_RADIUS_KM = 50;
 /** The server's cap on one answer; a full list may leave some out. */
 export const MAX_RESULTS = 50;
-
-export function isRadius(value: unknown): value is RadiusKm {
-  return typeof value === "number" && (RADII_KM as readonly number[]).includes(value);
-}
-
-/** The next distance out, for "Search further" — null at the widest. */
-export function widerRadius(km: RadiusKm): RadiusKm | null {
-  return RADII_KM.find((r) => r > km) ?? null;
-}
 
 export interface SearchPoint {
   lat: number;

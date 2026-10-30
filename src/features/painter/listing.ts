@@ -13,8 +13,11 @@ export function coarsen(degrees: number): number {
 /** A fix worse than this is said to be rough (the website's ROUGH_FIX_METRES). */
 export const ROUGH_FIX_METRES = 2000;
 
-/** Where the base stands while being edited: as saved, a new fix, or to be removed. */
-export type PendingLocation = { latitude: number; longitude: number; accuracy: number } | "clear" | null;
+/**
+ * Where the base stands while being edited: as saved, a new fix — or a place typed, with the
+ * `label` it was chosen by — or to be removed.
+ */
+export type PendingLocation = { latitude: number; longitude: number; accuracy: number; label?: string } | "clear" | null;
 
 export function hasSavedLocation(profile: Pick<PainterProfile, "latitude" | "longitude">): boolean {
   return profile.latitude != null && profile.longitude != null;
@@ -37,15 +40,16 @@ export function listingNeeds(profile: Pick<PainterProfile, "latitude" | "longitu
 
 /**
  * The listing as sent. A new fix is coarsened HERE, before it leaves the phone — the precise
- * position never does.
+ * position never does. `workAreas` only when they changed: left out, the server leaves them be.
  */
-export function listingBody(listed: boolean, pending: PendingLocation): ListingUpdate {
+export function listingBody(listed: boolean, pending: PendingLocation, workAreas?: string[]): ListingUpdate {
   const body: ListingUpdate = { listedForCustomers: listed };
   if (pending === "clear") body.clearLocation = true;
   else if (pending) {
     body.latitude = coarsen(pending.latitude);
     body.longitude = coarsen(pending.longitude);
   }
+  if (workAreas) body.workAreas = workAreas;
   return body;
 }
 

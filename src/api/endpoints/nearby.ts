@@ -38,6 +38,12 @@ export interface NearbyPainter {
   certified?: boolean;
   /** To the painter's position as stored — rounded to about a kilometre. */
   distanceKm: number;
+  /**
+   * Where the painter can go for a job, as WorkAreas codes — divisions ("RJ-AJMER"), whole
+   * states ("GJ"), or "IN" for anywhere in India — named by `nearbyApi.workAreas`. Empty when
+   * the painter hasn't said; absent from older servers.
+   */
+  workAreas?: string[];
 }
 
 /** GET /api/nearby/shops (NearbyShopResponse). Nearest first, at most 50. */
@@ -78,6 +84,38 @@ export interface NearbyPlace {
   longitude: number;
 }
 
+/** A division of a state, or for Gujarat a region. */
+export interface WorkAreaDivision {
+  /** "RJ-AJMER" */
+  code: string;
+  name: string;
+  nameHi: string;
+  /** The big towns in it, for a region not named after one; null otherwise. */
+  hint: string | null;
+  hintHi: string | null;
+}
+
+/** A state or union territory: chosen whole, or a division at a time when it has them. */
+export interface WorkAreaState {
+  /** "RJ" */
+  code: string;
+  name: string;
+  nameHi: string;
+  /** Empty for a state chosen only whole. */
+  divisions: WorkAreaDivision[];
+}
+
+/**
+ * GET /api/nearby/work-areas (WorkAreasResponse) — the places a painter can say they work in:
+ * Rajasthan by division, Gujarat by region, then every other state A to Z, and the code for
+ * anywhere in India. Each named in English and Hindi. Public, and the same for everybody.
+ */
+export interface WorkAreas {
+  /** "IN" */
+  anywhere: string;
+  states: WorkAreaState[];
+}
+
 export interface NearbySearch {
   lat: number;
   lon: number;
@@ -85,7 +123,7 @@ export interface NearbySearch {
 }
 
 export const nearbyApi = {
-  /** 400 for a point that can't be right (or 0,0) and a radius outside 1–50 km. */
+  /** 400 for a point that can't be right (or 0,0) and a radius outside 1–50 km (left out, 50). */
   painters: ({ lat, lon, radiusKm }: NearbySearch) =>
     api.request<NearbyPainter[]>("api/nearby/painters", { query: { lat, lon, radiusKm } }),
 
@@ -105,4 +143,7 @@ export const nearbyApi = {
    * an empty search or digits that aren't a PIN. Not counted against the searches' allowance.
    */
   places: (q: string) => api.request<NearbyPlace[]>("api/nearby/places", { query: { q } }),
+
+  /** The places painters choose from, named in both languages. Not counted against any allowance. */
+  workAreas: () => api.request<WorkAreas>("api/nearby/work-areas"),
 };

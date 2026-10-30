@@ -1,22 +1,13 @@
 import Feather from "@expo/vector-icons/Feather";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Keyboard, Linking, ScrollView, StyleSheet, View } from "react-native";
+import { Keyboard, Linking, StyleSheet, View } from "react-native";
 
 import { nearbyApi, type NearbyPlace } from "@/api/endpoints/nearby";
 import { messageFor } from "@/api/errors";
 import { Banner, Button, Card, Chip, ErrorState, Screen, Segmented, Skeleton, Text, TextField } from "@/components/ui";
 import { alreadyAllowed, locate, type Located } from "@/features/nearby/locate";
-import {
-  DEFAULT_RADIUS_KM,
-  MAX_RESULTS,
-  RADII_KM,
-  placeLabel,
-  searchPoint,
-  widerRadius,
-  type RadiusKm,
-  type SearchPoint,
-} from "@/features/nearby/nearby";
+import { MAX_RESULTS, SEARCH_RADIUS_KM, placeLabel, searchPoint, type SearchPoint } from "@/features/nearby/nearby";
 import { PainterCard, ShopCard } from "@/features/nearby/NearbyCards";
 import { useNearbyPainters, useNearbyShops } from "@/features/nearby/use-nearby";
 import { t } from "@/i18n";
@@ -29,12 +20,14 @@ type Tab = "painters" | "shops";
  * C32 · Painters and shops near you. Spec: docs/04-screens-customer.md — C32. Web
  * reference: HueVistaFrontEnd components/app/nearby-finder.tsx, lib/nearby.ts.
  *
- * Painters / Shops, a distance, and who is listed within it, nearest first. Where the
+ * Painters / Shops, and who is listed within 50 km, nearest first — no distance to pick, as on
+ * the website: the closest is at the top however far it is. Where the
  * phone is gets asked only on a press — or straight away when the customer already said
  * yes — and is used for the search alone: it lives in this screen and the in-memory cache,
  * never written down, and leaves the phone rounded to about 100 m. Both lists are read for
- * each point and distance (the tabs show both counts), and kept five minutes: they share
- * a small hourly allowance. A painter's number is asked for only when Call is pressed.
+ * each point (the tabs show both counts), and kept five minutes: they share a small hourly
+ * allowance. A painter's number is asked for only when Call is pressed, and each card says
+ * where the painter can go for a job.
  *
  * Or a city, area or PIN code typed instead (GET /api/nearby/places) — for someone who
  * won't share where the phone is, or is finding a painter for a house they aren't in. The
@@ -53,7 +46,6 @@ export default function Nearby() {
     setSeenTabParam(params.tab);
     if (params.tab === "shops" || params.tab === "painters") setTab(params.tab);
   }
-  const [radius, setRadius] = useState<RadiusKm>(DEFAULT_RADIUS_KM);
   const [point, setPoint] = useState<SearchPoint | null>(null);
   const [locating, setLocating] = useState(false);
   const [problem, setProblem] = useState<Exclude<Located, { kind: "fix" }> | null>(null);
@@ -68,8 +60,8 @@ export default function Nearby() {
   // Set once a typed place is searched, so the fix the screen goes for by itself on arrival
   // — which can land seconds later — neither replaces it nor reports its failure.
   const placeChosen = useRef(false);
-  const painters = useNearbyPainters(point, radius);
-  const shops = useNearbyShops(point, radius);
+  const painters = useNearbyPainters(point, SEARCH_RADIUS_KM);
+  const shops = useNearbyShops(point, SEARCH_RADIUS_KM);
   const pull = usePullToRefresh(async () => {
     if (point) await Promise.all([painters.refetch(), shops.refetch()]);
   });
@@ -137,7 +129,6 @@ export default function Nearby() {
   const count = (q: typeof painters | typeof shops) => (point && q.data ? q.data.length : null);
   const paintersCount = count(painters);
   const shopsCount = count(shops);
-  const wider = widerRadius(radius);
   const otherPlaces = place ? places.filter((p) => p !== place) : [];
 
   let body: React.ReactNode;
@@ -167,7 +158,7 @@ export default function Nearby() {
     body = (
       <View style={{ gap: space.sm }} testID="nearby-loading" accessibilityLiveRegion="polite">
         <Text variant="small" tone="mute">
-          {t("nearby.looking", { km: radius })}
+          {t("nearby.looking", { km: SEARCH_RADIUS_KM })}
         </Text>
         <Skeleton height={150} radius={16} />
         <Skeleton height={150} radius={16} />
@@ -178,12 +169,12 @@ export default function Nearby() {
   } else if (!list.data?.length) {
     body = (
       <View style={{ gap: space.sm, paddingVertical: space.md }} testID="nearby-empty">
-        <Text variant="title3">{tab === "painters" ? t("nearby.noPainters", { km: radius }) : t("nearby.noShops", { km: radius })}</Text>
+        <Text variant="title3">
+          {tab === "painters" ? t("nearby.noPainters", { km: SEARCH_RADIUS_KM }) : t("nearby.noShops", { km: SEARCH_RADIUS_KM })}
+        </Text>
         <Text variant="body" tone="soft">
           {tab === "painters" ? t("nearby.noPaintersBody") : t("nearby.noShopsBody")}
-          {wider ? ` ${t("nearby.tryWider")}` : ""}
         </Text>
-        {wider ? <Button variant="secondary" label={t("nearby.searchFurther")} onPress={() => setRadius(wider)} testID="nearby-further" /> : null}
       </View>
     );
   } else {
@@ -266,8 +257,8 @@ export default function Nearby() {
 
       <View style={{ gap: space.xs }}>
         <View style={[styles.row, { gap: space.sm }]}>
-          <Text variant="fieldLabel" style={styles.fill}>
-            {t("nearby.within")}
+          <Text variant="fieldLabel" style={styles.fill} testID="nearby-within">
+            {t("nearby.withinFixed", { km: SEARCH_RADIUS_KM })}
           </Text>
           {point ? (
             <Button
@@ -281,11 +272,6 @@ export default function Nearby() {
             />
           ) : null}
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.xs }} accessibilityRole="radiogroup">
-          {RADII_KM.map((km) => (
-            <Chip key={km} role="radio" label={t("nearby.radius", { km })} selected={km === radius} onPress={() => setRadius(km)} testID={`radius-${km}`} />
-          ))}
-        </ScrollView>
         {point && problem ? <Banner tone="warning" message={problemMessage(problem)} testID="nearby-problem" /> : null}
       </View>
 
