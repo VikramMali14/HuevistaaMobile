@@ -218,24 +218,37 @@ const WORK_AREAS: WorkAreas = {
       code: "RJ",
       name: "Rajasthan",
       nameHi: "राजस्थान",
+      featured: true,
       divisions: ["Ajmer", "Bharatpur", "Bikaner", "Jaipur", "Jodhpur", "Kota", "Udaipur"].map((name) => ({
         code: `RJ-${name.toUpperCase()}`,
         name,
         nameHi: name,
-        hint: null,
-        hintHi: null,
+        hint: name === "Ajmer" ? "Bhilwara, Nagaur, Tonk, Beawar" : null,
+        hintHi: name === "Ajmer" ? "भीलवाड़ा, नागौर, टोंक, ब्यावर" : null,
       })),
     },
     {
       code: "GJ",
       name: "Gujarat",
       nameHi: "गुजरात",
+      featured: true,
       divisions: [
         { code: "GJ-KUTCH", name: "Kutch", nameHi: "कच्छ", hint: "Bhuj, Gandhidham", hintHi: "भुज, गांधीधाम" },
         { code: "GJ-SAURASHTRA", name: "Saurashtra", nameHi: "सौराष्ट्र", hint: "Rajkot, Jamnagar, Bhavnagar", hintHi: "राजकोट" },
       ],
     },
-    { code: "MP", name: "Madhya Pradesh", nameHi: "मध्य प्रदेश", divisions: [] },
+    {
+      code: "MP",
+      name: "Madhya Pradesh",
+      nameHi: "मध्य प्रदेश",
+      featured: false,
+      divisions: [
+        { code: "MP-BHOPAL", name: "Bhopal", nameHi: "भोपाल", hint: "Vidisha, Sehore, Raisen", hintHi: "विदिशा, सीहोर, रायसेन" },
+        { code: "MP-INDORE", name: "Indore", nameHi: "इंदौर", hint: "Khandwa, Khargone, Dhar", hintHi: "खंडवा, खरगोन, धार" },
+      ],
+    },
+    // One city: chosen whole.
+    { code: "CH", name: "Chandigarh", nameHi: "चंडीगढ़", featured: false, divisions: [] },
   ],
 };
 const AJMER: NearbyPlace = { name: "Ajmer", region: "Rajasthan", pincode: null, latitude: 26.4521, longitude: 74.6387 };
@@ -860,9 +873,10 @@ describe("P5 · Nearby", () => {
     fireEvent.press(screen.getByTestId("area-RJ-AJMER"));
     fireEvent.press(screen.getByTestId("area-RJ-JAIPUR"));
     fireEvent.press(screen.getByTestId("area-GJ-SAURASHTRA"));
-    // The other states fold away until asked for.
-    expect(screen.queryByTestId("area-MP")).toBeNull();
+    // The other states fold away until asked for; a state opens its divisions, and "All of …" ticks it whole.
+    expect(screen.queryByTestId("area-state-MP")).toBeNull();
     fireEvent.press(screen.getByTestId("area-more"));
+    fireEvent.press(screen.getByTestId("area-state-MP"));
     fireEvent.press(screen.getByTestId("area-MP"));
     expect(within(screen.getByTestId("nearby-preview")).getByText("Works in Ajmer, Jaipur (Rajasthan) · Saurashtra (Gujarat) · Madhya Pradesh")).toBeTruthy();
 
@@ -870,6 +884,33 @@ describe("P5 · Nearby", () => {
     await waitFor(() =>
       expect(mockPainter.updateListing).toHaveBeenCalledWith({ listedForCustomers: true, workAreas: ["RJ-AJMER", "RJ-JAIPUR", "GJ-SAURASHTRA", "MP"] }),
     );
+  });
+
+  /** Every state is split like Gujarat: its divisions, each with the big towns in it. */
+  it("opens another state's divisions, one state at a time, and keeps the one chosen in sight", async () => {
+    mockPainter.profile.mockResolvedValue(painter({ workAreas: [] }));
+    mockPainter.updateListing.mockImplementation(async (body) => painter({ ...body }));
+    renderRouter("./app", { initialUrl: "/painter/nearby" });
+    // The towns in each division, so a painter from Bhilwara knows to tick Ajmer.
+    await waitFor(() => expect(screen.getByTestId("area-towns-RJ")).toHaveTextContent(/Ajmer: Bhilwara, Nagaur, Tonk, Beawar/));
+
+    fireEvent.press(screen.getByTestId("area-more"));
+    fireEvent.press(screen.getByTestId("area-state-MP"));
+    expect(screen.getByTestId("area-towns-MP")).toHaveTextContent(/Bhopal: Vidisha, Sehore, Raisen/);
+    fireEvent.press(screen.getByTestId("area-MP-BHOPAL"));
+    expect(screen.getByText("Madhya Pradesh · 1")).toBeTruthy();
+    expect(within(screen.getByTestId("nearby-preview")).getByText("Works in Bhopal (Madhya Pradesh)")).toBeTruthy();
+
+    // Another state takes its place; folded away, the chosen one still shows.
+    fireEvent.press(screen.getByTestId("area-state-CH"));
+    expect(screen.queryByTestId("area-MP-BHOPAL")).toBeNull();
+    expect(screen.getByTestId("area-CH")).toBeTruthy();
+    fireEvent.press(screen.getByTestId("area-more"));
+    expect(screen.queryByTestId("area-state-CH")).toBeNull();
+    expect(screen.getByTestId("area-state-MP")).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId("nearby-save"));
+    await waitFor(() => expect(mockPainter.updateListing).toHaveBeenCalledWith({ listedForCustomers: true, workAreas: ["MP-BHOPAL"] }));
   });
 
   it("ticks all of Rajasthan at once, and anywhere in India says it all", async () => {

@@ -88,7 +88,8 @@ photos.
 - Rewards priced against the balance, redeemed with a key that makes a retry safe, and
   vouchers with their codes.
 - Be found nearby (a rough location — from the phone, or a town or PIN typed — and where the
-  painter can work: Rajasthan's divisions, Gujarat's regions, other states or anywhere in India;
+  painter can work: the divisions or regions of any state, Rajasthan and Gujarat first, or
+  anywhere in India;
   customers see the painter's photo, name, address and those places), the trade profile, and
   C33 for a customer becoming a painter.
 

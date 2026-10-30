@@ -97,10 +97,11 @@ describe("where a painter can work", () => {
         code: "RJ",
         name: "Rajasthan",
         nameHi: "राजस्थान",
+        featured: true,
         divisions: [division("RJ-AJMER", "Ajmer", "अजमेर"), division("RJ-JAIPUR", "Jaipur", "जयपुर"), division("RJ-KOTA", "Kota", "कोटा")],
       },
-      { code: "GJ", name: "Gujarat", nameHi: "गुजरात", divisions: [division("GJ-KUTCH", "Kutch", "कच्छ")] },
-      { code: "MP", name: "Madhya Pradesh", nameHi: "मध्य प्रदेश", divisions: [] },
+      { code: "GJ", name: "Gujarat", nameHi: "गुजरात", featured: true, divisions: [division("GJ-KUTCH", "Kutch", "कच्छ")] },
+      { code: "MP", name: "Madhya Pradesh", nameHi: "मध्य प्रदेश", featured: false, divisions: [] },
     ],
   };
   const [rajasthan, gujarat] = catalogue.states as [WorkAreas["states"][0], WorkAreas["states"][0]];

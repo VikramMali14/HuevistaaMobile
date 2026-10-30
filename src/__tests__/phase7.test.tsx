@@ -138,12 +138,13 @@ const WORK_AREAS: WorkAreas = {
       code: "RJ",
       name: "Rajasthan",
       nameHi: "राजस्थान",
+      featured: true,
       divisions: [
         { code: "RJ-AJMER", name: "Ajmer", nameHi: "अजमेर", hint: null, hintHi: null },
         { code: "RJ-JAIPUR", name: "Jaipur", nameHi: "जयपुर", hint: null, hintHi: null },
       ],
     },
-    { code: "GJ", name: "Gujarat", nameHi: "गुजरात", divisions: [] },
+    { code: "GJ", name: "Gujarat", nameHi: "गुजरात", featured: true, divisions: [] },
   ],
 };
 const shopRow = (extra: Partial<NearbyShop> = {}): NearbyShop => ({

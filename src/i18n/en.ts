@@ -1773,6 +1773,8 @@ export const en = {
       areasLede: "Tap every place you can go to for a job. Customers see this on your card.",
       areasAllOf: "All of {state}",
       areasOtherStates: "Other states",
+      areasOtherHint: "Tap a state to choose where in it you can work.",
+      areasWhole: "All",
       areasShowStates: "Show all states",
       areasHideStates: "Hide other states",
       areasAnywhere: "Anywhere in India",

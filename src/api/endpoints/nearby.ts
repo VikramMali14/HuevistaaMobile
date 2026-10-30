@@ -84,31 +84,34 @@ export interface NearbyPlace {
   longitude: number;
 }
 
-/** A division of a state, or for Gujarat a region. */
+/** A division of a state — or, for a state without divisions, a region or a district. */
 export interface WorkAreaDivision {
   /** "RJ-AJMER" */
   code: string;
   name: string;
   nameHi: string;
-  /** The big towns in it, for a region not named after one; null otherwise. */
+  /** The big towns in it besides any it is named after ("Bhilwara, Nagaur, Tonk"); null for one town. */
   hint: string | null;
   hintHi: string | null;
 }
 
-/** A state or union territory: chosen whole, or a division at a time when it has them. */
+/** A state or union territory: chosen whole, or a division at a time. */
 export interface WorkAreaState {
   /** "RJ" */
   code: string;
   name: string;
   nameHi: string;
-  /** Empty for a state chosen only whole. */
+  /** Drawn open at the top of P5's picker (Rajasthan, Gujarat); the rest fold under "Other states". */
+  featured: boolean;
+  /** Empty for a place chosen only whole (Chandigarh). */
   divisions: WorkAreaDivision[];
 }
 
 /**
  * GET /api/nearby/work-areas (WorkAreasResponse) — the places a painter can say they work in:
- * Rajasthan by division, Gujarat by region, then every other state A to Z, and the code for
- * anywhere in India. Each named in English and Hindi. Public, and the same for everybody.
+ * Rajasthan by division, Gujarat by region, then every other state A to Z, each split the same
+ * way, and the code for anywhere in India. Each named in English and Hindi. Public, and the same
+ * for everybody.
  */
 export interface WorkAreas {
   /** "IN" */

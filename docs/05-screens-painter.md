@@ -92,8 +92,11 @@ confirmed mobile → a banner to S4.
   Kaiser Ganj Ajmer, Ajmer, Rajasthan" — `locationName`).
 - **Where can you work?** — Rajasthan's divisions (Ajmer, Bharatpur, Bikaner, Jaipur, Jodhpur,
   Kota, Udaipur) with **All of Rajasthan**, then Gujarat's regions (Kutch, North, Central and
-  South Gujarat, Saurashtra), then **Other states** (folded behind **Show all states**), and
-  last **Anywhere in India**. Drawn from `GET /api/nearby/work-areas`, in English or Hindi.
+  South Gujarat, Saurashtra), then **Other states** (folded behind **Show all states**): a chip
+  each that opens its divisions — or its usual regions — below, one state at a time, with
+  **All of …**; and last **Anywhere in India**. The big towns in each division are listed under
+  its chips. Drawn from `GET /api/nearby/work-areas` (which says which states are open at the
+  top: `featured`), in English or Hindi.
 - **Preview** — exactly the card a customer sees in C32: photo, name and address (set on
   the painter website, where the painter gets certified) and where they can work, as ticked,
   nothing else they filled in.

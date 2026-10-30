@@ -1715,6 +1715,8 @@ export const hi: Translation = {
       areasLede: "जहाँ-जहाँ आप काम के लिए जा सकते हैं, उन सब पर टैप करें। ग्राहक इसे आपके कार्ड पर देखते हैं।",
       areasAllOf: "पूरा {state}",
       areasOtherStates: "दूसरे राज्य",
+      areasOtherHint: "किसी राज्य पर टैप करें और चुनें कि उसमें आप कहाँ काम कर सकते हैं।",
+      areasWhole: "पूरा",
       areasShowStates: "सभी राज्य दिखाएँ",
       areasHideStates: "दूसरे राज्य छिपाएँ",
       areasAnywhere: "पूरे भारत में कहीं भी",
