@@ -28,6 +28,7 @@ import {
 } from "@/features/catalogue/filter";
 import { namesShown, shownName, useCatalogue, useShadeScheme } from "@/features/catalogue/use-catalogue";
 import { shadeHref } from "@/features/catalogue/links";
+import { CatalogueSwitch } from "@/features/shade-book/CatalogueSwitch";
 import { useLibrary } from "@/features/library/use-library";
 import { t, type MessageKey } from "@/i18n";
 import { displayCodeOf } from "@/lib/shade-codes";
@@ -252,6 +253,7 @@ export default function CatalogueScreen() {
   return (
     <Screen edges={["top"]} padded={false}>
       <View style={{ paddingHorizontal: space.gutter, paddingTop: space.md, paddingBottom: space.sm, gap: space.sm }}>
+        <CatalogueSwitch value="shades" />
         <Text variant="title1" accessibilityRole="header">
           {t("catalogue.title")}
         </Text>
