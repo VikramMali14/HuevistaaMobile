@@ -1857,7 +1857,6 @@ export const en = {
     switchShades: "Shades",
     switchLabel: "Shades or the Shade Book",
     title: "Shade Book",
-    lead: "Pick one of four photos — two rooms, two houses — and try combinations of our shades on it, with the Vista code for every part.",
     countFree: "{shown} free of {total}",
     shutBody: "Open the whole book for {hours} hours to try every combination on the photos, and save each picture with its Vista codes.",
     openUntil: "Your Shade Book is open until {time}.",

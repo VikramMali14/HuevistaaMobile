@@ -1017,23 +1017,27 @@ shades with as many colours as the chosen photo has parts. The team adds and rem
 combinations on the website (Admin → Shade Book); the pictures are painted by the server, so
 the app, the website and a saved picture show the same colours.
 
-**Layout:** the switch and title stay put; under them scroll one line · where the reader
-stands (**open until 31 Oct, 4:05 pm** with a running pass, or "6 free of 231" and **Open all
-231 · ₹49 for 24 hours** without one) · the four photos small in a row ("4 · House ·
-3 colours" — a whole photo name won't fit a quarter of a phone; it is read out, and on the
-card), the chosen one outlined · the chosen photo large with the chosen combination painted on it · a card with the
-combination's name, the photo, each part with its Vista code, and with the pass **Save to
-photos** and **Share** (without it: "Open the book to save this picture with its Vista
-codes") · **Combinations** for that number of colours, searchable by Vista code or colour,
-those made for the photo's kind first, "Free" on the free ones · without the pass, a card
-counting the rest of that number of colours with the Buy button · the shade disclaimer.
+**Layout:** held at the top, so a combination is always chosen with the photo in sight —
+the switch · the four photos small in a row, each with its number on it and "3 colours" under
+it (a whole photo name won't fit a quarter of a phone; it is read out, and on the card), the
+chosen one outlined · the chosen photo with the chosen combination painted on it, as tall as
+it is at the screen's width up to 30% of the screen's height · one line with the
+combination's name and Vista codes. Scrolling under them: where the reader stands (**open
+until 31 Oct, 4:05 pm** with a running pass, or "6 free of 231" and **Open all 231 · ₹49 for
+24 hours** without one) · a card with the combination's name, the photo, each part with its
+Vista code, and with the pass **Save to photos** and **Share** (without it: "Open the book to
+save this picture with its Vista codes") · **Combinations** for that number of colours,
+searchable by Vista code or colour, those made for the photo's kind first, each row's colours
+and codes in the order of the photo's parts, "Free" on the free ones · without the pass, a
+card counting the rest of that number of colours with the Buy button · the shade disclaimer.
 
 **Choosing:** a photo opens on its first combination; a combination stays chosen on another
-photo with as many parts. Pressing a combination paints it and scrolls back up to the four photos, the painted one
-under them.
+photo with as many parts. Pressing a combination paints it on the photo above, and the list
+stays where it is; a photo with another number of colours starts its list from the top.
 On another photo, parts both share keep their colour (the main walls); a ceiling the
 combination wasn't made for takes the lightest of the rest; the others follow in order — the
-server's rule (`ShadeBookService.partsOn`), which the codes on the card follow too.
+server's rule (`ShadeBookService.partsOn`), which the codes on the card and in the list
+follow too.
 
 **Free samples:** the first three combinations of each number of colours, so every photo has
 some to try.

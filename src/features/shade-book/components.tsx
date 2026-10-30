@@ -39,7 +39,11 @@ export function Swatches({ parts }: { parts: ShadeBookPart[] }) {
   );
 }
 
-/** The four photos, small, in a row — the one chosen outlined — each with its number, a room or a house, and how many colours. */
+/**
+ * The four photos, small, in a row — the one chosen outlined — each with its number on it and
+ * how many colours it takes under it. Its name is read out; a quarter of a phone has no room
+ * to print it.
+ */
 export function PhotoStrip({
   photos,
   chosen,
@@ -72,11 +76,15 @@ export function PhotoStrip({
               },
             ]}
           >
-            <RemoteImage url={shadeBookPhotoPath(photo)} style={[styles.photoImage, { borderRadius: 4 }]} />
-            <Text variant="caption" numberOfLines={1}>
-              {i + 1} · {kindOf(photo)}
-            </Text>
-            <Text variant="caption" tone="mute" numberOfLines={1}>
+            <View>
+              <RemoteImage url={shadeBookPhotoPath(photo)} style={[styles.photoImage, { borderRadius: 4 }]} />
+              <View style={styles.number}>
+                <Text variant="caption" style={[styles.numberText, { color: colors.ivory }]}>
+                  {i + 1}
+                </Text>
+              </View>
+            </View>
+            <Text variant="caption" tone={on ? "default" : "mute"} numberOfLines={1}>
               {t("shadeBook.colours", { n: photo.surfaces.length })}
             </Text>
           </Pressable>
@@ -86,15 +94,31 @@ export function PhotoStrip({
   );
 }
 
-/** One combination in the list: its colours side by side, its name and its Vista codes. */
-export function ComboRow({ page, chosen, free, onPress }: { page: ShadeBookPage; chosen: boolean; free: boolean; onPress: () => void }) {
+/**
+ * One combination in the list: its colours side by side, its name and its Vista codes — in the
+ * order of the parts of the photo it would be painted on (`parts`), so the row reads as the
+ * picture does.
+ */
+export function ComboRow({
+  page,
+  parts = page.shades,
+  chosen,
+  free,
+  onPress,
+}: {
+  page: ShadeBookPage;
+  parts?: ShadeBookPart[];
+  chosen: boolean;
+  free: boolean;
+  onPress: () => void;
+}) {
   const { colors, radius, space } = useTheme();
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected: chosen }}
-      accessibilityLabel={`${page.title}, ${page.shades.map((part) => part.shade?.hvCode ?? "").join(", ")}`}
+      accessibilityLabel={`${page.title}, ${parts.map((part) => part.shade?.hvCode ?? "").join(", ")}`}
       style={({ pressed }) => [
         styles.row,
         {
@@ -107,7 +131,7 @@ export function ComboRow({ page, chosen, free, onPress }: { page: ShadeBookPage;
       ]}
     >
       <View style={[styles.chips, { borderColor: colors.ruleStrong }]}>
-        {page.shades.map((part) => (
+        {parts.map((part) => (
           <View key={part.surfaceId} style={[styles.chip, { backgroundColor: part.shade?.hexCode }]} />
         ))}
       </View>
@@ -116,7 +140,7 @@ export function ComboRow({ page, chosen, free, onPress }: { page: ShadeBookPage;
           {page.title}
         </Text>
         <Text variant="caption" tone="mute" numberOfLines={1}>
-          {page.shades.map((part) => part.shade?.hvCode ?? "—").join(" · ")}
+          {parts.map((part) => part.shade?.hvCode ?? "—").join(" · ")}
         </Text>
       </View>
       {free ? <Pill label={t("shadeBook.free")} tone="accent" /> : null}
@@ -236,8 +260,11 @@ const styles = StyleSheet.create({
   dot: { width: 22, height: 22, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth },
   part: { flex: 1 },
   strip: { flexDirection: "row" },
-  photo: { flex: 1, padding: 4, gap: 2, overflow: "hidden" },
-  photoImage: { width: "100%", height: 52 },
+  photo: { flex: 1, padding: 3, gap: 2, overflow: "hidden" },
+  photoImage: { width: "100%", height: 40 },
+  // Dark under the number whatever the photo or the theme, as the website's "Painting…" pill.
+  number: { position: "absolute", top: 3, left: 3, minWidth: 18, height: 18, paddingHorizontal: 5, borderRadius: 9, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,.62)" },
+  numberText: { fontWeight: "700", lineHeight: 16 },
   row: { flexDirection: "row", alignItems: "center", borderWidth: 1 },
   chips: { flexDirection: "row", borderWidth: StyleSheet.hairlineWidth, borderRadius: 6, overflow: "hidden" },
   chip: { width: 18, height: 32 },

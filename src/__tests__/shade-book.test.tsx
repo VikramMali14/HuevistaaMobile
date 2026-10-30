@@ -212,6 +212,21 @@ describe("C34 · Shade Book", () => {
     expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(/Feature wall/);
   });
 
+  it("says under the photo, which stays above the list, what is painted on it as another combination is chosen", async () => {
+    signedIn();
+    mockBook.get.mockResolvedValue(opened());
+    renderRouter("./app", { initialUrl: "/shade-book" });
+    await waitFor(() =>
+      expect(screen.getByTestId("shade-book-caption", { includeHiddenElements: true })).toHaveTextContent("Pale beige with deep indigo blue · HV0348 · HV1102 · HV2210"),
+    );
+
+    fireEvent.press(screen.getByLabelText("Cream with charcoal, HV0400, HV0500, HV0600"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("shade-book-caption", { includeHiddenElements: true })).toHaveTextContent("Cream with charcoal · HV0400 · HV0500 · HV0600"),
+    );
+  });
+
   it("saves the chosen combination's picture on the chosen photo while the pass runs", async () => {
     signedIn();
     mockBook.get.mockResolvedValue(opened());
