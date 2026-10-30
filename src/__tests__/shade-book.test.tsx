@@ -1,8 +1,8 @@
 /**
- * The Shade Book (C34, C35) through the REAL route tree: the tab beside Catalogue, the free
- * samples and the pass's price, buying it on the website, a page large, and saving its
- * picture with the Vista codes. Only the network, the secure store, the browser and the
- * phone's photos are faked.
+ * The Shade Book (C34) through the REAL route tree: beside the shades in the Catalogue tab,
+ * photo first — the four photos, the chosen one painted, its combinations — the free ones
+ * and the pass's price, buying it on the website, and saving the picture with its Vista
+ * codes. Only the network, the secure store, the browser and the phone's photos are faked.
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
@@ -64,7 +64,19 @@ jest.mock("@/features/shade-book/pictures", () => ({
   },
 }));
 
+const surface = (id: string, label: string) => ({ id, label });
 const PHOTOS: ShadeBook["photos"] = [
+  { id: "interior-2", kind: "INTERIOR", title: "Living room", width: 960, height: 540, version: "1", surfaces: [surface("walls", "Walls"), surface("ceiling", "Ceiling")] },
+  {
+    id: "interior-3",
+    kind: "INTERIOR",
+    title: "Sitting room",
+    width: 800,
+    height: 534,
+    version: "2",
+    surfaces: [surface("main-walls", "Main walls"), surface("feature-wall", "Feature wall"), surface("ceiling", "Ceiling")],
+  },
+  { id: "exterior-2", kind: "EXTERIOR", title: "Town house", width: 768, height: 1024, version: "3", surfaces: [surface("main-walls", "Main walls"), surface("highlight-walls", "Highlight walls")] },
   {
     id: "exterior-3",
     kind: "EXTERIOR",
@@ -72,23 +84,7 @@ const PHOTOS: ShadeBook["photos"] = [
     width: 563,
     height: 570,
     version: "7",
-    surfaces: [
-      { id: "main-walls", label: "Main walls" },
-      { id: "frame", label: "Frame & borders" },
-      { id: "band", label: "Top band & column" },
-    ],
-  },
-  {
-    id: "exterior-2",
-    kind: "EXTERIOR",
-    title: "Town house",
-    width: 768,
-    height: 1024,
-    version: "3",
-    surfaces: [
-      { id: "main-walls", label: "Main walls" },
-      { id: "highlight-walls", label: "Highlight walls" },
-    ],
+    surfaces: [surface("main-walls", "Main walls"), surface("frame", "Frame & borders"), surface("band", "Top band & column")],
   },
 ];
 
@@ -110,22 +106,25 @@ function page(id: string, photoId: string, title: string, codes: string[], sampl
 }
 
 const SAMPLE = page("s1", "exterior-3", "Pale beige with deep indigo blue", ["HV0348", "HV1102", "HV2210"], true);
-const SECOND = page("p2", "exterior-2", "Off-white with sage green", ["HV0101", "HV0202"]);
+const SECOND = page("p2", "exterior-2", "Off-white with sage green", ["HV0101", "HV0202"], true);
+const THIRD = page("p3", "exterior-3", "Cream with charcoal", ["HV0400", "HV0500", "HV0600"]);
 const ist = (fromNow: number) => new Date(Date.now() + fromNow + 5.5 * 3600_000).toISOString().slice(0, 19);
 
 const shut = (): ShadeBook => ({
   access: { open: false, reason: "NONE", pricePaise: 4900, currency: "INR", hours: 24, purchasable: true },
-  total: 227,
-  freeSamples: 1,
-  photos: PHOTOS,
-  combinations: [SAMPLE],
-});
-const opened = (): ShadeBook => ({
-  access: { open: true, reason: "PASS", expiresAt: ist(20 * 3600_000), pricePaise: 4900, currency: "INR", hours: 24, purchasable: true },
-  total: 2,
+  total: 239,
+  totals: { "2": 12, "3": 227 },
   freeSamples: 1,
   photos: PHOTOS,
   combinations: [SAMPLE, SECOND],
+});
+const opened = (): ShadeBook => ({
+  access: { open: true, reason: "PASS", expiresAt: ist(20 * 3600_000), pricePaise: 4900, currency: "INR", hours: 24, purchasable: true },
+  total: 3,
+  totals: { "2": 1, "3": 2 },
+  freeSamples: 1,
+  photos: PHOTOS,
+  combinations: [SAMPLE, SECOND, THIRD],
 });
 
 function signedIn() {
@@ -160,21 +159,71 @@ describe("C34 · Shade Book", () => {
     fireEvent.press(screen.getByRole("tab", { name: "Shade Book" }));
 
     await waitFor(() => expect(screen).toHavePathname("/shade-book"));
-    await waitFor(() => expect(screen.getByText(SAMPLE.title)).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(new RegExp(SAMPLE.title)));
     expect(screen.getByRole("tab", { name: "Shade Book", selected: true })).toBeTruthy();
     fireEvent.press(screen.getByRole("tab", { name: "Shades" }));
     await waitFor(() => expect(screen).toHavePathname("/catalogue"));
   });
 
-  it("shows the free sample with its Vista codes, counts the rest, and offers the pass at the server's price", async () => {
+  it("opens on the first page's photo, painted, with the four photos above and its combinations below", async () => {
     signedIn();
     mockBook.get.mockResolvedValue(shut());
     renderRouter("./app", { initialUrl: "/shade-book" });
-    await waitFor(() => expect(screen.getByText(SAMPLE.title)).toBeTruthy());
-    expect(screen.getByText("Free sample")).toBeTruthy();
-    for (const code of ["HV0348", "HV1102", "HV2210"]) expect(screen.getByText(code)).toBeTruthy();
-    expect(screen.getByText("226 more combinations")).toBeTruthy();
-    expect(screen.getAllByText("Open all 227 · ₹49 for 24 hours").length).toBeGreaterThan(0);
+    await waitFor(() => expect(screen.getByTestId("shade-book-chosen")).toBeTruthy());
+    for (const id of ["interior-2", "interior-3", "exterior-2", "exterior-3"]) expect(screen.getByTestId(`shade-book-photo-${id}`)).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "4, Modern house, 3 colours", checked: true })).toBeTruthy();
+    expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(/Pale beige with deep indigo blue/);
+    for (const code of ["HV0348", "HV1102", "HV2210"]) expect(screen.getAllByText(code).length).toBeGreaterThan(0);
+    // Only the three-colour combinations, the free one marked; the rest counted.
+    expect(screen.queryByText(SECOND.title)).toBeNull();
+    expect(screen.getByText("Free")).toBeTruthy();
+    expect(screen.getByText("226 more 3-colour combinations")).toBeTruthy();
+    expect(screen.getAllByText("Open all 239 · ₹49 for 24 hours").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Save to photos")).toBeNull();
+  });
+
+  it("lists the two-colour combinations on a two-part photo, with that photo's parts", async () => {
+    signedIn();
+    mockBook.get.mockResolvedValue(shut());
+    renderRouter("./app", { initialUrl: "/shade-book" });
+    await waitFor(() => expect(screen.getByTestId("shade-book-chosen")).toBeTruthy());
+
+    fireEvent.press(screen.getByTestId("shade-book-photo-interior-2"));
+
+    await waitFor(() => expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(/Off-white with sage green/));
+    expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(/Walls/);
+    expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(/Ceiling/);
+    expect(screen.queryByText("Pale beige with deep indigo blue")).toBeNull();
+    expect(screen.getByText("11 more 2-colour combinations")).toBeTruthy();
+  });
+
+  it("paints the combination chosen, and keeps it on another photo with as many parts", async () => {
+    signedIn();
+    mockBook.get.mockResolvedValue(opened());
+    renderRouter("./app", { initialUrl: "/shade-book" });
+    await waitFor(() => expect(screen.getByTestId("shade-book-chosen")).toBeTruthy());
+
+    fireEvent.press(screen.getByLabelText("Cream with charcoal, HV0400, HV0500, HV0600"));
+    await waitFor(() => expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(/Cream with charcoal/));
+    fireEvent.press(screen.getByTestId("shade-book-photo-interior-3"));
+
+    await waitFor(() => expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(/Sitting room/));
+    expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(/Cream with charcoal/);
+    expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(/Feature wall/);
+  });
+
+  it("saves the chosen combination's picture on the chosen photo while the pass runs", async () => {
+    signedIn();
+    mockBook.get.mockResolvedValue(opened());
+    renderRouter("./app", { initialUrl: "/shade-book" });
+    await waitFor(() => expect(screen.getByText("Save to photos")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("shade-book-photo-exterior-2"));
+    await waitFor(() => expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(/Off-white with sage green/));
+
+    fireEvent.press(screen.getByText("Save to photos"));
+
+    await waitFor(() => expect(mockPictures.savePictureToPhotos).toHaveBeenCalled());
+    expect(mockPictures.pictureFile).toHaveBeenCalledWith(expect.objectContaining({ id: "p2" }), expect.objectContaining({ id: "exterior-2" }));
   });
 
   it("buys the pass on the website and opens the book once the server confirms it", async () => {
@@ -204,49 +253,16 @@ describe("C34 · Shade Book", () => {
     const [url] = mockBrowser.openAuthSessionAsync.mock.calls[0] as [string];
     expect(url).toContain("amount=4900");
     expect(mockBook.passVerify).toHaveBeenCalledWith({ orderId: "order_SHADE12345", paymentId: "pay_SHADE6789", signature: "e".repeat(64) });
-    await waitFor(() => expect(screen.getByText(SECOND.title)).toBeTruthy());
-    expect(screen.queryByText("Free sample")).toBeNull();
+    await waitFor(() => expect(screen.getAllByText(THIRD.title).length).toBeGreaterThan(0));
+    expect(screen.queryByText("Free")).toBeNull();
   });
 
   it("says plainly when the pass can't be bought here", async () => {
     signedIn();
     mockBook.get.mockResolvedValue({ ...shut(), access: { ...shut().access, purchasable: false } });
     renderRouter("./app", { initialUrl: "/shade-book" });
-    await waitFor(() => expect(screen.getByText(SAMPLE.title)).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(new RegExp(SAMPLE.title)));
     expect(screen.queryByTestId("shade-book-buy")).toBeNull();
     expect(screen.getAllByText("The pass can't be bought in this app right now.").length).toBeGreaterThan(0);
-  });
-});
-
-describe("C35 · Shade Book page", () => {
-  it("saves the page's picture with its Vista codes to the photos while the pass runs", async () => {
-    signedIn();
-    mockBook.get.mockResolvedValue(opened());
-    renderRouter("./app", { initialUrl: "/shade-book/p2" });
-    await waitFor(() => expect(screen.getByText(SECOND.title)).toBeTruthy());
-    expect(screen.getByText("2 of 2")).toBeTruthy();
-    expect(screen.getByText("HV0101")).toBeTruthy();
-
-    fireEvent.press(screen.getByText("Save to photos"));
-
-    await waitFor(() => expect(mockPictures.savePictureToPhotos).toHaveBeenCalled());
-    expect(mockPictures.pictureFile).toHaveBeenCalledWith(expect.objectContaining({ id: "p2" }));
-  });
-
-  it("offers the pass instead of saving while the book is shut", async () => {
-    signedIn();
-    mockBook.get.mockResolvedValue(shut());
-    renderRouter("./app", { initialUrl: "/shade-book/s1" });
-    await waitFor(() => expect(screen.getByText(SAMPLE.title)).toBeTruthy());
-    expect(screen.queryByText("Save to photos")).toBeNull();
-    expect(screen.getByText("Open the book to save this picture with its Vista codes.")).toBeTruthy();
-    expect(screen.getByTestId("shade-book-buy")).toBeTruthy();
-  });
-
-  it("says so when the page isn't in the book any more", async () => {
-    signedIn();
-    mockBook.get.mockResolvedValue(shut());
-    renderRouter("./app", { initialUrl: "/shade-book/gone" });
-    await waitFor(() => expect(screen.getByText("This combination isn't in the book any more.")).toBeTruthy());
   });
 });

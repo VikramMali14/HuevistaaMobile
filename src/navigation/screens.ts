@@ -138,9 +138,7 @@ export const screens = {
   C33: { title: "Work as a painter", area: "customer", href: "/become-painter", phase: 6, spec: CUSTOMER,
     status: "built", summary: "Turn this account into a painter's, saying plainly it is for good." },
   C34: { title: "Shade Book", area: "customer", href: "/shade-book", phase: 8, spec: CUSTOMER, status: "built",
-    summary: "Colour combinations of our shades on real houses: a few free, the rest for 24 hours.", next: ["C35"] },
-  C35: { title: "Shade Book page", area: "customer", href: "/shade-book/demo", phase: 8, spec: CUSTOMER,
-    status: "built", summary: "One combination large, with its Vista codes; its picture saved or sent with the pass." },
+    summary: "Combinations of our shades tried on four photos: a few free, the rest — and saving them — for 24 hours." },
 
   // ── Painter ───────────────────────────────────────────────────────────────
   P1: { title: "Home", area: "painter", href: "/painter", phase: 6, spec: PAINTER, status: "built",

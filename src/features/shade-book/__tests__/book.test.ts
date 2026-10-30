@@ -1,57 +1,94 @@
 /**
- * The Shade Book's rules that need no phone: narrowing the book, what the pass would open,
- * when it ends (India's clock, whatever the phone's zone), and a saved picture's name.
+ * The Shade Book's rules that need no phone: which photo it opens on, which combinations a
+ * photo can take, what the pass would open, which colour goes on which part of another photo,
+ * when the pass ends (India's clock), and a saved picture's name.
  */
-import type { ShadeBook, ShadeBookPage } from "@/api/types";
+import type { ShadeBook, ShadeBookPage, ShadeBookPhoto } from "@/api/types";
 
-import { NO_FILTER, colourCounts, filterShadeBook, istInstant, lockedPages, msUntilEnd, passEnds, pictureFileName } from "../book";
+import { combinationsFor, firstPhoto, istInstant, lockedFor, msUntilEnd, partsOn, passEnds, pictureFileName, searchShadeBook } from "../book";
 
-function page(id: string, photoId: string, codes: string[], title: string): ShadeBookPage {
+const photo = (id: string, kind: "INTERIOR" | "EXTERIOR", surfaces: string[]): ShadeBookPhoto => ({
+  id,
+  kind,
+  title: id,
+  width: 800,
+  height: 600,
+  version: "1",
+  surfaces: surfaces.map((s) => ({ id: s, label: s })),
+});
+const LIVING = photo("interior-2", "INTERIOR", ["walls", "ceiling"]);
+const SITTING = photo("interior-3", "INTERIOR", ["main-walls", "feature-wall", "ceiling"]);
+const TOWN = photo("exterior-2", "EXTERIOR", ["main-walls", "highlight-walls"]);
+const MODERN = photo("exterior-3", "EXTERIOR", ["main-walls", "frame", "band"]);
+
+function page(id: string, on: ShadeBookPhoto, hexes: string[], codes: string[], title = "A combination"): ShadeBookPage {
   return {
     id,
-    photoId,
-    scope: "EXTERIOR",
-    colours: codes.length,
+    photoId: on.id,
+    scope: on.kind,
+    colours: hexes.length,
     title,
     sample: false,
-    shades: codes.map((code, i) => ({ surfaceId: `part-${i}`, surfaceLabel: `Part ${i}`, shade: { hvCode: code, hexCode: "#C9B79C" } })),
+    shades: hexes.map((hex, i) => ({ surfaceId: on.surfaces[i]!.id, surfaceLabel: on.surfaces[i]!.label, shade: { hvCode: codes[i], hexCode: hex } })),
   };
 }
 
-const MODERN = page("p1", "exterior-3", ["HV0348", "HV1102", "HV2210"], "Pale beige with deep indigo blue");
-const TOWN = page("p2", "exterior-2", ["HV0101", "HV0202"], "Off-white with sage green");
+const HOUSE3 = page("p1", MODERN, ["#E8DCC8", "#4F4D5A", "#F4F2EC"], ["HV0348", "HV1102", "HV2210"], "Pale beige with deep indigo blue");
+const HOUSE2 = page("p2", TOWN, ["#F4F2EC", "#4F4D5A"], ["HV0101", "HV0202"], "Off-white with sage green");
+const ROOM3 = page("p3", SITTING, ["#E8DCC8", "#8C5F3B", "#F4F2EC"], ["HV0400", "HV0500", "HV0600"], "Cream with teak");
 
-describe("narrowing the book", () => {
-  it("lets every page through with no filter", () => {
-    expect(filterShadeBook([MODERN, TOWN], NO_FILTER)).toEqual([MODERN, TOWN]);
+describe("choosing what to paint", () => {
+  it("opens on the photo the book's first page was made for", () => {
+    expect(firstPhoto({ photos: [LIVING, SITTING, TOWN, MODERN], combinations: [HOUSE3] })?.id).toBe("exterior-3");
+    expect(firstPhoto({ photos: [LIVING, SITTING, TOWN, MODERN], combinations: [] })?.id).toBe("interior-2");
   });
 
-  it("keeps one house's pages, or one number of colours", () => {
-    expect(filterShadeBook([MODERN, TOWN], { ...NO_FILTER, photoId: "exterior-2" })).toEqual([TOWN]);
-    expect(filterShadeBook([MODERN, TOWN], { ...NO_FILTER, colours: 3 })).toEqual([MODERN]);
+  it("offers a photo every combination with as many colours as it has parts, its own kind first", () => {
+    expect(combinationsFor([HOUSE3, HOUSE2, ROOM3], SITTING).map((p) => p.id)).toEqual(["p3", "p1"]);
+    expect(combinationsFor([HOUSE3, HOUSE2, ROOM3], LIVING).map((p) => p.id)).toEqual(["p2"]);
   });
 
-  it("finds a page by a Vista code or a word of its colours, in any case", () => {
-    expect(filterShadeBook([MODERN, TOWN], { ...NO_FILTER, query: "hv0202" })).toEqual([TOWN]);
-    expect(filterShadeBook([MODERN, TOWN], { ...NO_FILTER, query: "Indigo" })).toEqual([MODERN]);
-    expect(filterShadeBook([MODERN, TOWN], { ...NO_FILTER, query: "indigo sage" })).toEqual([]);
-  });
-
-  it("offers the numbers of colours there are, fewest first", () => {
-    expect(colourCounts([MODERN, TOWN, MODERN])).toEqual([2, 3]);
+  it("finds a combination by a Vista code or a word of its colours", () => {
+    expect(searchShadeBook([HOUSE3, ROOM3], "hv0500").map((p) => p.id)).toEqual(["p3"]);
+    expect(searchShadeBook([HOUSE3, ROOM3], "Indigo").map((p) => p.id)).toEqual(["p1"]);
   });
 });
 
 describe("what the pass would open", () => {
-  const book = (open: boolean, total: number, shown: number): Pick<ShadeBook, "total" | "combinations" | "access"> => ({
-    total,
-    combinations: Array.from({ length: shown }, () => MODERN),
-    access: { open, reason: open ? "PASS" : "NONE", pricePaise: 4900, currency: "INR", hours: 24, purchasable: true },
+  const book: Pick<ShadeBook, "access" | "totals" | "combinations"> = {
+    access: { open: false, reason: "NONE", pricePaise: 4900, currency: "INR", hours: 24, purchasable: true },
+    totals: { "2": 12, "3": 227 },
+    combinations: [HOUSE3, HOUSE2],
+  };
+
+  it("counts, for each number of colours, what a reader without the pass isn't sent — and none once it runs", () => {
+    expect(lockedFor(book, 3)).toBe(226);
+    expect(lockedFor(book, 2)).toBe(11);
+    expect(lockedFor({ ...book, access: { ...book.access, open: true } }, 3)).toBe(0);
+  });
+});
+
+/** The server's rule for a page on another photo, so the codes match the picture. */
+describe("a combination on another photo", () => {
+  it("keeps the main walls, and puts the lighter of the others on a ceiling it wasn't made for", () => {
+    const room = partsOn(HOUSE3, SITTING)!;
+    expect(room.map((p) => [p.surfaceId, p.shade.hvCode])).toEqual([
+      ["main-walls", "HV0348"],
+      ["feature-wall", "HV1102"],
+      ["ceiling", "HV2210"],
+    ]);
   });
 
-  it("counts the pages a reader without the pass isn't sent, and none once it runs", () => {
-    expect(lockedPages(book(false, 227, 3))).toBe(224);
-    expect(lockedPages(book(true, 227, 227))).toBe(0);
+  it("puts the lighter colour on a ceiling, as rooms are, when the photos share no part", () => {
+    expect(partsOn(HOUSE2, LIVING)!.map((p) => [p.surfaceId, p.shade.hvCode])).toEqual([
+      ["walls", "HV0202"],
+      ["ceiling", "HV0101"],
+    ]);
+  });
+
+  it("keeps its own parts on its own photo, and has nothing for a different number of parts", () => {
+    expect(partsOn(HOUSE3, MODERN)).toBe(HOUSE3.shades);
+    expect(partsOn(HOUSE3, TOWN)).toBeNull();
   });
 });
 
@@ -60,29 +97,20 @@ describe("when the pass ends", () => {
     expect(istInstant("2026-10-31T16:05:00")?.toISOString()).toBe("2026-10-31T10:35:00.000Z");
     expect(istInstant("2026-10-31T10:35:00Z")?.toISOString()).toBe("2026-10-31T10:35:00.000Z");
     expect(istInstant("soon")).toBeNull();
-    expect(istInstant(null)).toBeNull();
   });
 
-  it("says it in India's time", () => {
+  it("says it in India's time, and counts down to it", () => {
     expect(passEnds("2026-10-31T16:05:00")).toMatch(/31 Oct/);
     expect(passEnds("2026-10-31T16:05:00")).toMatch(/4:05\s?pm/i);
-    expect(passEnds(undefined)).toBeNull();
-  });
-
-  it("counts down to it, and stops at nought", () => {
     const at = Date.parse("2026-10-31T10:00:00Z");
     expect(msUntilEnd("2026-10-31T16:05:00", at)).toBe(35 * 60_000);
     expect(msUntilEnd("2026-10-30T16:05:00", at)).toBe(0);
-    expect(msUntilEnd(null, at)).toBeNull();
   });
 });
 
 describe("a saved picture's name", () => {
-  it("carries the page's Vista codes, as the server names it", () => {
-    expect(pictureFileName(MODERN)).toBe("huevistaa-shade-book-HV0348-HV1102-HV2210.jpg");
-  });
-
-  it("leaves out anything that isn't a plain code", () => {
-    expect(pictureFileName(page("x", "exterior-2", ["../HV1", ""], "x"))).toBe("huevistaa-shade-book.jpg");
+  it("carries the page's Vista codes, as the server names it, and nothing that isn't one", () => {
+    expect(pictureFileName(HOUSE3)).toBe("huevistaa-shade-book-HV0348-HV1102-HV2210.jpg");
+    expect(pictureFileName(page("x", TOWN, ["#FFFFFF", "#000000"], ["../x", ""]))).toBe("huevistaa-shade-book.jpg");
   });
 });

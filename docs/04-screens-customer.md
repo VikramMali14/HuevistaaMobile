@@ -1011,18 +1011,30 @@ a lost answer is safe: the server's call is idempotent.
 
 **Route** `(tabs)/shade-book.tsx`, in the **Catalogue** tab beside the shades: a **Shades · Shade Book** switch heads both screens, and the Catalogue tab stays lit (seven tabs would leave "Shade Book" about 45 dp on a 360–390 dp phone; it needs 63) · **Phase** 8 · **Web reference** `app/shade-book/page.tsx`, `components/shade-book/shade-book-view.tsx`, `lib/shade-book.ts`
 
-Colour combinations of our shades, each painted on one of the colour test's photos (a real
-house; the team adds and removes them on the website, Admin → Shade Book) with every
-part's Vista code. The pictures are painted by the server, so the app, the website and a
-saved picture show the same colours.
+Photo first. The colour test's four photos — the living room and the sitting room, the town
+house and the modern house; two parts to paint or three — and every combination of our
+shades with as many colours as the chosen photo has parts. The team adds and removes
+combinations on the website (Admin → Shade Book); the pictures are painted by the server, so
+the app, the website and a saved picture show the same colours.
 
-**Layout:** title and one line on what it is · search (a Vista code or a word of the
-colour) · where the reader stands — **open until 31 Oct, 4:05 pm** with a running pass,
-or "3 free of 227" and **Open all 227 · ₹49 for 24 hours** without one · chips for the
-house and the number of colours · one card a page (the painted house, its name, "Modern
-house · 3 colours", each part with its Vista code; "Free sample" on a sample while the
-book is shut) · without the pass, a card counting the rest with the same button · the
-shade disclaimer.
+**Layout:** the switch, title and one line · where the reader stands (**open until 31 Oct,
+4:05 pm** with a running pass, or "6 free of 231" and **Open all 231 · ₹49 for 24 hours**
+without one) · the four photos small in a row ("4 · Modern house · 3 colours"), the chosen one
+outlined · the chosen photo large with the chosen combination painted on it · a card with the
+combination's name, the photo, each part with its Vista code, and with the pass **Save to
+photos** and **Share** (without it: "Open the book to save this picture with its Vista
+codes") · **Combinations** for that number of colours, searchable by Vista code or colour,
+those made for the photo's kind first, "Free" on the free ones · without the pass, a card
+counting the rest of that number of colours with the Buy button · the shade disclaimer.
+
+**Choosing:** a photo opens on its first combination; a combination stays chosen on another
+photo with as many parts. Pressing a combination paints it and scrolls back up to the photo.
+On another photo, parts both share keep their colour (the main walls); a ceiling the
+combination wasn't made for takes the lightest of the rest; the others follow in order — the
+server's rule (`ShadeBookService.partsOn`), which the codes on the card follow too.
+
+**Free samples:** the first three combinations of each number of colours, so every photo has
+some to try.
 
 **Buying the pass:** in the Android store build a Google Play purchase of the pass's own
 product (`access.playProductId`), at Google's price, settled like the packs (C28/C29 in
@@ -1035,22 +1047,15 @@ cold start D3 recognises the pass's order (kept on the phone while its checkout 
 and confirms it the same way. No product or no Razorpay → "The pass can't be bought in
 this app right now".
 
-**API:** `GET /api/shade-book` · `GET /api/shade-book/{id}/image?size=thumb|full&v=` ·
+**Saving:** **Save to photos** (asks for the photos permission then; refused → **Open
+Settings**) and **Share** (the share sheet, where WhatsApp is) hand over the server's picture
+to keep — the chosen photo in the combination's colours over every part's Vista code
+(`GET /api/shade-book/{id}/download?photo=`), named `huevistaa-shade-book-HV….jpg`.
+
+**API:** `GET /api/shade-book` · `GET /api/shade-book/{id}/image?size=full&photo=&v=` ·
+`GET /api/colour-test/{id}/photo?v=` · `GET /api/shade-book/{id}/download?photo=` ·
 `POST /api/shade-book/pass/order` · `POST /api/shade-book/pass/verify`.
 
 **As built:** the book is read again after a purchase (it is in `paymentChanges`) and the
 moment a running pass ends. Customers read Vista codes and colours only — the server sends
 no company, maker's code or maker's name.
-
-### C35 · Shade Book page
-
-**Route** `shade-book/[id].tsx` · **Phase** 8
-
-One page large on its house, "2 of 227", its name, the house and its colours, each part's
-Vista code. With the pass: **Save to photos** (asks for the photos permission then; refused
-→ **Open Settings**) and **Share** (the share sheet, where WhatsApp is), both with the
-server's picture to keep — the house over every part's colour and Vista code
-(`GET /api/shade-book/{id}/download`, named `huevistaa-shade-book-HV….jpg`). Without it:
-"Open the book to save this picture with its Vista codes" and the Buy button. **Previous**
-and **Next** step through the book as the reader may read it. A page no longer in the book
-says so.

@@ -823,7 +823,11 @@ export interface ShadeBookPage {
 export interface ShadeBook {
   access: ShadeBookAccess;
   total: number;
+  /** Pages by their number of colours, open or not: { "2": 12, "3": 227 }. */
+  totals?: Record<string, number>;
+  /** How many of the first pages of each number of colours are open without a pass. */
   freeSamples: number;
+  /** Every colour-test photo: a page can be painted on any with as many parts as it has colours. */
   photos: ShadeBookPhoto[];
   combinations: ShadeBookPage[];
 }

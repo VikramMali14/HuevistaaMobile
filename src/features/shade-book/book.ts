@@ -1,41 +1,79 @@
-import type { ShadeBook, ShadeBookPage } from "@/api/types";
+import type { ShadeBook, ShadeBookPage, ShadeBookPart, ShadeBookPhoto } from "@/api/types";
+import { hexToRgb, luminance } from "@/lib/color";
 
 /**
- * The Shade Book's rules that need no phone: what the reader narrows the book to, how many
- * pages the pass would open, when it ends, and what a saved picture is called. The website
- * keeps the same ones (lib/shade-book.ts), so the two read alike.
+ * The Shade Book's rules that need no phone. The book is read photo first: one of the colour
+ * test's four photos — two rooms, two houses, two parts to paint or three — and every
+ * combination with as many colours as it has parts, painted on it. The website keeps the same
+ * rules (lib/shade-book.ts), so the two read alike.
  */
 
-/** What the reader narrows the book to. Empty and zero mean "any". */
-export interface ShadeBookFilter {
-  photoId: string;
-  colours: number;
-  /** A Vista code, or a word of a colour's name: "HV12", "beige". */
-  query: string;
+/**
+ * The photo the book opens on: the one its first page was made for, so a combination is
+ * painted the moment the screen opens; else the first photo.
+ */
+export function firstPhoto(book: Pick<ShadeBook, "photos" | "combinations">): ShadeBookPhoto | undefined {
+  const made = book.combinations[0]?.photoId;
+  return book.photos.find((p) => p.id === made) ?? book.photos[0];
 }
 
-export const NO_FILTER: ShadeBookFilter = { photoId: "", colours: 0, query: "" };
+/**
+ * The combinations that can be painted on a photo — as many colours as it has parts — those
+ * made for its kind (a room, a house) first, each in the book's order.
+ */
+export function combinationsFor(pages: readonly ShadeBookPage[], photo: Pick<ShadeBookPhoto, "kind" | "surfaces">): ShadeBookPage[] {
+  const fits = pages.filter((p) => p.colours === photo.surfaces.length);
+  return [...fits.filter((p) => p.scope === photo.kind), ...fits.filter((p) => p.scope !== photo.kind)];
+}
 
-/** The pages the filter lets through, in the book's order. */
-export function filterShadeBook(pages: readonly ShadeBookPage[], filter: ShadeBookFilter): ShadeBookPage[] {
-  const words = filter.query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+/** The pages whose title or Vista codes hold every word typed: "HV12", "beige". */
+export function searchShadeBook(pages: readonly ShadeBookPage[], query: string): ShadeBookPage[] {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [...pages];
   return pages.filter((page) => {
-    if (filter.photoId && page.photoId !== filter.photoId) return false;
-    if (filter.colours && page.colours !== filter.colours) return false;
-    if (words.length === 0) return true;
     const text = [page.title, ...page.shades.map((part) => part.shade?.hvCode ?? "")].join(" ").toLowerCase();
     return words.every((word) => text.includes(word));
   });
 }
 
-/** How many colours the book's pages come in, fewest first: [2, 3]. */
-export function colourCounts(pages: readonly ShadeBookPage[]): number[] {
-  return [...new Set(pages.map((p) => p.colours))].sort((a, b) => a - b);
+/** How many pages with this number of colours the book holds that this reader isn't sent. */
+export function lockedFor(book: Pick<ShadeBook, "access" | "totals" | "combinations">, colours: number): number {
+  if (book.access.open) return 0;
+  const total = book.totals?.[String(colours)] ?? 0;
+  return Math.max(0, total - book.combinations.filter((p) => p.colours === colours).length);
 }
 
-/** Pages the book holds that this reader isn't sent — what the pass would open. */
-export function lockedPages(book: Pick<ShadeBook, "total" | "combinations" | "access">): number {
-  return book.access.open ? 0 : Math.max(0, book.total - book.combinations.length);
+/**
+ * A page's shades on a photo with as many parts — its own, or another — by the server's rule
+ * (ShadeBookService.partsOn), so the codes under the picture name the parts it was painted
+ * with: parts both photos share keep their colour; a ceiling the page wasn't made for takes the
+ * lightest of the rest; the others follow in order, the main colour first. Null for a photo with
+ * a different number of parts.
+ */
+export function partsOn(page: Pick<ShadeBookPage, "photoId" | "shades">, photo: Pick<ShadeBookPhoto, "id" | "surfaces">): ShadeBookPart[] | null {
+  const own = page.shades;
+  if (page.photoId === photo.id) return own;
+  const surfaces = photo.surfaces;
+  if (own.length !== surfaces.length || own.some((part) => !part.shade)) return null;
+  const placed: (ShadeBookPart["shade"] | null)[] = surfaces.map(() => null);
+  const left = own.map((_, i) => i);
+  const take = (k: number) => {
+    left.splice(left.indexOf(k), 1);
+    return own[k]!.shade;
+  };
+  surfaces.forEach((surface, i) => {
+    const k = left.find((j) => own[j]!.surfaceId === surface.id);
+    if (k !== undefined) placed[i] = take(k);
+  });
+  const light = (k: number) => luminance(hexToRgb(own[k]!.shade.hexCode));
+  surfaces.forEach((surface, i) => {
+    if (placed[i] || surface.id !== "ceiling" || left.length === 0) return;
+    placed[i] = take(left.reduce((a, b) => (light(b) > light(a) ? b : a)));
+  });
+  surfaces.forEach((_, i) => {
+    if (!placed[i]) placed[i] = take(left[0]!);
+  });
+  return surfaces.map((surface, i) => ({ surfaceId: surface.id, surfaceLabel: surface.label, shade: placed[i]! }));
 }
 
 /**

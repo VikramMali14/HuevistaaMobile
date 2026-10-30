@@ -22,12 +22,22 @@ export const shadeBookApi = {
     api.request<ShadeBookPass>("api/shade-book/pass/verify", { body: proof, timeoutMs: 30_000 }),
 };
 
-/** A page painted on its photo: `thumb` for the list, `full` for a page on its own. */
-export function shadeBookPicturePath(page: { id: string }, version: string | null | undefined, size: "thumb" | "full"): string {
-  return `/api/shade-book/${encodeURIComponent(page.id)}/image?size=${size}${version ? `&v=${encodeURIComponent(version)}` : ""}`;
+/** A page painted on a photo — its own, or another with as many parts: `thumb` small, `full` the photo's size. */
+export function shadeBookPicturePath(
+  page: { id: string },
+  photo: { id: string; version: string } | undefined,
+  size: "thumb" | "full",
+): string {
+  const on = photo ? `&photo=${encodeURIComponent(photo.id)}&v=${encodeURIComponent(photo.version)}` : "";
+  return `/api/shade-book/${encodeURIComponent(page.id)}/image?size=${size}${on}`;
 }
 
-/** The picture to keep: the house over every part's colour and Vista code. Needs the pass. */
-export function shadeBookDownloadPath(page: { id: string }): string {
-  return `/api/shade-book/${encodeURIComponent(page.id)}/download`;
+/** A colour-test photo as it is, unpainted (public). */
+export function shadeBookPhotoPath(photo: { id: string; version: string }): string {
+  return `/api/colour-test/${encodeURIComponent(photo.id)}/photo?v=${encodeURIComponent(photo.version)}`;
+}
+
+/** The picture to keep: the photo over every part's colour and Vista code. Needs the pass. */
+export function shadeBookDownloadPath(page: { id: string }, photo?: { id: string }): string {
+  return `/api/shade-book/${encodeURIComponent(page.id)}/download${photo ? `?photo=${encodeURIComponent(photo.id)}` : ""}`;
 }

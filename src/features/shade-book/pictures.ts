@@ -10,7 +10,7 @@ import type { ShadeBookPage } from "@/api/types";
 import { pictureFileName } from "./book";
 
 /**
- * A Shade Book page's picture to keep: the house in its colours over every part's Vista
+ * A Shade Book page's picture to keep: the photo in its colours over every part's Vista
  * code, made by the server (the same picture the website saves). Fetched into the cache
  * with the session — it needs the pass — then saved to the photos or shared. Deleted on
  * sign-out.
@@ -33,13 +33,16 @@ function isJpeg(bytes: Uint8Array): boolean {
   return bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8;
 }
 
-/** The page's picture as a file on the phone, fetched afresh (it is small, and the pass may have ended). */
-export async function pictureFile(page: Pick<ShadeBookPage, "id" | "shades">): Promise<string> {
+/**
+ * The page's picture on a photo as a file on the phone, fetched afresh (it is small, and the
+ * pass may have ended).
+ */
+export async function pictureFile(page: Pick<ShadeBookPage, "id" | "shades">, photo?: { id: string }): Promise<string> {
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), FETCH_TIMEOUT_MS);
   let bytes: Uint8Array;
   try {
-    const res = await fetchMedia(shadeBookDownloadPath(page), abort.signal);
+    const res = await fetchMedia(shadeBookDownloadPath(page, photo), abort.signal);
     bytes = new Uint8Array(await res.arrayBuffer());
   } catch (err) {
     throw new PictureNotFetched(err instanceof Error ? err.message : undefined);

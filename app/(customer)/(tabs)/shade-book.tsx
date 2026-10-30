@@ -1,14 +1,24 @@
 import Feather from "@expo/vector-icons/Feather";
-import { FlashList } from "@shopify/flash-list";
-import { useRouter, type Href } from "expo-router";
-import { useCallback, useDeferredValue, useMemo, useState, type ReactNode } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { FlashList, type FlashListRef } from "@shopify/flash-list";
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { StyleSheet, View } from "react-native";
 
-import type { ShadeBookPage } from "@/api/types";
-import { Button, Card, Chip, Disclaimer, EmptyState, ErrorState, Screen, Skeleton, Text, TextField } from "@/components/ui";
-import { NO_FILTER, colourCounts, filterShadeBook, lockedPages, type ShadeBookFilter } from "@/features/shade-book/book";
+import { shadeBookPhotoPath, shadeBookPicturePath } from "@/api/endpoints/shade-book";
+import type { ShadeBookPage, ShadeBookPhoto } from "@/api/types";
+import { Button, Card, Disclaimer, EmptyState, ErrorState, RemoteImage, Screen, Skeleton, Text, TextField } from "@/components/ui";
+import { combinationsFor, firstPhoto, lockedFor, partsOn, searchShadeBook } from "@/features/shade-book/book";
 import { CatalogueSwitch } from "@/features/shade-book/CatalogueSwitch";
-import { BuyButton, PageCard, PassNoticeBanner, Standing } from "@/features/shade-book/components";
+import {
+  BuyButton,
+  ComboRow,
+  PassNoticeBanner,
+  PhotoStrip,
+  PhotosDenied,
+  Standing,
+  Swatches,
+  kindOf,
+  useSavePicture,
+} from "@/features/shade-book/components";
 import { usePassPurchase } from "@/features/shade-book/use-pass-purchase";
 import { useShadeBook } from "@/features/shade-book/use-shade-book";
 import { t } from "@/i18n";
@@ -19,113 +29,137 @@ import { useTheme } from "@/theme";
  * C34 · Shade Book. Spec: docs/04-screens-customer.md — C34. In the Catalogue tab, beside the
  * shades: the switch at the top of both screens, and the tab stays lit.
  *
- * Colour combinations of our shades, each painted on a real house by the server, with every
- * part's Vista code. The first few are free; the 24-hour pass opens the rest and lets each
- * picture be saved with its codes (C35). What is open is the server's answer — this screen
- * only shows it, and reads it again after a purchase and when the pass ends.
+ * Photo first: the colour test's four photos small across the top — two rooms, two houses, two
+ * parts to paint or three — the chosen one large under them, and under that every combination
+ * with as many colours as it has parts. Choosing one paints it on the photo (the server paints
+ * it, as it does for the website and the picture saved), with each part's Vista code. The first
+ * few of each number of colours are free; the 24-hour pass opens the rest and lets each picture
+ * be saved with its codes. What is open is the server's answer — this screen only shows it.
  */
 export default function ShadeBookScreen() {
-  const router = useRouter();
   const { colors, space } = useTheme();
   const book = useShadeBook();
   const pass = usePassPurchase(book.data);
+  const picture = useSavePicture();
   const pull = usePullToRefresh(book.refetch);
-  const [filter, setFilter] = useState<ShadeBookFilter>(NO_FILTER);
-  const query = useDeferredValue(filter.query);
+  const listRef = useRef<FlashListRef<ShadeBookPage>>(null);
+  const [photoId, setPhotoId] = useState<string | null>(null);
+  const [chosenId, setChosenId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   const data = book.data;
-  const photos = useMemo(() => new Map((data?.photos ?? []).map((p) => [p.id, p])), [data]);
-  const pages = useMemo(() => (data ? filterShadeBook(data.combinations, { ...filter, query }) : []), [data, filter, query]);
-  const counts = useMemo(() => colourCounts(data?.combinations ?? []), [data]);
-  const filtered = Boolean(filter.photoId || filter.colours || query.trim());
-  const set = (patch: Partial<ShadeBookFilter>) => setFilter((f) => ({ ...f, ...patch }));
+  const photo = data ? (data.photos.find((p) => p.id === photoId) ?? firstPhoto(data)) : undefined;
+  const fitting = useMemo(() => (data && photo ? combinationsFor(data.combinations, photo) : []), [data, photo]);
+  const list = useMemo(() => searchShadeBook(fitting, query), [fitting, query]);
+  const chosen = fitting.find((p) => p.id === chosenId) ?? list[0] ?? fitting[0] ?? null;
+  const open = Boolean(data?.access.open);
+
+  // A combination stays chosen on another photo with as many parts; otherwise the new photo's first is.
+  const choosePhoto = (next: ShadeBookPhoto) => {
+    setPhotoId(next.id);
+    if (!chosen || chosen.colours !== next.surfaces.length) setChosenId(null);
+  };
+
+  const choose = useCallback((page: ShadeBookPage) => {
+    setChosenId(page.id);
+    // Back up to the photo, so the combination is seen going on.
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []);
 
   const renderItem = useCallback(
     ({ item }: { item: ShadeBookPage }) => (
-      <View style={{ paddingBottom: space.md }}>
-        <PageCard
-          page={item}
-          photo={photos.get(item.photoId)}
-          open={Boolean(data?.access.open)}
-          onPress={() => router.push(`/shade-book/${encodeURIComponent(item.id)}` as Href)}
-        />
-      </View>
+      <ComboRow page={item} chosen={item.id === chosen?.id} free={item.sample && !open} onPress={() => choose(item)} />
     ),
-    [data?.access.open, photos, router, space.md],
-  );
-
-  const chipsRow = (children: ReactNode) => (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-      contentContainerStyle={{ gap: space.xs, paddingHorizontal: space.gutter }}
-      style={{ marginHorizontal: -space.gutter }}
-    >
-      {children}
-    </ScrollView>
+    [choose, chosen?.id, open],
   );
 
   let body: ReactNode;
   if (book.isPending) {
     body = (
       <View style={{ paddingHorizontal: space.gutter, gap: space.md, paddingTop: space.md }} testID="shade-book-loading">
-        {[0, 1].map((r) => (
-          <Skeleton key={r} width="100%" height={260} radius={12} />
-        ))}
+        <Skeleton width="100%" height={72} radius={10} />
+        <Skeleton width="100%" height={260} radius={12} />
       </View>
     );
   } else if (book.error || !data) {
     body = <ErrorState error={book.error} onRetry={() => void book.refetch()} />;
-  } else if (data.total === 0) {
+  } else if (data.total === 0 || !photo) {
     body = <EmptyState icon="book-open" title={t("shadeBook.empty")} body={t("shadeBook.emptyBody")} />;
   } else {
-    const locked = lockedPages(data);
+    const colourCount = photo.surfaces.length;
+    const parts = chosen ? partsOn(chosen, photo) : null;
+    const locked = lockedFor(data, colourCount);
     const header = (
-      <View style={{ gap: space.sm, paddingBottom: space.md }}>
+      <View style={{ gap: space.md, paddingBottom: space.sm }}>
         <Standing book={data} price={pass.price} sellable={pass.sellable} busy={pass.busy} onBuy={() => void pass.buy()} />
         <PassNoticeBanner notice={pass.notice} />
-        {data.photos.length > 1
-          ? chipsRow(
-              <>
-                <Chip label={t("shadeBook.everyHouse")} selected={!filter.photoId} onPress={() => set({ photoId: "" })} />
-                {data.photos.map((p) => (
-                  <Chip key={p.id} label={p.title} selected={filter.photoId === p.id} onPress={() => set({ photoId: p.id })} />
-                ))}
-              </>,
-            )
-          : null}
-        {counts.length > 1
-          ? chipsRow(
-              <>
-                <Chip label={t("shadeBook.anyColours")} selected={!filter.colours} onPress={() => set({ colours: 0 })} />
-                {counts.map((n) => (
-                  <Chip key={n} label={t("shadeBook.colours", { n })} selected={filter.colours === n} onPress={() => set({ colours: n })} />
-                ))}
-              </>,
-            )
-          : null}
-        <Text variant="small" tone="mute" accessibilityLiveRegion="polite">
-          {filtered
-            ? t("shadeBook.countShown", { shown: pages.length, total: data.combinations.length })
-            : data.access.open
-              ? t("shadeBook.countAll", { n: data.combinations.length })
-              : t("shadeBook.countFree", { shown: data.combinations.length, total: data.total })}
-        </Text>
+        <PhotoStrip photos={data.photos} chosen={photo.id} onChoose={choosePhoto} />
+        <RemoteImage
+          url={chosen ? shadeBookPicturePath(chosen, photo, "full") : shadeBookPhotoPath(photo)}
+          contentFit="contain"
+          style={{ width: "100%", aspectRatio: photo.width / photo.height, maxHeight: 420, borderRadius: 12 }}
+          accessibilityLabel={chosen ? t("shadeBook.pageLabel", { title: chosen.title, house: photo.title.toLowerCase() }) : photo.title}
+        />
+        {chosen && parts ? (
+          <Card style={{ gap: space.sm }} testID="shade-book-chosen">
+            <View style={{ gap: 2 }}>
+              <Text variant="title3" accessibilityRole="header">
+                {chosen.title}
+              </Text>
+              <Text variant="small" tone="mute">
+                {photo.title} · {kindOf(photo)} · {t("shadeBook.colours", { n: colourCount })}
+              </Text>
+            </View>
+            <Swatches parts={parts} />
+            {open ? (
+              <View style={{ gap: space.sm }}>
+                <Button label={t("shadeBook.save")} icon="download" onPress={() => picture.save(chosen, photo, "photos")} loading={picture.busy} />
+                <Button label={t("shadeBook.share")} icon="share-2" variant="secondary" onPress={() => picture.save(chosen, photo, "share")} disabled={picture.busy} />
+                {picture.denied ? <PhotosDenied /> : null}
+              </View>
+            ) : (
+              <Text variant="small" tone="soft">
+                {t("shadeBook.unlockToSave")}
+              </Text>
+            )}
+            <Text variant="caption" tone="mute">
+              {t("shadeBook.note")}
+            </Text>
+          </Card>
+        ) : null}
+        <View style={styles.listHead}>
+          <Text variant="title3" accessibilityRole="header">
+            {t("shadeBook.combinations")}
+          </Text>
+          <Text variant="caption" tone="mute">
+            {t("shadeBook.colours", { n: colourCount })} · {fitting.length}
+            {locked > 0 ? ` / ${fitting.length + locked}` : ""}
+          </Text>
+        </View>
+        <TextField
+          label={t("shadeBook.searchLabel")}
+          placeholder={t("shadeBook.searchHint")}
+          value={query}
+          onChangeText={setQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="search"
+          clearButtonMode="while-editing"
+        />
       </View>
     );
     const footer = (
-      <View style={{ gap: space.md, paddingTop: space.xs }}>
-        {locked > 0 && !filtered ? (
+      <View style={{ gap: space.md, paddingTop: space.sm }}>
+        {locked > 0 ? (
           <Card style={{ gap: space.sm }} testID="shade-book-locked">
             <View style={styles.inline}>
               <Feather name="lock" size={18} color={colors.fgMute} />
               <Text variant="bodyStrong">
-                {locked === 1 ? t("shadeBook.lockedOne") : t("shadeBook.lockedMany", { n: locked })}
+                {locked === 1 ? t("shadeBook.lockedOne", { colours: colourCount }) : t("shadeBook.lockedMany", { n: locked, colours: colourCount })}
               </Text>
             </View>
             <Text variant="small" tone="soft">
-              {t("shadeBook.lockedBody")}
+              {t("shadeBook.lockedBody", { colours: colourCount })}
             </Text>
             <BuyButton book={data} price={pass.price} sellable={pass.sellable} busy={pass.busy} onBuy={() => void pass.buy()} />
           </Card>
@@ -135,19 +169,23 @@ export default function ShadeBookScreen() {
     );
     body = (
       <FlashList
-        data={pages}
+        ref={listRef}
+        data={list}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
+        extraData={chosen?.id}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingHorizontal: space.gutter, paddingBottom: space.xl }}
         ListHeaderComponent={header}
         ListEmptyComponent={
-          <View style={{ gap: space.sm, paddingVertical: space.xl }}>
+          <View style={{ gap: space.sm, paddingVertical: space.lg }}>
             <Text variant="body" tone="soft">
-              {t("shadeBook.noMatch")}
+              {fitting.length === 0 ? t("shadeBook.noneYet", { colours: colourCount }) : t("shadeBook.noMatch")}
             </Text>
-            <Button variant="secondary" block={false} label={t("shadeBook.showAll")} onPress={() => setFilter(NO_FILTER)} />
+            {fitting.length > 0 ? (
+              <Button variant="secondary" block={false} label={t("shadeBook.showAll")} onPress={() => setQuery("")} />
+            ) : null}
           </View>
         }
         ListFooterComponent={footer}
@@ -167,17 +205,6 @@ export default function ShadeBookScreen() {
         <Text variant="small" tone="soft">
           {t("shadeBook.lead")}
         </Text>
-        <TextField
-          label={t("shadeBook.searchLabel")}
-          placeholder={t("shadeBook.searchHint")}
-          value={filter.query}
-          onChangeText={(next) => set({ query: next })}
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="search"
-          clearButtonMode="while-editing"
-          editable={Boolean(data?.combinations.length)}
-        />
       </View>
       <View style={styles.fill}>{body}</View>
     </Screen>
@@ -187,4 +214,5 @@ export default function ShadeBookScreen() {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   inline: { flexDirection: "row", alignItems: "center", gap: 10 },
+  listHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" },
 });

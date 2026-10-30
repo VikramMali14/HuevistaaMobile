@@ -1,101 +1,125 @@
 import { useState } from "react";
 import { Linking, Pressable, StyleSheet, View } from "react-native";
 
+import { shadeBookPhotoPath } from "@/api/endpoints/shade-book";
 import { keys } from "@/api/query-keys";
 import { queryClient } from "@/api/query-client";
-import type { ShadeBook, ShadeBookPage, ShadeBookPhoto } from "@/api/types";
+import type { ShadeBook, ShadeBookPage, ShadeBookPart, ShadeBookPhoto } from "@/api/types";
 import { Banner, Button, Pill, RemoteImage, Text, useToast } from "@/components/ui";
-import { shadeBookPicturePath } from "@/api/endpoints/shade-book";
 import { t } from "@/i18n";
 import { useSubmit } from "@/lib/use-submit";
 import { useTheme } from "@/theme";
 
 import { passEnds } from "./book";
-import { PictureNotFetched, pictureFile, savePictureToPhotos, sharePicture } from "./pictures";
 import type { PassNotice } from "./pass";
+import { PictureNotFetched, pictureFile, savePictureToPhotos, sharePicture } from "./pictures";
 
-/** "Modern house" — what the page is painted on, or a plain word when the photo isn't known. */
-export function houseOf(page: ShadeBookPage, photo: ShadeBookPhoto | undefined): string {
-  return photo?.title ?? (page.scope === "INTERIOR" ? t("shadeBook.room") : t("shadeBook.house"));
+/** "Room" or "House": what a photo shows. */
+export function kindOf(photo: Pick<ShadeBookPhoto, "kind">): string {
+  return photo.kind === "INTERIOR" ? t("shadeBook.room") : t("shadeBook.house");
 }
 
-/** A page's colours, a part at a time: where it goes and its Vista code. */
-export function Swatches({ page, large = false }: { page: ShadeBookPage; large?: boolean }) {
+/** A combination's colours, a part of the photo at a time: where it goes and its Vista code. */
+export function Swatches({ parts }: { parts: ShadeBookPart[] }) {
   const { colors, space } = useTheme();
-  const dot = large ? 22 : 16;
   return (
-    <View style={{ gap: large ? space.sm : space.xs }}>
-      {page.shades.map((part) => (
-        <View
-          key={part.surfaceId}
-          style={styles.swatch}
-          accessible
-          accessibilityLabel={`${part.surfaceLabel}, ${part.shade?.hvCode ?? ""}`}
-        >
+    <View style={{ gap: space.sm }}>
+      {parts.map((part) => (
+        <View key={part.surfaceId} style={styles.swatch} accessible accessibilityLabel={`${part.surfaceLabel}, ${part.shade?.hvCode ?? ""}`}>
           <View
-            style={{
-              width: dot,
-              height: dot,
-              borderRadius: dot / 2,
-              backgroundColor: part.shade?.hexCode,
-              borderWidth: StyleSheet.hairlineWidth,
-              borderColor: colors.ruleStrong,
-            }}
+            style={[styles.dot, { backgroundColor: part.shade?.hexCode, borderColor: colors.ruleStrong }]}
           />
-          <Text variant={large ? "body" : "small"} tone="soft" style={styles.part}>
+          <Text variant="body" tone="soft" style={styles.part}>
             {part.surfaceLabel}
           </Text>
-          <Text variant={large ? "bodyStrong" : "code"}>{part.shade?.hvCode ?? "—"}</Text>
+          <Text variant="bodyStrong">{part.shade?.hvCode ?? "—"}</Text>
         </View>
       ))}
     </View>
   );
 }
 
-/** One page in the list: the house in its colours, its name, its codes. */
-export function PageCard({
-  page,
-  photo,
-  open,
-  onPress,
+/** The four photos, small, in a row — the one chosen outlined. */
+export function PhotoStrip({
+  photos,
+  chosen,
+  onChoose,
 }: {
-  page: ShadeBookPage;
-  photo: ShadeBookPhoto | undefined;
-  open: boolean;
-  onPress: () => void;
+  photos: ShadeBookPhoto[];
+  chosen: string;
+  onChoose: (photo: ShadeBookPhoto) => void;
 }) {
   const { colors, radius, space } = useTheme();
-  const house = houseOf(page, photo);
+  return (
+    <View style={[styles.strip, { gap: space.xs }]} accessibilityRole="radiogroup" accessibilityLabel={t("shadeBook.choosePhoto")}>
+      {photos.map((photo, i) => {
+        const on = photo.id === chosen;
+        return (
+          <Pressable
+            key={photo.id}
+            onPress={() => onChoose(photo)}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: on }}
+            accessibilityLabel={t("shadeBook.photoLabel", { n: i + 1, title: photo.title, colours: photo.surfaces.length })}
+            testID={`shade-book-photo-${photo.id}`}
+            style={[
+              styles.photo,
+              {
+                borderRadius: radius.sm,
+                borderColor: on ? colors.fg : colors.rule,
+                borderWidth: on ? 2 : StyleSheet.hairlineWidth,
+                backgroundColor: colors.surface,
+              },
+            ]}
+          >
+            <RemoteImage url={shadeBookPhotoPath(photo)} style={[styles.photoImage, { borderRadius: 4 }]} />
+            <Text variant="caption" numberOfLines={1}>
+              {i + 1} · {photo.title}
+            </Text>
+            <Text variant="caption" tone="mute" numberOfLines={1}>
+              {t("shadeBook.colours", { n: photo.surfaces.length })}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/** One combination in the list: its colours side by side, its name and its Vista codes. */
+export function ComboRow({ page, chosen, free, onPress }: { page: ShadeBookPage; chosen: boolean; free: boolean; onPress: () => void }) {
+  const { colors, radius, space } = useTheme();
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={t("shadeBook.pageLabel", { title: page.title, house: house.toLowerCase() })}
+      accessibilityState={{ selected: chosen }}
+      accessibilityLabel={`${page.title}, ${page.shades.map((part) => part.shade?.hvCode ?? "").join(", ")}`}
       style={({ pressed }) => [
-        styles.card,
-        { borderRadius: radius.md, borderColor: colors.rule, backgroundColor: colors.surface, opacity: pressed ? 0.9 : 1 },
+        styles.row,
+        {
+          gap: space.sm,
+          padding: space.sm,
+          borderRadius: radius.sm,
+          borderColor: chosen ? colors.fg : "transparent",
+          backgroundColor: chosen || pressed ? colors.surfaceSoft : "transparent",
+        },
       ]}
     >
-      <View>
-        <RemoteImage
-          url={shadeBookPicturePath(page, photo?.version, "thumb")}
-          style={{ width: "100%", aspectRatio: photo ? photo.width / photo.height : 4 / 3 }}
-        />
-        {page.sample && !open ? (
-          <View style={[styles.badge, { top: space.sm, left: space.sm }]}>
-            <Pill label={t("shadeBook.sample")} />
-          </View>
-        ) : null}
+      <View style={[styles.chips, { borderColor: colors.ruleStrong }]}>
+        {page.shades.map((part) => (
+          <View key={part.surfaceId} style={[styles.chip, { backgroundColor: part.shade?.hexCode }]} />
+        ))}
       </View>
-      <View style={{ padding: space.md, gap: space.xs }}>
-        <Text variant="bodyStrong">{page.title}</Text>
-        <Text variant="small" tone="mute">
-          {house} · {t("shadeBook.colours", { n: page.colours })}
+      <View style={styles.rowText}>
+        <Text variant="bodyStrong" numberOfLines={2}>
+          {page.title}
         </Text>
-        <View style={{ paddingTop: space.xs }}>
-          <Swatches page={page} />
-        </View>
+        <Text variant="caption" tone="mute" numberOfLines={1}>
+          {page.shades.map((part) => part.shade?.hvCode ?? "—").join(" · ")}
+        </Text>
       </View>
+      {free ? <Pill label={t("shadeBook.free")} tone="accent" /> : null}
     </Pressable>
   );
 }
@@ -171,18 +195,18 @@ export function PassNoticeBanner({ notice }: { notice: PassNotice | null }) {
 }
 
 /**
- * Save a page's picture — the house over every part's Vista code — to the photos, or send
- * it. It needs the pass: a picture that can't be fetched reads the book again, which shuts
- * it if the pass has ended meanwhile.
+ * Save a combination's picture on a photo — the photo over every part's Vista code — to the
+ * photos, or send it. It needs the pass: a picture that can't be fetched reads the book again,
+ * which shuts it if the pass has ended meanwhile.
  */
 export function useSavePicture() {
   const toast = useToast();
   const saving = useSubmit();
   const [denied, setDenied] = useState(false);
-  const save = (page: ShadeBookPage, how: "photos" | "share") =>
+  const save = (page: ShadeBookPage, photo: ShadeBookPhoto, how: "photos" | "share") =>
     void saving.run(async () => {
       try {
-        const uri = await pictureFile(page);
+        const uri = await pictureFile(page, photo);
         if (how === "share") {
           await sharePicture(uri, t("shadeBook.shareTitle"));
           return;
@@ -209,7 +233,13 @@ export function PhotosDenied() {
 
 const styles = StyleSheet.create({
   swatch: { flexDirection: "row", alignItems: "center", gap: 10 },
+  dot: { width: 22, height: 22, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth },
   part: { flex: 1 },
-  card: { borderWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
-  badge: { position: "absolute" },
+  strip: { flexDirection: "row" },
+  photo: { flex: 1, padding: 4, gap: 2, overflow: "hidden" },
+  photoImage: { width: "100%", height: 52 },
+  row: { flexDirection: "row", alignItems: "center", borderWidth: 1 },
+  chips: { flexDirection: "row", borderWidth: StyleSheet.hairlineWidth, borderRadius: 6, overflow: "hidden" },
+  chip: { width: 18, height: 32 },
+  rowText: { flex: 1, gap: 2 },
 });
