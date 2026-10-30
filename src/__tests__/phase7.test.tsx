@@ -7,7 +7,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { onlineManager } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { act, fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
+import { act, fireEvent, renderRouter, screen, waitFor, within } from "expo-router/testing-library";
 import { AccessibilityInfo, Linking } from "react-native";
 
 import { ApiError } from "@/api/errors";
@@ -128,6 +128,7 @@ const painterRow = (id: string, extra: Partial<NearbyPainter> = {}): NearbyPaint
   jobsCompleted: 3,
   certified: true,
   distanceKm: 0.6,
+  place: "Belagavi, Karnataka",
   ...extra,
 });
 /** The places painters say they work in, as the server names them — cut down to these tests'. */
@@ -241,9 +242,10 @@ describe("C32 · Painters and shops near you", () => {
     await waitFor(() => expect(screen.getByTestId("nearby-painters")).toBeTruthy());
     // Rounded to ~100 m before it leaves the phone.
     expect(mockNearby.painters).toHaveBeenCalledWith({ lat: 15.852, lon: 74.505, radiusKm: 50 });
-    expect(screen.getByText("Under 1 km away")).toBeTruthy();
-    expect(screen.getByText("3 jobs done on HueVistaa · ★ 4.6 from 23 reviews")).toBeTruthy();
-    expect(screen.getByText("New on HueVistaa — no jobs or reviews yet")).toBeTruthy();
+    // Where each painter is based, to the district — not how far away, nor their jobs and reviews.
+    expect(screen.getByTestId("painter-place-p1")).toHaveTextContent("Belagavi, Karnataka");
+    expect(within(screen.getByTestId("nearby-painters")).queryByText(/km away|m away/)).toBeNull();
+    expect(screen.queryByText(/jobs? done|reviews?|New on HueVistaa/)).toBeNull();
     // The painter's card: photo, name and address — and the number when Call is pressed.
     expect(screen.getByLabelText("Photo of Ravi Kumar")).toBeTruthy();
     expect(screen.getByTestId("painter-address-p1")).toHaveTextContent("Tilakwadi, Belagavi");
@@ -405,7 +407,7 @@ describe("C32 · Painters and shops near you", () => {
     mockNearby.where.mockResolvedValue({ name: "Belagavi Camp, Belagavi, Karnataka", state: "KA", division: "KA-BELAGAVI" });
     mockNearby.painters.mockResolvedValue([
       painterRow("p1"),
-      painterRow("p2", { distanceKm: 1237, workAreas: ["IN"], worksInYourArea: true }),
+      painterRow("p2", { distanceKm: 1237, place: "Jaipur, Rajasthan", workAreas: ["IN"], worksInYourArea: true }),
     ]);
     mockNearby.shops.mockResolvedValue([]);
     renderRouter("./app", { initialUrl: "/nearby" });
@@ -413,6 +415,7 @@ describe("C32 · Painters and shops near you", () => {
     fireEvent.press(screen.getByTestId("nearby-locate"));
 
     await waitFor(() => expect(screen.getByTestId("painter-works-here-p2")).toHaveTextContent("Works in your area"));
+    expect(screen.getByTestId("painter-place-p2")).toHaveTextContent("Jaipur, Rajasthan");
     expect(screen.queryByTestId("painter-works-here-p1")).toBeNull();
     await waitFor(() => expect(screen.getByTestId("nearby-here")).toHaveTextContent("Near Belagavi Camp, Belagavi, Karnataka"));
     // Asked to about a kilometre: no more of the point than that leaves the phone for a name.

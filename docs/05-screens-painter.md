@@ -100,8 +100,9 @@ confirmed mobile → a banner to S4.
   `GET /api/nearby/work-areas` (every state A to Z), in English or Hindi. Customers in those
   places find the painter however far off they live.
 - **Preview** — exactly the card a customer sees in C32: photo, name and address (set on
-  the painter website, where the painter gets certified) and where they can work, as ticked,
-  nothing else they filled in.
+  the painter website, where the painter gets certified), the district and state they're based
+  in (`locationPlace`, or a new location's once the server has named it) and where they can
+  work, as ticked, nothing else they filled in.
 
 **API:** `PUT /api/painters/me/listing { listedForCustomers, latitude, longitude, clearLocation, workAreas }`
 — `workAreas` only when they changed (left out, the server leaves them alone)

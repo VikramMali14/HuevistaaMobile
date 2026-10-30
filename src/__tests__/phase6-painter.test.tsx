@@ -711,14 +711,20 @@ describe("P5 · Nearby", () => {
     await waitFor(() => expect(screen.getByText("Saved. Customers near you can see you now.")).toBeTruthy());
   });
 
-  it("previews the card a customer sees: photo, name and address, and nothing else", async () => {
-    mockPainter.profile.mockResolvedValue(painter({ address: "Naupada, Thane", photoVersion: "1730000000000", about: "Twenty years in Thane" }));
+  it("previews the card a customer sees: photo, name, place and address, and nothing else", async () => {
+    mockPainter.profile.mockResolvedValue(
+      painter({ address: "Naupada, Thane", photoVersion: "1730000000000", about: "Twenty years in Thane", locationPlace: "Thane, Maharashtra" }),
+    );
     renderRouter("./app", { initialUrl: "/painter/nearby" });
     await waitFor(() => expect(screen.getByTestId("nearby-preview")).toBeTruthy());
     const card = within(screen.getByTestId("nearby-preview"));
     expect(card.getByText("Ravi Kumar")).toBeTruthy();
     expect(card.getByText("Naupada, Thane")).toBeTruthy();
     expect(card.getByLabelText("Photo of Ravi Kumar")).toBeTruthy();
+    // Where they're based, to the district — not a distance, nor their jobs and reviews.
+    expect(card.getByText("Thane, Maharashtra")).toBeTruthy();
+    expect(card.queryByText(/km away|jobs? done|reviews?|New on HueVistaa/)).toBeNull();
+    expect(screen.getByText("Customers see the district and state you work from, never exactly where you are.")).toBeTruthy();
     // The old line about them, their kinds of work and years stay off it, and aren't asked for.
     expect(card.queryByText(/Twenty years|Textures|12 yrs/)).toBeNull();
     expect(screen.queryByTestId("nearby-about")).toBeNull();

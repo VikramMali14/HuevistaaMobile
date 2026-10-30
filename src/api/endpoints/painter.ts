@@ -56,6 +56,8 @@ export interface PainterProfile {
    * places the painter can work in. Null with no position, or when the server can't tell.
    */
   locationState?: string | null;
+  /** That position's district and state ("Ajmer, Rajasthan"), as customers see it on the card. */
+  locationPlace?: string | null;
   /**
    * Where they can go for a job, as WorkAreas codes (see nearbyApi.workAreas): divisions,
    * whole states, or "IN" for anywhere in India. Empty until they say.

@@ -11,7 +11,7 @@ import { useAlive } from "@/lib/use-alive";
 import { useSubmit } from "@/lib/use-submit";
 import { useTheme } from "@/theme";
 
-import { directionsHref, distanceLabel, shopHours, shopPlace, telHref, trackRecord, whatsappHref } from "./nearby";
+import { directionsHref, distanceLabel, shopHours, shopPlace, telHref, whatsappHref } from "./nearby";
 import { usePainterPhone, useWorkAreas } from "./use-nearby";
 import { workAreasText } from "./work-areas";
 
@@ -23,9 +23,9 @@ function open(url: string | null) {
 /**
  * One painter as a customer sees them (C32) — and as the painter sees their own listing
  * (P5's preview, with `actions` standing in for the call). Ported from the website's
- * PainterCard: the painter's card — photo, name and address — where they can go for a job,
- * with the distance, the badge and what they've done. Nothing else a painter fills in is shown
- * to customers. The places are named by the catalogue (useWorkAreas); until it has loaded, or
+ * PainterCard: the painter's card — photo, name, the district and state they're based in, and
+ * their address — where they can go for a job, and the badge. Not how far away they are, and not
+ * their jobs and reviews. Nothing else a painter fills in is shown to customers. The places are named by the catalogue (useWorkAreas); until it has loaded, or
  * if it can't, the card simply goes without that line.
  */
 export function PainterCardBody({ painter: p, actions }: { painter: NearbyPainter; actions?: ReactNode }) {
@@ -43,15 +43,17 @@ export function PainterCardBody({ painter: p, actions }: { painter: NearbyPainte
           <Text variant="title3" accessibilityRole="header">
             {name}
           </Text>
+          {p.place?.trim() ? (
+            <Text variant="small" tone="accent" testID={`painter-place-${p.id}`}>
+              {p.place.trim()}
+            </Text>
+          ) : null}
           {p.address?.trim() ? (
             <Text variant="small" tone="mute" testID={`painter-address-${p.id}`}>
               {p.address.trim()}
             </Text>
           ) : null}
         </View>
-        <Text variant="small" tone="accent">
-          {distanceLabel(p.distanceKm, true)}
-        </Text>
       </View>
       {areas ? (
         <View style={[styles.areas, { gap: space.xs }]}>
@@ -68,9 +70,6 @@ export function PainterCardBody({ painter: p, actions }: { painter: NearbyPainte
           {p.worksInYourArea ? <Pill label={t("nearby.worksHere")} tone="success" testID={`painter-works-here-${p.id}`} /> : null}
         </View>
       ) : null}
-      <Text variant="small" tone="soft">
-        {trackRecord(p)}
-      </Text>
       {actions}
     </View>
   );

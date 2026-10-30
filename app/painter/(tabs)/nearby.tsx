@@ -327,7 +327,7 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
         </View>
         <Card>
           <View testID="nearby-preview">
-            {/* The card a customer sees in C32, at an example distance; the number shows only to a customer who presses Call. */}
+            {/* The card a customer sees in C32; the number shows only to a customer who presses Call. */}
             <PainterCardBody
               painter={{
                 id: profile.userId,
@@ -338,7 +338,10 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
                 ratingCount: profile.ratingCount ?? 0,
                 jobsCompleted: profile.jobsCompleted ?? 0,
                 certified: true,
-                distanceKm: 2.4,
+                // Not shown on the card; the place is.
+                distanceKm: 0,
+                // Where the location being saved is, once the server has said — or the saved one's.
+                place: pending === "clear" ? null : pending ? (pendingArea.data?.place ?? null) : (profile.locationPlace ?? null),
                 // As ticked above, before it is saved: what the card will say.
                 workAreas: catalogue.data ? areas : (profile.workAreas ?? []),
               }}

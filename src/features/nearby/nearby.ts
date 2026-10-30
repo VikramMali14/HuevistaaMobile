@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 
-import type { NearbyPainter, NearbyPlace, NearbyShop } from "@/api/endpoints/nearby";
+import type { NearbyPlace, NearbyShop } from "@/api/endpoints/nearby";
 import { t } from "@/i18n";
 
 /**
@@ -36,15 +36,13 @@ export function searchPoint(latitude: number, longitude: number): SearchPoint | 
 }
 
 /**
- * "2.4 km away", "18 km away", "400 m away". A painter's position is kept to about a
- * kilometre, so for a painter anything under one reads "Under 1 km away" — never metres
- * the figure doesn't have. A shop's pin is exact.
+ * "2.4 km away", "18 km away", "400 m away" — how far a shop is, from its exact pin. A painter's
+ * card says the district and state they're based in instead (`place`).
  */
-export function distanceLabel(km: number, coarse = false): string {
+export function distanceLabel(km: number): string {
   if (!Number.isFinite(km) || km < 0) return "";
-  if (km < 1) return coarse ? t("nearby.underOneKm") : t("nearby.metresAway", { m: Math.max(100, Math.round(km * 10) * 100) });
+  if (km < 1) return t("nearby.metresAway", { m: Math.max(100, Math.round(km * 10) * 100) });
   if (km < 10) return t("nearby.kmAway", { km: km.toFixed(1) });
-  // A painter who works in the customer's area can be a long way off: "1,237 km away".
   return t("nearby.kmAway", { km: Math.round(km).toLocaleString("en-IN") });
 }
 
@@ -112,18 +110,4 @@ export function shopHours(hours: string | null | undefined): string | null {
   const text = hours?.trim();
   if (!text) return null;
   return /^open\b/i.test(text) ? text : t("nearby.open", { hours: text });
-}
-
-/** What a painter has to show for themselves, or that they're new — never a blank. */
-export function trackRecord(p: Pick<NearbyPainter, "jobsCompleted" | "rating" | "ratingCount">): string {
-  const jobs = p.jobsCompleted ?? 0;
-  const parts = [
-    jobs > 0 ? (jobs === 1 ? t("nearby.jobOne") : t("nearby.jobs", { n: jobs })) : null,
-    p.rating != null && p.ratingCount > 0
-      ? p.ratingCount === 1
-        ? t("nearby.ratingOne", { rating: Number(p.rating).toFixed(1) })
-        : t("nearby.rating", { rating: Number(p.rating).toFixed(1), n: p.ratingCount })
-      : null,
-  ].filter(Boolean);
-  return parts.length ? parts.join(" · ") : t("nearby.newPainter");
 }

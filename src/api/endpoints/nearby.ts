@@ -36,8 +36,13 @@ export interface NearbyPainter {
   jobsCompleted: number;
   /** HueVistaa Certified — only certified painters are listed, so true on every result. */
   certified?: boolean;
-  /** To the painter's position as stored — rounded to about a kilometre. */
+  /** To the painter's position as stored — what the list is ordered by. No longer shown: the card says `place`. */
   distanceKm: number;
+  /**
+   * Where the painter is based, to the district: "Jaipur, Rajasthan", "South Delhi" — or the state
+   * alone. Shown instead of a distance. Null when the server can't tell; absent from older servers.
+   */
+  place?: string | null;
   /**
    * Where the painter can go for a job, as WorkAreas codes — divisions ("RJ-AJMER"), whole
    * states ("GJ"), or "IN" for anywhere in India — named by `nearbyApi.workAreas`. Empty when
@@ -96,6 +101,8 @@ export interface NearbyPlace {
 export interface NearbyArea {
   /** "Kaiser Ganj Ajmer, Ajmer, Rajasthan" */
   name: string | null;
+  /** Its district and state, as a painter's card shows them: "Ajmer, Rajasthan". Absent from older servers. */
+  place?: string | null;
   /** "RJ" */
   state: string | null;
   /** "RJ-AJMER" */

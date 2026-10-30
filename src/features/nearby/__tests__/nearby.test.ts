@@ -2,7 +2,7 @@
 import type { WorkAreas } from "@/api/endpoints/nearby";
 import { setLanguage } from "@/i18n";
 
-import { SEARCH_RADIUS_KM, dialable, directionsHref, distanceLabel, placeLabel, searchPoint, shopHours, shopPlace, telHref, trackRecord, whatsappHref } from "../nearby";
+import { SEARCH_RADIUS_KM, dialable, directionsHref, distanceLabel, placeLabel, searchPoint, shopHours, shopPlace, telHref, whatsappHref } from "../nearby";
 import { normalise, sameAreas, toggleDivision, toggleState, workAreasText } from "../work-areas";
 
 describe("distanceLabel", () => {
@@ -15,15 +15,7 @@ describe("distanceLabel", () => {
     expect(distanceLabel(2.4)).toBe("2.4 km away");
     expect(distanceLabel(1)).toBe("1.0 km away");
     expect(distanceLabel(18.3)).toBe("18 km away");
-    // A painter found because they work in the customer's area can be across the country.
     expect(distanceLabel(1237.1)).toBe("1,237 km away");
-  });
-
-  // A painter's position is kept to about a kilometre: no metres it doesn't have.
-  it("says only 'under 1 km' for a painter", () => {
-    expect(distanceLabel(0.4, true)).toBe("Under 1 km away");
-    expect(distanceLabel(0, true)).toBe("Under 1 km away");
-    expect(distanceLabel(3.2, true)).toBe("3.2 km away");
   });
 
   it("says nothing for a value that is not a distance", () => {
@@ -151,14 +143,6 @@ describe("searchPoint", () => {
     expect(searchPoint(0, 0)).toBeNull();
     expect(searchPoint(91, 10)).toBeNull();
     expect(searchPoint(Number.NaN, 10)).toBeNull();
-  });
-});
-
-describe("a painter's row", () => {
-  it("says what they've done, or that they're new", () => {
-    expect(trackRecord({ jobsCompleted: 3, rating: 4.56, ratingCount: 23 })).toBe("3 jobs done on HueVistaa · ★ 4.6 from 23 reviews");
-    expect(trackRecord({ jobsCompleted: 1, rating: 5, ratingCount: 1 })).toBe("1 job done on HueVistaa · ★ 5.0 from 1 review");
-    expect(trackRecord({ jobsCompleted: 0, rating: null, ratingCount: 0 })).toBe("New on HueVistaa — no jobs or reviews yet");
   });
 });
 

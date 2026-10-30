@@ -948,9 +948,9 @@ kilometre).
 - **Painter row:** the painter's card — photo (`photoUrl`, public while they're listed),
   name and address — where they can go for a job ("Works in Ajmer, Jaipur (Rajasthan) ·
   Gujarat", or "Works anywhere in India"; the codes in `workAreas`, named by
-  `GET /api/nearby/work-areas`), with the HueVistaa Certified badge, rating (★ 4.6 · 23),
-  jobs done and "3.2 km away" (a distance — never a position). Nothing else a painter fills
-  in is shown.
+  `GET /api/nearby/work-areas`), with the HueVistaa Certified badge and the district and state
+  they're based in ("Jaipur, Rajasthan" — `place`). No distance and no line of jobs or reviews:
+  the list is already nearest first. Nothing else a painter fills in is shown.
   **Call** reveals the number (`GET /api/nearby/painters/{id}/phone`) and opens the dialler.
 - **Shop row:** name, address, hours, distance · **Call** · **Directions** (opens Maps).
 
@@ -971,9 +971,8 @@ by itself. The position is rounded to about 100 m before it leaves the phone. A 
 fix is used first, then a fresh one with a 15 s limit. Refused for good → **Open
 settings**; location off or no fix → said, and **Use my location** tries again.
 
-- **Painters:** "Under 1 km away" rather than a figure (the server already blurs a
-  painter's spot); a line on jobs done and reviews, or "New on HueVistaa" when there are
-  none. **Call** asks for the number once (each one counts against 20 a day), dials it,
+- **Painters:** the district and state they're based in under the name (`place`), never a
+  distance or a record of jobs and reviews. **Call** asks for the number once (each one counts against 20 a day), dials it,
   then shows it on its own line with **WhatsApp**; it is kept for the session and never
   asked for again. Refused → the server's sentence under the card. Offline → said at
   once; it never waits for the signal and dials by itself later.
