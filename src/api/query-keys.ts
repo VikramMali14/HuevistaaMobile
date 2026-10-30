@@ -63,6 +63,8 @@ export const keys = {
   nearbyShops: (lat: number, lon: number, radiusKm: number) => ["nearby", "shops", lat, lon, radiusKm] as const,
   /** C32: a painter's number once asked for — kept for the session so it's never asked twice. */
   nearbyPhone: (painterId: string) => ["nearby", "phone", painterId] as const,
+  /** The Shade Book: its pages as this account may read them, and whether the pass is running. */
+  shadeBook: ["me", "shade-book"] as const,
 };
 
 /** What a claimed board changes: the balance, its batches and statement — and what it buys. */
@@ -89,8 +91,11 @@ export const shopCodeChanges = [
   keys.shadeScheme,
 ] as const;
 
-/** What a verified payment changes: everything that counts rooms or credits. */
-export const paymentChanges = [keys.entitlement, keys.projectOptions, keys.aiCredits, keys.cart] as const;
+/**
+ * What a verified payment changes: everything that counts rooms or credits — and the Shade
+ * Book, which a Google Play purchase of its pass opens.
+ */
+export const paymentChanges = [keys.entitlement, keys.projectOptions, keys.aiCredits, keys.cart, keys.shadeBook] as const;
 
 /**
  * What a colour board changes: the room (it may have closed — under "me", "projects", so the

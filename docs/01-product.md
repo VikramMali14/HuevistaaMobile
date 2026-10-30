@@ -88,13 +88,14 @@ pay on the website ("Thinking as the business").
 
 ## Navigation map
 
-### Customer — six tabs
+### Customer — seven tabs
 
 | Tab | What it holds | Main screens |
 |---|---|---|
 | **Home** | What I hold, the one next step, rooms in progress, latest AI image, ready-made rooms | C1 |
 | **Studio** | Every room, and "New room" | C2 → C6 … C18 |
 | **Catalogue** | All shades, filters, shade detail, ready-made rooms | C3, C19–C21 |
+| **Shade Book** | Colour combinations of our shades on real houses — a few free, the rest with a 24-hour pass | C34, C35 |
 | **Boards** | Finished colour boards and AI images | C4, C22–C26 |
 | **Nearby** | Painters and shops near me, nearest first | C32 |
 | **Account** | Rooms & credits, shop code, my products, nearby, help, settings | C5, C27–C33, S1–S9 |

@@ -1004,3 +1004,53 @@ or admin account, or a customer profile) → the backend's reason.
 the server's own sentence. No new token comes back (the role is read on every request),
 so the profile is read again and the guards hand over to `/painter`. Pressing again after
 a lost answer is safe: the server's call is idempotent.
+
+## The Shade Book
+
+### C34 · Shade Book
+
+**Route** `(tabs)/shade-book.tsx` (the **Shade Book** tab, beside Catalogue) · **Phase** 8 · **Web reference** `app/shade-book/page.tsx`, `components/shade-book/shade-book-view.tsx`, `lib/shade-book.ts`
+
+Colour combinations of our shades, each painted on one of the colour test's photos (a real
+house; the team adds and removes them on the website, Admin → Shade Book) with every
+part's Vista code. The pictures are painted by the server, so the app, the website and a
+saved picture show the same colours.
+
+**Layout:** title and one line on what it is · search (a Vista code or a word of the
+colour) · where the reader stands — **open until 31 Oct, 4:05 pm** with a running pass,
+or "3 free of 227" and **Open all 227 · ₹49 for 24 hours** without one · chips for the
+house and the number of colours · one card a page (the painted house, its name, "Modern
+house · 3 colours", each part with its Vista code; "Free sample" on a sample while the
+book is shut) · without the pass, a card counting the rest with the same button · the
+shade disclaimer.
+
+**Buying the pass:** in the Android store build a Google Play purchase of the pass's own
+product (`access.playProductId`), at Google's price, settled like the packs (C28/C29 in
+the Play build: the intent, Google's sheet, the server reads the purchase); nothing there
+mentions the website. Elsewhere Razorpay Checkout on the website's /pay/mobile page in a
+browser session (the basket's own, so D3 knows its echo), then `POST
+/api/shade-book/pass/verify`. A payment that went through but couldn't be confirmed says
+so and never offers to pay again: the server's webhook opens the book by itself. On a
+cold start D3 recognises the pass's order (kept on the phone while its checkout is open)
+and confirms it the same way. No product or no Razorpay → "The pass can't be bought in
+this app right now".
+
+**API:** `GET /api/shade-book` · `GET /api/shade-book/{id}/image?size=thumb|full&v=` ·
+`POST /api/shade-book/pass/order` · `POST /api/shade-book/pass/verify`.
+
+**As built:** the book is read again after a purchase (it is in `paymentChanges`) and the
+moment a running pass ends. Customers read Vista codes and colours only — the server sends
+no company, maker's code or maker's name.
+
+### C35 · Shade Book page
+
+**Route** `shade-book/[id].tsx` · **Phase** 8
+
+One page large on its house, "2 of 227", its name, the house and its colours, each part's
+Vista code. With the pass: **Save to photos** (asks for the photos permission then; refused
+→ **Open Settings**) and **Share** (the share sheet, where WhatsApp is), both with the
+server's picture to keep — the house over every part's colour and Vista code
+(`GET /api/shade-book/{id}/download`, named `huevistaa-shade-book-HV….jpg`). Without it:
+"Open the book to save this picture with its Vista codes" and the Buy button. **Previous**
+and **Next** step through the book as the reader may read it. A page no longer in the book
+says so.

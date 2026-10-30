@@ -637,6 +637,18 @@ export interface PlayCatalogue {
    */
   previousObfuscatedAccountIds?: string[];
   products: PlayProduct[];
+  /**
+   * The 24-hour passes sold through Google Play — the Shade Book's — each its own product.
+   * Absent from a server that sells none (or doesn't know them yet).
+   */
+  passes?: PlayPass[];
+}
+
+/** A 24-hour pass Google Play sells: which one, and for how long each unit runs. */
+export interface PlayPass {
+  productId: string;
+  kind: "SHADE_BOOK";
+  hours: number;
 }
 
 /**
@@ -748,4 +760,91 @@ export interface AssignedProducts {
     allowedBrands?: string[];
     products: ShopProduct[];
   }[];
+}
+
+// ── The Shade Book ──────────────────────────────────────────────────────────────
+
+/**
+ * Whether the Shade Book is open to this account, and what opening it costs. ADMIN and a
+ * running PASS read every page (until `expiresAt`); NONE reads the free samples.
+ */
+export interface ShadeBookAccess {
+  open: boolean;
+  reason: "ADMIN" | "PASS" | "NONE" | "SIGNED_OUT";
+  /** When the pass shuts — India's wall clock, no zone (the server runs on IST). */
+  expiresAt?: string | null;
+  pricePaise: number;
+  currency: string;
+  hours: number;
+  /** Whether Razorpay can sell it (the website's checkout). */
+  purchasable: boolean;
+  /** The Google Play product it is sold as in the Android store build; absent when it isn't. */
+  playProductId?: string | null;
+}
+
+/** A shade on a Shade Book page: its Vista code and colour (no company — customers never see one). */
+export interface ShadeBookShade {
+  hvCode?: string | null;
+  shadeCode?: string | null;
+  hexCode: string;
+}
+
+export interface ShadeBookPart {
+  surfaceId: string;
+  surfaceLabel: string;
+  shade: ShadeBookShade;
+}
+
+/** A colour-test photo the pages are painted on. */
+export interface ShadeBookPhoto {
+  id: string;
+  kind: "INTERIOR" | "EXTERIOR";
+  title: string;
+  width: number;
+  height: number;
+  /** Goes on picture addresses: it changes when the team redraws the photo's parts. */
+  version: string;
+  surfaces: { id: string; label: string }[];
+}
+
+/** One page: a combination of our shades on one photo. */
+export interface ShadeBookPage {
+  id: string;
+  photoId: string;
+  scope: "INTERIOR" | "EXTERIOR";
+  colours: number;
+  title: string;
+  /** One of the first few pages, open without the pass. */
+  sample: boolean;
+  shades: ShadeBookPart[];
+}
+
+/** GET /api/shade-book — every page with a running pass, the free samples without one. */
+export interface ShadeBook {
+  access: ShadeBookAccess;
+  total: number;
+  freeSamples: number;
+  photos: ShadeBookPhoto[];
+  combinations: ShadeBookPage[];
+}
+
+/** POST /api/shade-book/pass/order — what the website's checkout page is opened with. */
+export interface ShadeBookPassOrder {
+  orderId: string;
+  kind: "SHADE_BOOK";
+  label: string;
+  /** Paise, priced by the server. */
+  amount: number;
+  currency: string;
+  hours: number;
+  razorpayKeyId: string;
+}
+
+/** The 24 hours a payment opened. */
+export interface ShadeBookPass {
+  kind: "SHADE_BOOK";
+  label: string;
+  startsAt: string;
+  expiresAt: string;
+  amountPaise: number;
 }

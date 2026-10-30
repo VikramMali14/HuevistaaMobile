@@ -65,11 +65,11 @@ describe("start-up (A1)", () => {
     expect(screen.getByText("Continue with mobile number")).toBeTruthy();
   });
 
-  it("sends a customer to Home, with the five customer tabs", async () => {
+  it("sends a customer to Home, with the customer tabs", async () => {
     signedInAs({ role: "CUSTOMER" });
     renderRouter("./app", { initialUrl: "/" });
     await waitFor(() => expect(screen).toHavePathname("/home"));
-    for (const tab of ["Home", "Studio", "Catalogue", "Boards", "Account"]) {
+    for (const tab of ["Home", "Studio", "Catalogue", "Shade Book", "Boards", "Account"]) {
       expect(screen.getAllByText(tab).length).toBeGreaterThan(0);
     }
   });

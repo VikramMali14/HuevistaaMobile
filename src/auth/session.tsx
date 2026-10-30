@@ -23,6 +23,8 @@ import { resetPayments } from "@/features/payments/payments";
 import { resetPending } from "@/features/payments/pending-payment";
 // Not the Play flow itself (play-checkout.ts): only this store, which never loads expo-iap.
 import { resetPlay } from "@/features/payments/play/play-payments";
+import { forgetPassOrder } from "@/features/shade-book/pass";
+import { clearShadeBookFiles } from "@/features/shade-book/pictures";
 import { clearStudioCache } from "@/features/studio/engine/texture-loader";
 import { resetPaintStore, resetRecentShades } from "@/features/studio/paint-store";
 import { clearUpload } from "@/features/studio/photo-upload";
@@ -66,8 +68,9 @@ async function forgetAccountData(): Promise<void> {
   clearUpload();
   clearStudioCache();
   clearRenderFiles();
+  clearShadeBookFiles();
   resetInFlight();
-  await Promise.all([resetRecentShades(), resetMadeBoards(), resetPending()]);
+  await Promise.all([resetRecentShades(), resetMadeBoards(), resetPending(), forgetPassOrder()]);
   // The catalogue copy, which rooms open on Paint, and the board trays (Phase 3 studio).
   await AsyncStorage.multiRemove([CATALOGUE_CACHE_KEY, "hv.paintedRooms", "hv.boardTrays", "hv.askedShop"]).catch(() => {});
   try {
