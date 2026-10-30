@@ -90,13 +90,15 @@ confirmed mobile → a banner to S4.
 - **Where you're based** — "Use my location" (kept to about a kilometre), or a town, area
   or PIN code typed instead, or clear it. Once saved, it says which place it is in ("Near
   Kaiser Ganj Ajmer, Ajmer, Rajasthan" — `locationName`).
-- **Where can you work?** — Rajasthan's divisions (Ajmer, Bharatpur, Bikaner, Jaipur, Jodhpur,
-  Kota, Udaipur) with **All of Rajasthan**, then Gujarat's regions (Kutch, North, Central and
-  South Gujarat, Saurashtra), then **Other states** (folded behind **Show all states**): a chip
-  each that opens its divisions — or its usual regions — below, one state at a time, with
-  **All of …**; and last **Anywhere in India**. The big towns in each division are listed under
-  its chips. Drawn from `GET /api/nearby/work-areas` (which says which states are open at the
-  top: `featured`), in English or Hindi.
+- **Where can you work?** — **Your state** first: the one the location is in (`locationState`,
+  or for a location found but not saved yet `GET /api/nearby/where`, which also names it: "New
+  location: near …"), a chip that opens its divisions below when pressed — Ajmer, Bharatpur,
+  Bikaner, Jaipur, Jodhpur, Kota, Udaipur for Rajasthan — with **All of …**. Then **Other states**
+  (folded behind **Show all states**; all of them when there is no location yet), each opening
+  its divisions — or its usual regions — the same way, one state at a time; and last **Anywhere
+  in India**. The big towns in each division are listed under its chips. Drawn from
+  `GET /api/nearby/work-areas` (every state A to Z), in English or Hindi. Customers in those
+  places find the painter however far off they live.
 - **Preview** — exactly the card a customer sees in C32: photo, name and address (set on
   the painter website, where the painter gets certified) and where they can work, as ticked,
   nothing else they filled in.

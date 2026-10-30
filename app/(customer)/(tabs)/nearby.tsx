@@ -9,7 +9,7 @@ import { Banner, Button, Card, Chip, ErrorState, Screen, Segmented, Skeleton, Te
 import { alreadyAllowed, locate, type Located } from "@/features/nearby/locate";
 import { MAX_RESULTS, SEARCH_RADIUS_KM, placeLabel, searchPoint, type SearchPoint } from "@/features/nearby/nearby";
 import { PainterCard, ShopCard } from "@/features/nearby/NearbyCards";
-import { useNearbyPainters, useNearbyShops } from "@/features/nearby/use-nearby";
+import { useNearbyPainters, useNearbyShops, useWhere } from "@/features/nearby/use-nearby";
 import { t } from "@/i18n";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { useTheme } from "@/theme";
@@ -27,7 +27,9 @@ type Tab = "painters" | "shops";
  * never written down, and leaves the phone rounded to about 100 m. Both lists are read for
  * each point (the tabs show both counts), and kept five minutes: they share a small hourly
  * allowance. A painter's number is asked for only when Call is pressed, and each card says
- * where the painter can go for a job.
+ * where the painter can go for a job. Painters further off who said they work in the place the
+ * search is from come after, marked "Works in your area"; the phone's own point is named
+ * ("Near …", GET /api/nearby/where, asked to about a kilometre) as a typed place is.
  *
  * Or a city, area or PIN code typed instead (GET /api/nearby/places) — for someone who
  * won't share where the phone is, or is finding a painter for a house they aren't in. The
@@ -62,6 +64,8 @@ export default function Nearby() {
   const placeChosen = useRef(false);
   const painters = useNearbyPainters(point, SEARCH_RADIUS_KM);
   const shops = useNearbyShops(point, SEARCH_RADIUS_KM);
+  // The phone's own point, named as a typed place is: "Near Kaiser Ganj Ajmer, Ajmer, Rajasthan".
+  const here = useWhere(point && !place ? point : null);
   const pull = usePullToRefresh(async () => {
     if (point) await Promise.all([painters.refetch(), shops.refetch()]);
   });
@@ -236,6 +240,11 @@ export default function Nearby() {
           <Button variant="secondary" block={false} label={t("nearby.placeSearch")} loading={finding} onPress={() => void findPlace()} testID="nearby-place-search" />
         </View>
         {placeProblem ? <Banner tone="warning" message={placeProblem} testID="nearby-place-problem" /> : null}
+        {!place && point && here.data?.name ? (
+          <Text variant="body" tone="soft" accessibilityLiveRegion="polite" testID="nearby-here">
+            {t("nearby.near", { place: here.data.name })}
+          </Text>
+        ) : null}
         {place ? (
           <View style={{ gap: space.xs }} accessibilityLiveRegion="polite" testID="nearby-near">
             <Text variant="body" tone="soft">

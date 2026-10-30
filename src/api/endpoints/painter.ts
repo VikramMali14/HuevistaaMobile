@@ -52,6 +52,11 @@ export interface PainterProfile {
    */
   locationName?: string | null;
   /**
+   * The state that position is in, as a WorkAreas code ("RJ") — P5 draws it first among the
+   * places the painter can work in. Null with no position, or when the server can't tell.
+   */
+  locationState?: string | null;
+  /**
    * Where they can go for a job, as WorkAreas codes (see nearbyApi.workAreas): divisions,
    * whole states, or "IN" for anywhere in India. Empty until they say.
    */

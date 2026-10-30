@@ -54,6 +54,26 @@ export function useWorkAreas() {
 }
 
 /**
+ * Which place a point is in (nearbyApi.where): "Near …" over a search from the phone's own
+ * location, and the state P5 starts a painter's places at. Asked to two decimals — about a
+ * kilometre, as much as a place name needs, and all that leaves the phone for it — and kept for
+ * the session, since a place doesn't move. Without an answer the screens simply say less.
+ */
+export function useWhere(point: { lat: number; lon: number } | null) {
+  const lat = point ? Math.round(point.lat * 100) / 100 : 0;
+  const lon = point ? Math.round(point.lon * 100) / 100 : 0;
+  return useQuery({
+    queryKey: keys.nearbyWhere(lat, lon),
+    queryFn: () => nearbyApi.where(lat, lon),
+    enabled: point !== null,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: false,
+  });
+}
+
+/**
  * A painter's number: asked for only on a press (each one counts against 20 a day, the
  * same painter again included), then kept in memory for the session — a row scrolled
  * away and back, or the other tab and back, never asks again. Cleared on sign-out.

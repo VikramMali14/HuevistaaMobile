@@ -1511,6 +1511,8 @@ export const en = {
     /** Where a painter can go for a job, on their card. */
     worksIn: "Works in {places}",
     worksAnywhere: "Works anywhere in India",
+    /** A painter further off who said they work where the customer is searching from. */
+    worksHere: "Works in your area",
   },
   /** P1–P12 · the painter's app (docs/05). Words as on the painter website. */
   painter: {
@@ -1760,6 +1762,7 @@ export const en = {
       locationOff: "Location is off on your phone. Turn it on and try again.",
       near: "Near {place}",
       pendingPlace: "New location: {place}. Save to use it.",
+      pendingNear: "New location: near {place}. Save to use it.",
       orType: "Or type your town, area or PIN code",
       placePlaceholder: "e.g. Vaishali Nagar or 302021",
       placeFind: "Find",
@@ -1770,9 +1773,11 @@ export const en = {
       placeChoose: "Tap the one that is yours:",
       placeCredit: "Places from India Post (data.gov.in) and GeoNames.",
       areasTitle: "Where can you work?",
-      areasLede: "Tap every place you can go to for a job. Customers see this on your card.",
+      areasLede: "Tap every place you can go to for a job. Customers in those places can find you, even far from where you live, and see it on your card.",
       areasAllOf: "All of {state}",
+      areasYourState: "Your state",
       areasOtherStates: "Other states",
+      areasStates: "States",
       areasOtherHint: "Tap a state to choose where in it you can work.",
       areasWhole: "All",
       areasShowStates: "Show all states",

@@ -939,7 +939,12 @@ Shown only to shop customers.
 **Route** `(tabs)/nearby.tsx` (the **Nearby** tab) · **Phase** 7 · **Web reference** `components/app/nearby-finder.tsx`, `lib/geolocation.ts`, `lib/nearby.ts`
 
 **Layout:** segmented **Painters / Shops** · "Within 50 km, nearest first" · list, nearest
-first. No distance to pick, as on the website: the search always reaches 50 km.
+first. No distance to pick, as on the website: the search always reaches 50 km — and painters
+further off who said they work in the place the search is from (its division, its state, or
+anywhere in India) come after the nearby ones, marked **Works in your area**
+(`worksInYourArea`). A search from the phone's own location names it, as a typed place is
+("Near Belagavi Camp, Belagavi, Karnataka" — `GET /api/nearby/where`, asked to about a
+kilometre).
 - **Painter row:** the painter's card — photo (`photoUrl`, public while they're listed),
   name and address — where they can go for a job ("Works in Ajmer, Jaipur (Rajasthan) ·
   Gujarat", or "Works anywhere in India"; the codes in `workAreas`, named by
@@ -958,7 +963,7 @@ aren't in. `GET /api/nearby/places?q=` turns it into the point the searches take
 
 **API:** `GET /api/nearby/painters?lat&lon&radiusKm=50` · `GET /api/nearby/shops?lat&lon&radiusKm=50` ·
 `GET /api/nearby/places?q` · `GET /api/nearby/work-areas` (the names of the places painters
-work in, read once a day at most).
+work in, read once a day at most) · `GET /api/nearby/where?lat&lon` (the place a point is in).
 
 **As built:** location is asked for only on **Use my location** (a card that says why,
 and that it's used for this search only); when it was allowed before, the search starts

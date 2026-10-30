@@ -61,7 +61,13 @@ export function PainterCardBody({ painter: p, actions }: { painter: NearbyPainte
           </Text>
         </View>
       ) : null}
-      {p.certified !== false ? <Pill label={t("nearby.certified")} tone="accent" testID="painter-certified" /> : null}
+      {p.certified !== false || p.worksInYourArea ? (
+        <View style={[styles.row, styles.wrap, { gap: space.xs }]}>
+          {p.certified !== false ? <Pill label={t("nearby.certified")} tone="accent" testID="painter-certified" /> : null}
+          {/* Found because they work where the customer is, maybe from far off: said, so the distance makes sense. */}
+          {p.worksInYourArea ? <Pill label={t("nearby.worksHere")} tone="success" testID={`painter-works-here-${p.id}`} /> : null}
+        </View>
+      ) : null}
       <Text variant="small" tone="soft">
         {trackRecord(p)}
       </Text>
@@ -167,6 +173,7 @@ const styles = StyleSheet.create({
   painterHead: { flexDirection: "row", alignItems: "center" },
   photo: { width: 56, height: 56, borderRadius: 28 },
   row: { flexDirection: "row", alignItems: "center" },
+  wrap: { flexWrap: "wrap" },
   areas: { flexDirection: "row", alignItems: "flex-start" },
   areasIcon: { marginTop: 2 },
   fill: { flex: 1 },

@@ -44,6 +44,11 @@ export interface NearbyPainter {
    * the painter hasn't said; absent from older servers.
    */
   workAreas?: string[];
+  /**
+   * The painter said they work in the place the search is from — its division, its whole state,
+   * or anywhere in India — and is found however far off they live. Absent from older servers.
+   */
+  worksInYourArea?: boolean;
 }
 
 /** GET /api/nearby/shops (NearbyShopResponse). Nearest first, at most 50. */
@@ -84,6 +89,19 @@ export interface NearbyPlace {
   longitude: number;
 }
 
+/**
+ * GET /api/nearby/where (AreaResponse) — which place a point is in: its name as a person says it,
+ * and its state and division as WorkAreas codes. Each null when the server can't tell.
+ */
+export interface NearbyArea {
+  /** "Kaiser Ganj Ajmer, Ajmer, Rajasthan" */
+  name: string | null;
+  /** "RJ" */
+  state: string | null;
+  /** "RJ-AJMER" */
+  division: string | null;
+}
+
 /** A division of a state — or, for a state without divisions, a region or a district. */
 export interface WorkAreaDivision {
   /** "RJ-AJMER" */
@@ -101,17 +119,14 @@ export interface WorkAreaState {
   code: string;
   name: string;
   nameHi: string;
-  /** Drawn open at the top of P5's picker (Rajasthan, Gujarat); the rest fold under "Other states". */
-  featured: boolean;
   /** Empty for a place chosen only whole (Chandigarh). */
   divisions: WorkAreaDivision[];
 }
 
 /**
  * GET /api/nearby/work-areas (WorkAreasResponse) — the places a painter can say they work in:
- * Rajasthan by division, Gujarat by region, then every other state A to Z, each split the same
- * way, and the code for anywhere in India. Each named in English and Hindi. Public, and the same
- * for everybody.
+ * every state A to Z, each by division, and the code for anywhere in India. Each named in English
+ * and Hindi. Public, and the same for everybody; P5 puts the painter's own state first.
  */
 export interface WorkAreas {
   /** "IN" */
@@ -149,4 +164,10 @@ export const nearbyApi = {
 
   /** The places painters choose from, named in both languages. Not counted against any allowance. */
   workAreas: () => api.request<WorkAreas>("api/nearby/work-areas"),
+
+  /**
+   * Which place a point is in, and its state and division. Nothing is kept; not counted against
+   * any allowance. 400 for a point that can't be right.
+   */
+  where: (lat: number, lon: number) => api.request<NearbyArea>("api/nearby/where", { query: { lat, lon } }),
 };

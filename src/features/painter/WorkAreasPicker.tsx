@@ -8,43 +8,46 @@ import { getLanguage, t } from "@/i18n";
 import { useTheme } from "@/theme";
 
 /**
- * Where the painter can go for a job (P5), in the order a painter thinks about it: the divisions
- * of Rajasthan first, then Gujarat's regions, then any other state — and last, anywhere in India.
- * A chip for each, with the big towns in each listed under them; "All of Rajasthan" ticks every
- * division at once. As the painter website's work-areas-picker.tsx.
+ * Where the painter can go for a job (P5), in the order a painter thinks about it: their own state
+ * first — the one their location is in — then any other state, and last, anywhere in India. As the
+ * painter website's work-areas-picker.tsx.
  *
- * Every state is split — into its divisions, or its usual regions — and the catalogue says which
- * are drawn open at the top (`featured`: Rajasthan and Gujarat), so a change there needs no new
- * build. The other thirty-odd are a chip each, folded behind "Show all states" (the ones already
- * chosen always show): pressing one opens its divisions below, one state at a time. While
- * anywhere in India is on the rest is greyed out; turning it off brings back what was chosen before.
+ * Each state is a chip. Pressing one opens its divisions below — a chip each, with the big towns in
+ * each listed under them, and "All of Rajasthan" to tick every division at once — one state at a
+ * time. The other states are folded behind "Show all states" (the ones already chosen always
+ * show); with no location yet there is no state of their own, and every state waits behind the
+ * same button. While anywhere in India is on the rest is greyed out; turning it off brings back
+ * what was chosen before.
  */
 export function WorkAreasPicker({
   catalogue,
   value,
   onChange,
+  homeState = null,
   disabled = false,
 }: {
   catalogue: WorkAreas;
   /** As the server keeps it — see features/nearby/work-areas.ts. */
   value: string[];
   onChange: (next: string[]) => void;
+  /** The code of the state the painter's location is in, drawn first; null when it isn't known. */
+  homeState?: string | null;
   disabled?: boolean;
 }) {
   const { space, colors, radius } = useTheme();
   const [showAll, setShowAll] = useState(false);
-  /** The other state whose divisions are open below the chips; one at a time. */
+  /** The state whose divisions are open below its chip; one at a time. */
   const [opened, setOpened] = useState<string | null>(null);
   /** What was chosen before "Anywhere in India" was switched on, to give back when it is off. */
   const before = useRef<string[]>([]);
 
   const anywhere = value.includes(catalogue.anywhere);
   const locked = disabled || anywhere;
-  const featured = catalogue.states.filter((s) => s.featured);
-  const others = catalogue.states.filter((s) => !s.featured);
+  const home = catalogue.states.find((s) => s.code === homeState) ?? null;
+  const others = catalogue.states.filter((s) => s !== home);
   const chosenIn = (state: WorkAreaState) => value.includes(state.code) || state.divisions.some((d) => value.includes(d.code));
   const listed = showAll ? others : others.filter(chosenIn);
-  const openState = others.find((s) => s.code === opened) ?? null;
+  const openOther = others.find((s) => s.code === opened) ?? null;
 
   /** "· All" for a whole state, "· 2" for two of its divisions, nothing for none. */
   const summary = (state: WorkAreaState) => {
@@ -53,52 +56,54 @@ export function WorkAreasPicker({
     return count > 0 ? ` · ${count}` : "";
   };
 
-  const block = (state: WorkAreaState) => (
-    <StateBlock
-      key={state.code}
-      state={state}
-      value={value}
-      locked={locked}
-      onToggleAll={() => onChange(toggleState(value, state, catalogue))}
-      onToggle={(code) => onChange(toggleDivision(value, state, code, catalogue))}
-    />
+  const chip = (state: WorkAreaState) => (
+    <View key={state.code} style={styles.chip}>
+      <Chip
+        label={`${placeName(state)}${summary(state)}`}
+        selected={opened === state.code}
+        onPress={() => setOpened((was) => (was === state.code ? null : state.code))}
+        testID={`area-state-${state.code}`}
+      />
+    </View>
+  );
+
+  const panel = (state: WorkAreaState) => (
+    <View style={[styles.panel, { padding: space.md, borderRadius: radius.md, borderColor: colors.ruleStrong, backgroundColor: colors.surfaceSoft }]}>
+      <StateBlock
+        state={state}
+        value={value}
+        locked={locked}
+        onToggleAll={() => onChange(toggleState(value, state, catalogue))}
+        onToggle={(code) => onChange(toggleDivision(value, state, code, catalogue))}
+      />
+    </View>
   );
 
   return (
     <View style={{ gap: space.lg }} testID="nearby-areas">
-      {featured.map(block)}
+      <Text variant="small" tone="soft">
+        {t("painter.nearby.areasOtherHint")}
+      </Text>
 
-      <View style={{ gap: space.sm }}>
-        <Text variant="bodyStrong">{t("painter.nearby.areasOtherStates")}</Text>
-        <Text variant="small" tone="soft">
-          {t("painter.nearby.areasOtherHint")}
-        </Text>
-        {listed.length > 0 ? (
-          <View style={[styles.wrap, { gap: space.xs }]}>
-            {listed.map((state) => (
-              <View key={state.code} style={styles.chip}>
-                <Chip
-                  label={`${placeName(state)}${summary(state)}`}
-                  selected={opened === state.code}
-                  onPress={() => setOpened((was) => (was === state.code ? null : state.code))}
-                  testID={`area-state-${state.code}`}
-                />
-              </View>
-            ))}
-          </View>
-        ) : null}
-        {openState ? (
-          <View style={[styles.panel, { padding: space.md, borderRadius: radius.md, borderColor: colors.ruleStrong, backgroundColor: colors.surfaceSoft }]}>
-            {block(openState)}
-          </View>
-        ) : null}
+      {home ? (
+        <View style={{ gap: space.sm }} testID="area-home">
+          <Text variant="bodyStrong">{t("painter.nearby.areasYourState")}</Text>
+          <View style={[styles.wrap, { gap: space.xs }]}>{chip(home)}</View>
+          {opened === home.code ? panel(home) : null}
+        </View>
+      ) : null}
+
+      <View style={{ gap: space.sm }} testID="area-others">
+        <Text variant="bodyStrong">{home ? t("painter.nearby.areasOtherStates") : t("painter.nearby.areasStates")}</Text>
+        {listed.length > 0 ? <View style={[styles.wrap, { gap: space.xs }]}>{listed.map(chip)}</View> : null}
+        {openOther ? panel(openOther) : null}
         <Button
           variant="ghost"
           block={false}
           label={showAll ? t("painter.nearby.areasHideStates") : t("painter.nearby.areasShowStates")}
           onPress={() => {
             setShowAll((was) => !was);
-            setOpened(null);
+            setOpened((was) => (was === home?.code ? was : null));
           }}
           testID="area-more"
         />

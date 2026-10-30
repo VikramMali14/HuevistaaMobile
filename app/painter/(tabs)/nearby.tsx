@@ -11,7 +11,7 @@ import { useSession } from "@/auth/session";
 import { Banner, Button, Card, ErrorState, Screen, Skeleton, Switch, Text, useToast } from "@/components/ui";
 import { findFix } from "@/features/nearby/locate";
 import { PainterCardBody } from "@/features/nearby/NearbyCards";
-import { useWorkAreas } from "@/features/nearby/use-nearby";
+import { useWhere, useWorkAreas } from "@/features/nearby/use-nearby";
 import { sameAreas } from "@/features/nearby/work-areas";
 import { hasSavedLocation, listingBody, listingNeeds, ownPhotoUrl, ROUGH_FIX_METRES, type PendingLocation } from "@/features/painter/listing";
 import { PainterHeader } from "@/features/painter/PainterHeader";
@@ -40,8 +40,9 @@ import { useTheme } from "@/theme";
  * end of it: the painter types their town or PIN code instead. Once saved, the screen names the
  * place the base is in, so a wrong one is plain to see.
  *
- * Where they can work: Rajasthan's divisions, Gujarat's regions, other states, or anywhere in
- * India (WorkAreasPicker), named by the server's catalogue.
+ * Where they can work: divisions of their own state — the one their location is in, drawn first —
+ * other states, or anywhere in India (WorkAreasPicker), named by the server's catalogue. Customers
+ * in those places find them, however far off.
  *
  * Only HueVistaa Certified painters are shown to customers. The switch stays the painter's
  * to set before they are — the listing is saved and goes live once they're certified — so
@@ -110,6 +111,12 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
   const locating = useSubmit();
   const saving = useSubmit();
   const catalogue = useWorkAreas();
+  // Where a location not saved yet is: named before it is saved, and its state first among the places.
+  const pendingArea = useWhere(pending && pending !== "clear" ? { lat: pending.latitude, lon: pending.longitude } : null);
+  // The one about to be saved once the server has said where it is — the saved one's until then —
+  // and none once it is removed.
+  const homeState =
+    pending === "clear" ? null : pending ? (pendingArea.data?.state ?? profile.locationState ?? null) : (profile.locationState ?? null);
 
   const needs = listingNeeds(profile, pending);
   const certified = Boolean(profile.certified);
@@ -150,7 +157,12 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
 
   let status: string;
   if (pending === "clear") status = t("painter.nearby.pendingClear");
-  else if (pending) status = pending.label ? t("painter.nearby.pendingPlace", { place: pending.label }) : t("painter.nearby.pendingNew");
+  else if (pending)
+    status = pending.label
+      ? t("painter.nearby.pendingPlace", { place: pending.label })
+      : pendingArea.data?.name
+        ? t("painter.nearby.pendingNear", { place: pendingArea.data.name })
+        : t("painter.nearby.pendingNew");
   else if (hasSavedLocation(profile) && profile.locationName) status = t("painter.nearby.near", { place: profile.locationName });
   else if (hasSavedLocation(profile)) status = profile.locationUpdatedAt ? t("painter.nearby.setOn", { date: formatServerDate(profile.locationUpdatedAt) }) : t("painter.nearby.setPlain");
   else status = t("painter.nearby.none");
@@ -292,6 +304,7 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
           <WorkAreasPicker
             catalogue={catalogue.data}
             value={areas}
+            homeState={homeState}
             disabled={saving.busy}
             onChange={(next) => {
               setError(null);
