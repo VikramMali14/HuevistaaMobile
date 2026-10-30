@@ -43,6 +43,7 @@ export default function ShadeBookScreen() {
   const picture = useSavePicture();
   const pull = usePullToRefresh(book.refetch);
   const listRef = useRef<FlashListRef<ShadeBookPage>>(null);
+  const stripY = useRef(0);
   const [photoId, setPhotoId] = useState<string | null>(null);
   const [chosenId, setChosenId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -60,11 +61,14 @@ export default function ShadeBookScreen() {
     if (!chosen || chosen.colours !== next.surfaces.length) setChosenId(null);
   };
 
-  const choose = useCallback((page: ShadeBookPage) => {
-    setChosenId(page.id);
-    // Back up to the photo, so the combination is seen going on.
-    listRef.current?.scrollToOffset({ offset: 0, animated: true });
-  }, []);
+  const choose = useCallback(
+    (page: ShadeBookPage) => {
+      setChosenId(page.id);
+      // Back up to the photos, so the combination is seen going on.
+      listRef.current?.scrollToOffset({ offset: Math.max(0, stripY.current - space.sm), animated: true });
+    },
+    [space.sm],
+  );
 
   const renderItem = useCallback(
     ({ item }: { item: ShadeBookPage }) => (
@@ -91,9 +95,18 @@ export default function ShadeBookScreen() {
     const locked = lockedFor(data, colourCount);
     const header = (
       <View style={{ gap: space.md, paddingBottom: space.sm }}>
+        <Text variant="small" tone="soft">
+          {t("shadeBook.lead")}
+        </Text>
         <Standing book={data} price={pass.price} sellable={pass.sellable} busy={pass.busy} onBuy={() => void pass.buy()} />
         <PassNoticeBanner notice={pass.notice} />
-        <PhotoStrip photos={data.photos} chosen={photo.id} onChoose={choosePhoto} />
+        <View
+          onLayout={(e) => {
+            stripY.current = e.nativeEvent.layout.y;
+          }}
+        >
+          <PhotoStrip photos={data.photos} chosen={photo.id} onChoose={choosePhoto} />
+        </View>
         <RemoteImage
           url={chosen ? shadeBookPicturePath(chosen, photo, "full") : shadeBookPhotoPath(photo)}
           contentFit="contain"
@@ -201,9 +214,6 @@ export default function ShadeBookScreen() {
         <CatalogueSwitch value="book" />
         <Text variant="title1" accessibilityRole="header">
           {t("shadeBook.title")}
-        </Text>
-        <Text variant="small" tone="soft">
-          {t("shadeBook.lead")}
         </Text>
       </View>
       <View style={styles.fill}>{body}</View>

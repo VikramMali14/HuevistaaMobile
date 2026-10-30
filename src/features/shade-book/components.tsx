@@ -39,7 +39,7 @@ export function Swatches({ parts }: { parts: ShadeBookPart[] }) {
   );
 }
 
-/** The four photos, small, in a row — the one chosen outlined. */
+/** The four photos, small, in a row — the one chosen outlined — each with its number, a room or a house, and how many colours. */
 export function PhotoStrip({
   photos,
   chosen,
@@ -74,7 +74,7 @@ export function PhotoStrip({
           >
             <RemoteImage url={shadeBookPhotoPath(photo)} style={[styles.photoImage, { borderRadius: 4 }]} />
             <Text variant="caption" numberOfLines={1}>
-              {i + 1} · {photo.title}
+              {i + 1} · {kindOf(photo)}
             </Text>
             <Text variant="caption" tone="mute" numberOfLines={1}>
               {t("shadeBook.colours", { n: photo.surfaces.length })}
