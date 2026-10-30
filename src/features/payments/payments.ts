@@ -127,7 +127,7 @@ export function settledRecently(now: number = Date.now()): boolean {
 const RAZORPAY_UNREACHABLE = "Payment verification error.";
 
 /** A refusal that trying again won't change: the server checked and said no. */
-function refusedForGood(err: unknown): boolean {
+export function refusedForGood(err: unknown): boolean {
   return (
     isApiError(err) &&
     err.kind === "http" &&
@@ -269,30 +269,7 @@ export async function payForBasket({ split, basket, expectedPaise, accountId, pr
   });
   void billingApi.reportCheckout(order.orderId, { status: "OPENED", pageUrl: PAGE });
 
-  // Answers that come as a deep link (D3, or the app's own link listener) land here too.
-  const slot: { answer: PayCallback | null; wake: () => void } = { answer: null, wake: () => {} };
-  delivered = {
-    answer: { status: "unknown" },
-    notify: () => {
-      // A success, from wherever it came, is never replaced.
-      if (delivered && slot.answer?.status !== "success") slot.answer = delivered.answer;
-      slot.wake();
-    },
-  };
-  const listener = Linking.addEventListener("url", ({ url }) => {
-    if (url.startsWith(deepLinks.payCallback)) deliverPayAnswer(parsePayCallback(url));
-  });
-  active = order.orderId;
-  try {
-    const result = await WebBrowser.openAuthSessionAsync(
-      checkoutUrl(order, describeOrder(order), prefill),
-      deepLinks.payCallback,
-      // No "wants to use … to sign in" prompt on iOS: Checkout needs no shared cookies.
-      { preferEphemeralSession: true },
-    );
-    const fromSession = result.type === "success" ? parsePayCallback(result.url) : null;
-    if (fromSession && fromSession.status !== "unknown" && slot.answer?.status !== "success") slot.answer = fromSession;
-    const answer = await lateAnswer(slot);
+  return inCheckoutSession(order.orderId, checkoutUrl(order, describeOrder(order), prefill), async (answer) => {
     const settled = answer ? await settlePayment(answer, order.orderId, accountId) : null;
     if (settled) return settled;
     // The browser closed and the page said nothing: it may or may not have been paid
@@ -303,11 +280,49 @@ export async function payForBasket({ split, basket, expectedPaise, accountId, pr
     const unfinished = set({ kind: "unfinished", orderId: order.orderId, basket: basketOf(order.orderId) });
     for (const queryKey of paymentChanges) void queryClient.invalidateQueries({ queryKey }).catch(() => {});
     return unfinished;
+  });
+}
+
+/**
+ * The website's checkout page for one order in a browser session, and what it handed back
+ * — from the session itself, or as a deep link (D3, or the app's own link listener) while
+ * the session was open. `settle` runs with that answer (null: the browser closed and the
+ * page said nothing) before the session counts as over, so D3 takes any link that arrives
+ * meanwhile for an echo. The basket and the Shade Book's pass both pay through here.
+ */
+export async function inCheckoutSession<T>(
+  orderId: string,
+  url: string,
+  settle: (answer: PayCallback | null) => Promise<T>,
+): Promise<T> {
+  const slot: { answer: PayCallback | null; wake: () => void } = { answer: null, wake: () => {} };
+  delivered = {
+    answer: { status: "unknown" },
+    notify: () => {
+      // A success, from wherever it came, is never replaced.
+      if (delivered && slot.answer?.status !== "success") slot.answer = delivered.answer;
+      slot.wake();
+    },
+  };
+  const listener = Linking.addEventListener("url", ({ url: link }) => {
+    if (link.startsWith(deepLinks.payCallback)) deliverPayAnswer(parsePayCallback(link));
+  });
+  active = orderId;
+  try {
+    const result = await WebBrowser.openAuthSessionAsync(
+      url,
+      deepLinks.payCallback,
+      // No "wants to use … to sign in" prompt on iOS: Checkout needs no shared cookies.
+      { preferEphemeralSession: true },
+    );
+    const fromSession = result.type === "success" ? parsePayCallback(result.url) : null;
+    if (fromSession && fromSession.status !== "unknown" && slot.answer?.status !== "success") slot.answer = fromSession;
+    return await settle(await lateAnswer(slot));
   } finally {
     listener.remove();
     delivered = null;
     active = null;
-    lastSettled = { orderId: order.orderId, at: Date.now() };
+    lastSettled = { orderId, at: Date.now() };
   }
 }
 
