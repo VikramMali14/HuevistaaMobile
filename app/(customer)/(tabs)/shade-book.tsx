@@ -7,6 +7,7 @@ import { ScrollView, StyleSheet, View } from "react-native";
 import type { ShadeBookPage } from "@/api/types";
 import { Button, Card, Chip, Disclaimer, EmptyState, ErrorState, Screen, Skeleton, Text, TextField } from "@/components/ui";
 import { NO_FILTER, colourCounts, filterShadeBook, lockedPages, type ShadeBookFilter } from "@/features/shade-book/book";
+import { CatalogueSwitch } from "@/features/shade-book/CatalogueSwitch";
 import { BuyButton, PageCard, PassNoticeBanner, Standing } from "@/features/shade-book/components";
 import { usePassPurchase } from "@/features/shade-book/use-pass-purchase";
 import { useShadeBook } from "@/features/shade-book/use-shade-book";
@@ -15,7 +16,8 @@ import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { useTheme } from "@/theme";
 
 /**
- * C34 · Shade Book. Spec: docs/04-screens-customer.md — C34.
+ * C34 · Shade Book. Spec: docs/04-screens-customer.md — C34. In the Catalogue tab, beside the
+ * shades: the switch at the top of both screens, and the tab stays lit.
  *
  * Colour combinations of our shades, each painted on a real house by the server, with every
  * part's Vista code. The first few are free; the 24-hour pass opens the rest and lets each
@@ -158,6 +160,7 @@ export default function ShadeBookScreen() {
   return (
     <Screen edges={["top"]} padded={false}>
       <View style={{ paddingHorizontal: space.gutter, paddingTop: space.md, paddingBottom: space.sm, gap: space.sm }}>
+        <CatalogueSwitch value="book" />
         <Text variant="title1" accessibilityRole="header">
           {t("shadeBook.title")}
         </Text>

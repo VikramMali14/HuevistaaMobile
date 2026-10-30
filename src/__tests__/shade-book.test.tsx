@@ -149,13 +149,21 @@ beforeEach(async () => {
 });
 
 describe("C34 · Shade Book", () => {
-  it("is a tab beside Catalogue", async () => {
+  it("sits beside the shades, at the top of the Catalogue tab, which stays lit", async () => {
     signedIn();
     mockBook.get.mockResolvedValue(shut());
-    renderRouter("./app", { initialUrl: "/home" });
-    await waitFor(() => expect(screen.getAllByText("Catalogue").length).toBeGreaterThan(0));
-    expect(screen.getAllByText("Shade Book").length).toBeGreaterThan(0);
-    expect(screen.getByTestId("tab-shade-book")).toBeTruthy();
+    renderRouter("./app", { initialUrl: "/catalogue" });
+    await waitFor(() => expect(screen.getByLabelText("Shades or the Shade Book")).toBeTruthy());
+    // Six tabs: the Shade Book has no button of its own.
+    expect(screen.queryByTestId("tab-shade-book")).toBeNull();
+
+    fireEvent.press(screen.getByRole("tab", { name: "Shade Book" }));
+
+    await waitFor(() => expect(screen).toHavePathname("/shade-book"));
+    await waitFor(() => expect(screen.getByText(SAMPLE.title)).toBeTruthy());
+    expect(screen.getByRole("tab", { name: "Shade Book", selected: true })).toBeTruthy();
+    fireEvent.press(screen.getByRole("tab", { name: "Shades" }));
+    await waitFor(() => expect(screen).toHavePathname("/catalogue"));
   });
 
   it("shows the free sample with its Vista codes, counts the rest, and offers the pass at the server's price", async () => {

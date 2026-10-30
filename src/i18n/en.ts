@@ -1852,9 +1852,10 @@ export const en = {
     scan: "Scan",
     rewards: "Rewards",
     nearby: "Nearby",
-    shadeBook: "Shade Book",
   },
   shadeBook: {
+    switchShades: "Shades",
+    switchLabel: "Shades or the Shade Book",
     title: "Shade Book",
     lead: "Colour combinations of our shades, each painted on a real house, with the Vista code for every part.",
     sample: "Free sample",

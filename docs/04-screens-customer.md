@@ -1009,7 +1009,7 @@ a lost answer is safe: the server's call is idempotent.
 
 ### C34 · Shade Book
 
-**Route** `(tabs)/shade-book.tsx` (the **Shade Book** tab, beside Catalogue) · **Phase** 8 · **Web reference** `app/shade-book/page.tsx`, `components/shade-book/shade-book-view.tsx`, `lib/shade-book.ts`
+**Route** `(tabs)/shade-book.tsx`, in the **Catalogue** tab beside the shades: a **Shades · Shade Book** switch heads both screens, and the Catalogue tab stays lit (seven tabs would leave "Shade Book" about 45 dp on a 360–390 dp phone; it needs 63) · **Phase** 8 · **Web reference** `app/shade-book/page.tsx`, `components/shade-book/shade-book-view.tsx`, `lib/shade-book.ts`
 
 Colour combinations of our shades, each painted on one of the colour test's photos (a real
 house; the team adds and removes them on the website, Admin → Shade Book) with every

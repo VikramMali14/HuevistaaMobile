@@ -1793,9 +1793,10 @@ export const hi: Translation = {
     scan: "स्कैन",
     rewards: "रिवॉर्ड",
     nearby: "आस-पास",
-    shadeBook: "शेड बुक",
   },
   shadeBook: {
+    switchShades: "शेड",
+    switchLabel: "शेड या शेड बुक",
     title: "शेड बुक",
     lead: "हमारे शेड के कलर कॉम्बिनेशन, हर एक असली घर पर लगाकर दिखाया गया, हर हिस्से के Vista कोड के साथ।",
     sample: "फ़्री सैंपल",
