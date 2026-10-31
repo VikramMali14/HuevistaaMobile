@@ -5,22 +5,28 @@ import type { ListingUpdate, PainterProfile, TradeProfileUpdate } from "@/api/en
  * (listing-screen.tsx, profile-screen.tsx).
  */
 
-/** About a kilometre: the backend keeps a painter's base to two decimal places. */
-export function coarsen(degrees: number): number {
-  return Math.round(degrees * 100) / 100;
+/** About a metre: finer than a finger puts a pin on a map, and what the server keeps of one. */
+export function pinDegrees(degrees: number): number {
+  return Math.round(degrees * 100_000) / 100_000;
 }
 
-/** A fix worse than this is said to be rough (the website's ROUGH_FIX_METRES). */
-export const ROUGH_FIX_METRES = 2000;
-
 /**
- * Where the base stands while being edited: as saved, a new fix — or a place typed, with the
- * `label` it was chosen by — or to be removed.
+ * Where the base stands while being edited: as saved, a pin moved on the map — or the middle of
+ * a place typed, with the `label` it was chosen by — or to be removed.
  */
-export type PendingLocation = { latitude: number; longitude: number; accuracy: number; label?: string } | "clear" | null;
+export type PendingLocation = { latitude: number; longitude: number; label?: string } | "clear" | null;
 
 export function hasSavedLocation(profile: Pick<PainterProfile, "latitude" | "longitude">): boolean {
   return profile.latitude != null && profile.longitude != null;
+}
+
+/** Where the painter left the pin — or, for a location saved before pins, the point searches use. */
+export function savedPin(
+  profile: Pick<PainterProfile, "latitude" | "longitude" | "pinLatitude" | "pinLongitude">,
+): { latitude: number; longitude: number } | null {
+  if (profile.pinLatitude != null && profile.pinLongitude != null) return { latitude: profile.pinLatitude, longitude: profile.pinLongitude };
+  if (profile.latitude != null && profile.longitude != null) return { latitude: profile.latitude, longitude: profile.longitude };
+  return null;
 }
 
 /**
@@ -39,15 +45,16 @@ export function listingNeeds(profile: Pick<PainterProfile, "latitude" | "longitu
 }
 
 /**
- * The listing as sent. A new fix is coarsened HERE, before it leaves the phone — the precise
- * position never does. `workAreas` only when they changed: left out, the server leaves them be.
+ * The listing as sent. The pin goes where the painter put it: the server keeps it for their own
+ * map, and searches only from it rounded to about a kilometre. `workAreas` only when they changed:
+ * left out, the server leaves them be.
  */
 export function listingBody(listed: boolean, pending: PendingLocation, workAreas?: string[]): ListingUpdate {
   const body: ListingUpdate = { listedForCustomers: listed };
   if (pending === "clear") body.clearLocation = true;
   else if (pending) {
-    body.latitude = coarsen(pending.latitude);
-    body.longitude = coarsen(pending.longitude);
+    body.latitude = pinDegrees(pending.latitude);
+    body.longitude = pinDegrees(pending.longitude);
   }
   if (workAreas) body.workAreas = workAreas;
   return body;

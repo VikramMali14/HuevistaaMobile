@@ -7,7 +7,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { act, fireEvent, renderRouter, screen, waitFor, within } from "expo-router/testing-library";
-import { AppState } from "react-native";
+import { AppState, ScrollView } from "react-native";
 
 import * as WebBrowser from "expo-web-browser";
 
@@ -20,6 +20,7 @@ import type { UserProfile } from "@/api/types";
 import { forgetRememberedRoute } from "@/auth/pending-route";
 import * as env from "@/config/env";
 import type { BoardReaderProps } from "@/features/painter/board-reader/protocol";
+import { PLACE_ZOOM, STREET_ZOOM, type PinMapProps } from "@/features/painter/pin-map/protocol";
 import { holdSharedBoard, takeSharedBoard } from "@/features/painter/shared-board";
 
 const mockSecure: Record<string, string> = {};
@@ -99,6 +100,22 @@ jest.mock("@/features/painter/board-reader/BoardReader", () => {
         };
       }, []);
       return <View testID="board-reader" />;
+    },
+  };
+});
+
+// The pin map: the test plays the painter moving it, through the props the screen gives it.
+// MapLibre itself is proved in Chromium (scripts/verify-pin-map.mjs), and the conversation with
+// its page unit-tested (pin-map-protocol.test.ts).
+const mockMap: { props: (PinMapProps & { onTouch?: (touching: boolean) => void }) | null } = { props: null };
+jest.mock("@/features/painter/pin-map/PinMap", () => {
+  /* eslint-disable @typescript-eslint/no-require-imports */
+  const { View } = require("react-native");
+  /* eslint-enable @typescript-eslint/no-require-imports */
+  return {
+    PinMap: function PinMap(props: PinMapProps & { onTouch?: (touching: boolean) => void }) {
+      mockMap.props = props;
+      return <View testID="pin-map" />;
     },
   };
 });
@@ -294,6 +311,7 @@ beforeEach(async () => {
   mockReadFile.readFileBase64.mockClear();
   mockReader.props = null;
   mockReader.mounts = 0;
+  mockMap.props = null;
   mockPermission = { granted: true, canAskAgain: true };
   mockRequestPermission.mockClear();
   takeSharedBoard();
@@ -692,23 +710,69 @@ describe("P10 · P11 · Vouchers", () => {
 // ── P5 · Nearby ───────────────────────────────────────────────────────────────
 
 describe("P5 · Nearby", () => {
-  it("needs a location before listing, and sends it rounded to about a kilometre", async () => {
+  /**
+   * Where the painter is based is a pin they put on a map: nothing asks the phone where it is, so
+   * location can stay off. It goes where they put it; the server rounds it for customers' searches.
+   */
+  it("needs a pin before listing, and sends it where the painter put it, with location left off", async () => {
     mockPainter.profile.mockResolvedValue(painter({ listedForCustomers: false, latitude: null, longitude: null, locationUpdatedAt: null }));
-    mockLocation.requestForegroundPermissionsAsync.mockResolvedValue({ granted: true, canAskAgain: true });
-    mockLocation.getCurrentPositionAsync.mockResolvedValue({ coords: { latitude: 19.076543, longitude: 72.877712, accuracy: 25 } });
     mockPainter.updateListing.mockImplementation(async (body) => painter({ ...body, latitude: body.latitude, longitude: body.longitude }));
     renderRouter("./app", { initialUrl: "/painter/nearby" });
     await waitFor(() => expect(screen.getByTestId("nearby-needs")).toBeTruthy());
-    expect(screen.getByText("Set your location below")).toBeTruthy();
+    expect(screen.getByText("Put your pin on the map below")).toBeTruthy();
     expect(screen.getByTestId("nearby-switch")).toBeDisabled();
+    // No pin yet: the map waits for one.
+    expect(mockMap.props?.pin).toBeNull();
 
-    fireEvent.press(screen.getByTestId("nearby-locate"));
+    act(() => mockMap.props!.onMove({ latitude: 19.07654, longitude: 72.87771 }));
     await waitFor(() => expect(screen.getByTestId("nearby-location-status")).toHaveTextContent("New location ready. Save to use it."));
+    expect(mockMap.props?.pin).toEqual({ latitude: 19.07654, longitude: 72.87771 });
     fireEvent(screen.getByTestId("nearby-switch"), "valueChange", true);
     fireEvent.press(screen.getByTestId("nearby-save"));
     await waitFor(() => expect(mockPainter.updateListing).toHaveBeenCalled());
-    expect(mockPainter.updateListing).toHaveBeenCalledWith({ listedForCustomers: true, latitude: 19.08, longitude: 72.88 });
+    expect(mockPainter.updateListing).toHaveBeenCalledWith({ listedForCustomers: true, latitude: 19.07654, longitude: 72.87771 });
     await waitFor(() => expect(screen.getByText("Saved. Customers near you can see you now.")).toBeTruthy());
+    expect(mockLocation.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
+    expect(mockLocation.getCurrentPositionAsync).not.toHaveBeenCalled();
+    expect(screen.queryByText(/\bkm\b|GPS/)).toBeNull();
+  });
+
+  it("opens the map on the pin where the painter left it", async () => {
+    mockPainter.profile.mockResolvedValue(inAjmer({ pinLatitude: 26.45123, pinLongitude: 74.63987 }));
+    renderRouter("./app", { initialUrl: "/painter/nearby" });
+    await waitFor(() => expect(mockMap.props?.pin).toEqual({ latitude: 26.45123, longitude: 74.63987 }));
+    expect(mockMap.props?.zoom).toBe(STREET_ZOOM);
+    expect(screen.getByText("Customers never see this pin — only the district and state it is in.")).toBeTruthy();
+  });
+
+  // Saved before pins: the map shows the point customers' searches measure from.
+  it("opens the map on a location saved before pins at its rounded point", async () => {
+    mockPainter.profile.mockResolvedValue(inAjmer());
+    renderRouter("./app", { initialUrl: "/painter/nearby" });
+    await waitFor(() => expect(mockMap.props?.pin).toEqual({ latitude: 26.45, longitude: 74.64 }));
+  });
+
+  it("holds the page still while a finger is on the map", async () => {
+    renderRouter("./app", { initialUrl: "/painter/nearby" });
+    await waitFor(() => expect(mockMap.props).not.toBeNull());
+    const scroller = () => screen.UNSAFE_getByType(ScrollView);
+    expect(scroller().props.scrollEnabled).toBe(true);
+    act(() => mockMap.props!.onTouch!(true));
+    expect(scroller().props.scrollEnabled).toBe(false);
+    act(() => mockMap.props!.onTouch!(false));
+    expect(scroller().props.scrollEnabled).toBe(true);
+  });
+
+  it("removes the location, and the listing with it", async () => {
+    mockPainter.profile.mockResolvedValue(inAjmer({ listedForCustomers: true }));
+    mockPainter.updateListing.mockImplementation(async (body) => painter({ ...body, latitude: null, longitude: null }));
+    renderRouter("./app", { initialUrl: "/painter/nearby" });
+    await waitFor(() => expect(screen.getByTestId("nearby-remove")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("nearby-remove"));
+    expect(screen.getByTestId("nearby-location-status")).toHaveTextContent("Location will be removed when you save.");
+    expect(mockMap.props?.pin).toBeNull();
+    fireEvent.press(screen.getByTestId("nearby-save"));
+    await waitFor(() => expect(mockPainter.updateListing).toHaveBeenCalledWith({ listedForCustomers: false, clearLocation: true }));
   });
 
   it("previews the card a customer sees: photo, name, place and address, and nothing else", async () => {
@@ -784,64 +848,8 @@ describe("P5 · Nearby", () => {
     expect(screen.getByTestId("painter-certified")).toBeTruthy();
   });
 
-  it("offers Settings when location has been refused for good", async () => {
-    mockLocation.requestForegroundPermissionsAsync.mockResolvedValue({ granted: false, canAskAgain: false });
-    renderRouter("./app", { initialUrl: "/painter/nearby" });
-    await waitFor(() => expect(screen.getByTestId("nearby-locate")).toBeTruthy());
-    fireEvent.press(screen.getByTestId("nearby-locate"));
-    await waitFor(() => expect(screen.getByTestId("nearby-location-error")).toHaveTextContent(/Location is off for HueVistaa/));
-    expect(screen.getByText("Open settings")).toBeTruthy();
-    expect(mockLocation.getCurrentPositionAsync).not.toHaveBeenCalled();
-  });
-
-  /**
-   * Android's location service can take far longer than anybody waits indoors, or never answer
-   * at all. The button used to say "Finding you…" for ever, with Save greyed out; now it gives up
-   * after fifteen seconds, says so, and the painter can try again or type their town.
-   */
-  it("gives up on a phone that never finds itself, rather than finding for ever", async () => {
-    mockPainter.profile.mockResolvedValue(painter({ listedForCustomers: false, latitude: null, longitude: null, locationUpdatedAt: null }));
-    mockLocation.requestForegroundPermissionsAsync.mockResolvedValue({ granted: true, canAskAgain: true });
-    mockLocation.getCurrentPositionAsync.mockReturnValue(new Promise(() => {}));
-    renderRouter("./app", { initialUrl: "/painter/nearby" });
-    await waitFor(() => expect(screen.getByTestId("nearby-locate")).toBeTruthy());
-    fireEvent.press(screen.getByTestId("nearby-locate"));
-    await waitFor(() => expect(mockLocation.getCurrentPositionAsync).toHaveBeenCalled());
-    await tick(14_000);
-    expect(screen.queryByTestId("nearby-location-error")).toBeNull();
-    await tick(1_000);
-    await waitFor(() => expect(screen.getByTestId("nearby-location-error")).toHaveTextContent(/Couldn't get a location from your phone/));
-    expect(screen.getByTestId("nearby-locate")).toHaveTextContent(/Use where I am now/);
-  });
-
-  it("takes a fix from the last half hour when a fresh one doesn't come", async () => {
-    mockPainter.profile.mockResolvedValue(painter({ listedForCustomers: false, latitude: null, longitude: null, locationUpdatedAt: null }));
-    mockLocation.requestForegroundPermissionsAsync.mockResolvedValue({ granted: true, canAskAgain: true });
-    mockLocation.getCurrentPositionAsync.mockRejectedValue(new Error("Current location is unavailable."));
-    mockLocation.getLastKnownPositionAsync.mockImplementation(async (options?: { maxAge?: number }) =>
-      (options?.maxAge ?? 0) > 60_000 ? { coords: { latitude: 26.912345, longitude: 75.787654, accuracy: 400 } } : null,
-    );
-    mockPainter.updateListing.mockImplementation(async (body) => painter({ ...body }));
-    renderRouter("./app", { initialUrl: "/painter/nearby" });
-    await waitFor(() => expect(screen.getByTestId("nearby-locate")).toBeTruthy());
-    fireEvent.press(screen.getByTestId("nearby-locate"));
-    await waitFor(() => expect(screen.getByTestId("nearby-location-status")).toHaveTextContent("New location ready. Save to use it."));
-    fireEvent.press(screen.getByTestId("nearby-save"));
-    await waitFor(() => expect(mockPainter.updateListing).toHaveBeenCalledWith({ listedForCustomers: false, latitude: 26.91, longitude: 75.79 }));
-  });
-
-  it("says location is off on the phone, rather than refused", async () => {
-    mockLocation.requestForegroundPermissionsAsync.mockResolvedValue({ granted: true, canAskAgain: true });
-    mockLocation.hasServicesEnabledAsync.mockResolvedValue(false);
-    renderRouter("./app", { initialUrl: "/painter/nearby" });
-    await waitFor(() => expect(screen.getByTestId("nearby-locate")).toBeTruthy());
-    fireEvent.press(screen.getByTestId("nearby-locate"));
-    await waitFor(() => expect(screen.getByTestId("nearby-location-error")).toHaveTextContent(/Location is off on your phone\. Turn it on and try again\./));
-    expect(mockLocation.getCurrentPositionAsync).not.toHaveBeenCalled();
-  });
-
-  // A phone that can't say where it is is not the end of it: the painter types their town or PIN.
-  it("takes a town or PIN code typed instead, and saves it", async () => {
+  // A town or PIN typed takes the map there; its middle is the pin until the painter moves it.
+  it("takes the map to a town or PIN code typed, and saves it", async () => {
     mockPainter.profile.mockResolvedValue(painter({ listedForCustomers: false, latitude: null, longitude: null, locationUpdatedAt: null }));
     mockNearby.places.mockResolvedValue([AJMER, { name: "Ajmer Road", region: "Jaipur, Rajasthan", pincode: "302006", latitude: 26.9, longitude: 75.75 }]);
     mockPainter.updateListing.mockImplementation(async (body) => painter({ ...body, locationName: "Kaiser Ganj Ajmer, Ajmer, Rajasthan", locationUpdatedAt: ist(0) }));
@@ -853,9 +861,12 @@ describe("P5 · Nearby", () => {
     fireEvent.press(screen.getByText("Ajmer, Rajasthan"));
     expect(screen.getByTestId("nearby-location-status")).toHaveTextContent("New location: Ajmer, Rajasthan. Save to use it.");
     expect(screen.getByTestId("nearby-place-credit")).toHaveTextContent(/India Post.*GeoNames/);
+    // The town, not a street: the painter moves the pin from here.
+    expect(mockMap.props?.pin).toMatchObject({ latitude: 26.4521, longitude: 74.6387 });
+    expect(mockMap.props?.zoom).toBe(PLACE_ZOOM);
 
     fireEvent.press(screen.getByTestId("nearby-save"));
-    await waitFor(() => expect(mockPainter.updateListing).toHaveBeenCalledWith({ listedForCustomers: false, latitude: 26.45, longitude: 74.64 }));
+    await waitFor(() => expect(mockPainter.updateListing).toHaveBeenCalledWith({ listedForCustomers: false, latitude: 26.4521, longitude: 74.6387 }));
     // Saved, the screen names the place the base is in.
     await waitFor(() => expect(screen.getByTestId("nearby-location-status")).toHaveTextContent("Near Kaiser Ganj Ajmer, Ajmer, Rajasthan"));
   });
@@ -950,19 +961,17 @@ describe("P5 · Nearby", () => {
     await waitFor(() => expect(mockPainter.updateListing).toHaveBeenCalledWith({ listedForCustomers: true, workAreas: ["IN"] }));
   });
 
-  /** A location just found, in another state, is named before it is saved, and its state moves to the top. */
-  it("names a new location and starts the places at the state it is in", async () => {
+  /** A pin moved to another state is named before it is saved, and its state moves to the top. */
+  it("names a moved pin and starts the places at the state it is in", async () => {
     mockPainter.profile.mockResolvedValue(inAjmer());
-    mockLocation.requestForegroundPermissionsAsync.mockResolvedValue({ granted: true, canAskAgain: true });
-    mockLocation.getCurrentPositionAsync.mockResolvedValue({ coords: { latitude: 21.170234, longitude: 72.831061, accuracy: 25 } });
     mockNearby.where.mockResolvedValue({ name: "Khatodara, Surat, Gujarat", state: "GJ", division: "GJ-SOUTH" });
     renderRouter("./app", { initialUrl: "/painter/nearby" });
     await waitFor(() => expect(within(screen.getByTestId("area-home")).getByTestId("area-state-RJ")).toBeTruthy());
     fireEvent.press(screen.getByTestId("area-state-RJ"));
 
-    fireEvent.press(screen.getByTestId("nearby-locate"));
+    act(() => mockMap.props!.onMove({ latitude: 21.17023, longitude: 72.83106 }));
     await waitFor(() => expect(screen.getByTestId("nearby-location-status")).toHaveTextContent("New location: near Khatodara, Surat, Gujarat. Save to use it."));
-    // Asked to about a kilometre: no more of the fix than that leaves the phone for a name.
+    // Asked to about a kilometre: no more of the pin than that leaves the phone for a name.
     expect(mockNearby.where).toHaveBeenCalledWith(21.17, 72.83);
     expect(within(screen.getByTestId("area-home")).getByTestId("area-state-GJ")).toBeTruthy();
     expect(screen.queryByTestId("area-state-RJ")).toBeNull();

@@ -659,6 +659,7 @@ As built, against the spec:
 | 17 | HueVista | Selling rooms and AI credits in store builds: Play Billing on Android (verify the purchase, grant it idempotently); none on iOS v1 (09-release.md, 1). | Before release |
 | 18 | HueVista | Painters and shops pay on the website: Google Play sells to no painter's or shop's customer profile. `GET /api/billing/play/products` answers it `eligible: false` (keeping `enabled` and its keys, so a purchase made before is still handed over and granted), and `POST /api/billing/play/intents` refuses it. Done on branch `claude/zealous-davinci-xm9w3y`. | With the app (merge) |
 | 19 | HueVistaFrontEnd | `/choose-profile?next=…`: "A customer" carries on to `next` when it is a page only a customer opens, so the app's `/choose-profile?next=%2Fmy-projects` (a painter's or a shop's own home, buying) ends on the customer's balance rather than the dashboard. Done on branch `claude/zealous-davinci-xm9w3y`. | With the app (merge) |
+| 20 | HueVista | The painter's map pin (P5): `PUT /api/painters/me/listing` keeps the pin as put, and `GET /api/painters/me` sends it back as `pinLatitude`/`pinLongitude` (V112); searches still use it rounded to about 1 km. Without it the app shows a saved pin at its rounded point. Done on branch `claude/keen-gauss-m26fzz`. | With the app (merge) |
 
 ## Decisions to confirm
 

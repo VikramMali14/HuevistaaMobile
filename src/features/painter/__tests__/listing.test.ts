@@ -1,17 +1,21 @@
-import { addItem, AREAS, coarsen, listingBody, listingNeeds, ownPhotoUrl, rupees, SPECIALTIES, tradeBody, wholeNumber } from "../listing";
+import { addItem, AREAS, listingBody, listingNeeds, ownPhotoUrl, rupees, savedPin, SPECIALTIES, tradeBody, wholeNumber } from "../listing";
 
 const profile = { latitude: 19.07, longitude: 72.88, phoneVerified: true, phone: "+919876543210" };
 
 describe("listing (P5)", () => {
-  // The server keeps 2 places (about a kilometre); the phone never sends more than that.
-  it("sends a position rounded to two places", () => {
-    expect(coarsen(19.076543)).toBe(19.08);
-    expect(coarsen(-0.004)).toBe(-0);
-    expect(listingBody(true, { latitude: 19.076543, longitude: 72.877712, accuracy: 30 })).toEqual({
+  // The pin goes where the painter put it, to about a metre — what the server keeps of it.
+  it("sends the pin as put", () => {
+    expect(listingBody(true, { latitude: 19.0765432, longitude: 72.8777128 })).toEqual({
       listedForCustomers: true,
-      latitude: 19.08,
-      longitude: 72.88,
+      latitude: 19.07654,
+      longitude: 72.87771,
     });
+  });
+
+  it("opens the map on the pin, or on a location saved before pins", () => {
+    expect(savedPin({ latitude: 19.08, longitude: 72.88, pinLatitude: 19.07654, pinLongitude: 72.87771 })).toEqual({ latitude: 19.07654, longitude: 72.87771 });
+    expect(savedPin({ latitude: 19.08, longitude: 72.88 })).toEqual({ latitude: 19.08, longitude: 72.88 });
+    expect(savedPin({ latitude: null, longitude: null, pinLatitude: null, pinLongitude: null })).toBeNull();
   });
 
   // Customers see only the painter's card (name, photo, address), so no line about them goes.
@@ -29,7 +33,7 @@ describe("listing (P5)", () => {
     expect(listingNeeds(profile, null)).toEqual({ location: true, mobile: true, ready: true });
     expect(listingNeeds(profile, "clear").ready).toBe(false);
     expect(listingNeeds({ ...profile, latitude: null, longitude: null }, null).location).toBe(false);
-    expect(listingNeeds({ ...profile, latitude: null, longitude: null }, { latitude: 1, longitude: 2, accuracy: 5 }).location).toBe(true);
+    expect(listingNeeds({ ...profile, latitude: null, longitude: null }, { latitude: 1, longitude: 2 }).location).toBe(true);
     expect(listingNeeds({ ...profile, phoneVerified: false }, null)).toEqual({ location: true, mobile: false, ready: false });
   });
 });

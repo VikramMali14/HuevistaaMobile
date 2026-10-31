@@ -36,6 +36,8 @@ export interface ScreenProps {
   /** Pull to refresh (scrolling pages only). */
   onRefresh?: () => void;
   refreshing?: boolean;
+  /** Off while a finger is on something that drags inside the page — a map — so the page holds still. */
+  scrollEnabled?: boolean;
 }
 
 /** The page: warm background, safe areas, optional scroll, keyboard avoidance. */
@@ -50,6 +52,7 @@ export function Screen({
   contentStyle,
   onRefresh,
   refreshing = false,
+  scrollEnabled = true,
 }: ScreenProps) {
   const { colors, space } = useTheme();
   const gutter = padded ? { paddingHorizontal: space.gutter } : null;
@@ -58,6 +61,7 @@ export function Screen({
     <ScrollView
       contentContainerStyle={[styles.scrollContent, gutter, contentStyle]}
       keyboardShouldPersistTaps="handled"
+      scrollEnabled={scrollEnabled}
       refreshControl={
         onRefresh ? (
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.fgMute} colors={[colors.accent]} />

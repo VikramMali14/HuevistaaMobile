@@ -3,10 +3,10 @@ import * as Location from "expo-location";
 import { searchPoint, type SearchPoint } from "./nearby";
 
 /**
- * Where the phone is, for one search (C32) or a painter's base (P5) — asked only when somebody
- * presses for it, or straight away when they've already said yes. Never kept by this module:
- * a search point lives in the screen and the in-memory cache, a painter's base goes to the
- * server rounded to a kilometre, and nothing is written down here.
+ * Where the phone is, for one search (C32) — asked only when somebody presses for it, or
+ * straight away when they've already said yes. Never kept by this module: a search point lives
+ * in the screen and the in-memory cache, and nothing is written down here. A painter's base (P5)
+ * is not read from the phone at all: it is a pin they put on a map (features/painter/pin-map).
  */
 export type Located =
   | { kind: "fix"; point: SearchPoint }

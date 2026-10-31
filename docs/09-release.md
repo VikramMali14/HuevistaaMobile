@@ -125,8 +125,8 @@ the form's current wording.
 | Email address | Yes | Yes (phone sign-in needs none) | Account management, communications |
 | Phone number | Yes | Yes (needed for phone sign-in, and for a painter to be listed) | Account management, app functionality |
 | User IDs | Yes | No | Account management |
-| Approximate location | Yes: a painter's chosen base, rounded to about 1 km | Yes | App functionality |
-| Precise location | Yes: sent with one nearby search, not kept with the account; the web server's access log holds it for about 2 weeks | Yes | App functionality |
+| Approximate location | Yes: a listed painter's base rounded to about 1 km, which customers' searches measure from | Yes | App functionality |
+| Precise location | Yes: sent with one nearby search, not kept with the account (the web server's access log holds it for about 2 weeks); and the pin a painter puts on a map for their base, kept with their account and shown only to them | Yes | App functionality |
 | Photos | Yes: the room photographs a customer takes or picks | No (the app's purpose) | App functionality (AI processing to find walls and make images) |
 | Purchase history | Yes: rooms and credits bought, through Google Play in the Android app (on the website's checkout elsewhere) | Yes | App functionality, fraud prevention |
 | Other in-app messages | Yes: support chats | Yes | Customer support |
@@ -150,8 +150,8 @@ Category: all other app types.
 - Violence, fear, sexuality, language, drugs, gambling, crude humour: none.
 - Users interact or exchange content: **yes**. Reviews and questions are public and
   moderated before they appear. Support chats are with the team or an AI assistant.
-- Shares the user's location with other users: **yes**, opt-in. A painter's rough area
-  (about 1 km) is shown to customers searching nearby.
+- Shares the user's location with other users: **yes**, opt-in. A listed painter's district
+  and state are shown to customers searching nearby — never their pin, nor a distance.
 - Shares personal information: a listed painter's mobile number, to a customer who asks.
 - Digital purchases: yes — rooms and AI credits, through Google Play Billing (decision 1).
 - Unrestricted web access: no.
@@ -164,7 +164,7 @@ Target audience: 18 and over.
 | Permission | Why |
 |---|---|
 | `CAMERA` | Photographing a room (C6); scanning a board's QR (P3) |
-| `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION` (in use only) | Searching nearby (C32); a painter's base (P5) |
+| `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION` (in use only) | Searching nearby (C32). A painter's base (P5) is a pin put on a map, never read from the phone. |
 | `POST_NOTIFICATIONS` | Walls ready, AI image ready, voucher settled, support reply. Asked only at those moments, after the app says why. |
 | `READ/WRITE_EXTERNAL_STORAGE` (Android 12 and older) | Saving boards and AI images on older phones |
 | `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_WIFI_STATE`, `VIBRATE` | Normal permissions |
@@ -176,8 +176,9 @@ Confirm the merged list on the first AAB: `bundletool dump manifest`.
 ## App Store
 
 - **Privacy labels**: the same data as Play's table, as "Data linked to you": contact
-  info, user content (photos, chats, reviews), location (precise, not stored; coarse,
-  for painters), identifiers (user id), purchases, and diagnostics (crash data).
+  info, user content (photos, chats, reviews), location (precise: a search's, not stored, and
+  the pin a painter puts on a map; coarse: the area customers' searches find a painter by),
+  identifiers (user id), purchases, and diagnostics (crash data).
   Tracking: none (`NSPrivacyTracking` false in the app's privacy manifest).
 - **Age rating**: 17+ is not needed. Answer user-generated content (moderated) and
   "unrestricted web access: no", and expect 12+ or 4+.
