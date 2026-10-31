@@ -19,9 +19,10 @@ import {
   kindOf,
   useSavePicture,
 } from "@/features/shade-book/components";
-import { usePassPurchase } from "@/features/shade-book/use-pass-purchase";
 import { useShadeBook } from "@/features/shade-book/use-shade-book";
 import { t } from "@/i18n";
+import { usePassPurchase } from "@/features/payments/use-pass-purchase";
+import { shadeBookPass } from "@/features/shade-book/pass";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { useTheme } from "@/theme";
 
@@ -44,7 +45,7 @@ export default function ShadeBookScreen() {
   const { colors, space } = useTheme();
   const screen = useWindowDimensions();
   const book = useShadeBook();
-  const pass = usePassPurchase(book.data);
+  const pass = usePassPurchase(book.data?.access, shadeBookPass);
   const picture = useSavePicture();
   const pull = usePullToRefresh(book.refetch);
   const listRef = useRef<FlashListRef<ShadeBookPage>>(null);

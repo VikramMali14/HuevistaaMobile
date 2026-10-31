@@ -3,29 +3,37 @@ import { useEffect, useRef, useState } from "react";
 
 import { messageFor } from "@/api/errors";
 import { keys } from "@/api/query-keys";
-import type { ShadeBook } from "@/api/types";
 import { useSession } from "@/auth/session";
 import { paymentsMode } from "@/config/env";
 import { buyPack, fetchPlayPrices, ownedMessage } from "@/features/payments/play/play-checkout";
 import { usePlayPurchase, type PlayPurchaseState } from "@/features/payments/play/play-payments";
-import { t } from "@/i18n";
 import { formatRupees } from "@/lib/money";
 
-import { buyPassOnWebsite, noticeFor, type PassNotice } from "./pass";
+import type { OpenedPass, PassNotice, PassRail, PassWords } from "./day-pass";
 
-export type { PassNotice } from "./pass";
+export type { PassNotice } from "./day-pass";
+
+/** What a pass's screen knows about buying it: its price, and where it can be sold. */
+export interface PassAccess {
+  pricePaise: number;
+  /** Whether Razorpay can sell it (the website's checkout). */
+  purchasable: boolean;
+  /** The Google Play product it is sold as in the Android store build. */
+  playProductId?: string | null;
+}
 
 /**
- * The Shade Book pass's Buy button, wherever it is shown. In the Android store build it is
- * a Google Play purchase of its own product, at Google's price — nothing there mentions the
- * website. Everywhere else it is Razorpay Checkout on the website (pass.ts), at the server's
- * price. Either way only the server opens the book, and the book is read again once it has.
+ * A 24-hour pass's Buy button, wherever it is shown — the Shade Book's or the Colour finder's.
+ * In the Android store build it is a Google Play purchase of the pass's own product, at
+ * Google's price — nothing there mentions the website. Everywhere else it is Razorpay Checkout
+ * on the website (`rail`), at the server's price. Either way only the server opens the pass,
+ * and what it opens is read again once it has.
  */
-export function usePassPurchase(book: ShadeBook | undefined) {
+export function usePassPurchase<P extends OpenedPass>(access: PassAccess | undefined, rail: PassRail<P>) {
   const { state } = useSession();
   const profile = state.status === "signedIn" ? state.profile : null;
   const play = paymentsMode() === "play";
-  const productId = book?.access.playProductId ?? null;
+  const productId = access?.playProductId ?? null;
   const prices = useQuery({
     queryKey: keys.playPrices(productId ?? ""),
     queryFn: () => fetchPlayPrices(productId ? [productId] : []),
@@ -33,10 +41,10 @@ export function usePassPurchase(book: ShadeBook | undefined) {
     staleTime: 5 * 60_000,
   });
   const playPrice = prices.data?.find((p) => p.productId === productId)?.displayPrice ?? null;
-  const price = play ? playPrice : book ? formatRupees(book.access.pricePaise) : null;
+  const price = play ? playPrice : access ? formatRupees(access.pricePaise) : null;
   // A pass that can't be sold here is never offered: no Play product (or Google doesn't
   // know it), or no Razorpay on this server.
-  const sellable = play ? Boolean(productId && playPrice) : Boolean(book?.access.purchasable);
+  const sellable = play ? Boolean(productId && playPrice) : Boolean(access?.purchasable);
 
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<PassNotice | null>(null);
@@ -51,7 +59,7 @@ export function usePassPurchase(book: ShadeBook | undefined) {
   }, []);
 
   const buy = async () => {
-    if (busy || !book) return;
+    if (busy || !access) return;
     setBusy(true);
     setNotice(null);
     setToken(null);
@@ -63,15 +71,15 @@ export function usePassPurchase(book: ShadeBook | undefined) {
         if (result.kind === "bought") setToken(result.token);
         else if (result.kind === "owned") setNotice({ tone: "info", message: ownedMessage(result.notice) });
         else if (result.kind === "failed") setNotice({ tone: "danger", message: result.message });
-        else if (result.kind === "no-answer") setNotice({ tone: "info", message: t("shadeBook.unfinished") });
+        else if (result.kind === "no-answer") setNotice({ tone: "info", message: rail.words.unfinished() });
         return;
       }
-      const outcome = await buyPassOnWebsite({
+      const outcome = await rail.buyOnWebsite({
         name: profile?.namePending ? null : profile?.name,
         email: profile?.email,
         contact: profile?.phoneNumber,
       });
-      if (live.current) setNotice(noticeFor(outcome));
+      if (live.current) setNotice(rail.noticeFor(outcome));
     } catch (err) {
       // Nothing was opened or paid: the order was refused, or there was no signal.
       if (live.current) setNotice({ tone: "danger", message: messageFor(err) });
@@ -87,7 +95,7 @@ export function usePassPurchase(book: ShadeBook | undefined) {
     buy,
     busy: busy || confirming,
     // A Google Play purchase is settled by the server: what became of it, as it does.
-    notice: (token ? playNoticeFor(purchase) : null) ?? notice,
+    notice: (token ? playNoticeFor(purchase, rail.words) : null) ?? notice,
     clearNotice: () => {
       setNotice(null);
       setToken(null);
@@ -95,17 +103,17 @@ export function usePassPurchase(book: ShadeBook | undefined) {
   };
 }
 
-/** What a Google Play purchase of the pass has come to, as the screen says it. */
-export function playNoticeFor(purchase: PlayPurchaseState | null): PassNotice | null {
+/** What a Google Play purchase of a pass has come to, in that pass's words. */
+export function playNoticeFor(purchase: PlayPurchaseState | null, words: PassWords): PassNotice | null {
   switch (purchase?.kind) {
     case "granted":
-      return { tone: "success", message: t("shadeBook.openedPlain") };
+      return { tone: "success", message: words.openedPlain() };
     case "pending":
-      return { tone: "info", message: t("shadeBook.playPending") };
+      return { tone: "info", message: words.playPending() };
     case "checking":
-      return { tone: "info", message: t("shadeBook.checking") };
+      return { tone: "info", message: words.checking() };
     case "refused":
-      return { tone: "danger", message: t("shadeBook.refused", { message: purchase.message }) };
+      return { tone: "danger", message: words.refused(purchase.message) };
     case "otherAccount":
       return { tone: "warning", message: ownedMessage("otherAccount") };
     default:

@@ -3,12 +3,16 @@ import { useRouter } from "expo-router";
 import { Segmented } from "@/components/ui";
 import { t } from "@/i18n";
 
+type Place = "shades" | "book" | "finder";
+
+const ROUTES = { shades: "/catalogue", book: "/shade-book", finder: "/colour-finder" } as const;
+
 /**
- * The top of the Catalogue tab: the shades themselves, or the Shade Book — combinations of
- * them painted on real houses. The same switch heads both screens, so either is one press
- * from the other.
+ * The top of the Catalogue tab: the shades themselves, the Shade Book — combinations of them
+ * painted on real houses — or the Colour finder, which finds them in a photo. The same switch
+ * heads all three screens, so each is one press from the others.
  */
-export function CatalogueSwitch({ value }: { value: "shades" | "book" }) {
+export function CatalogueSwitch({ value }: { value: Place }) {
   const router = useRouter();
   return (
     <Segmented
@@ -16,10 +20,11 @@ export function CatalogueSwitch({ value }: { value: "shades" | "book" }) {
       options={[
         { value: "shades", label: t("shadeBook.switchShades") },
         { value: "book", label: t("shadeBook.title") },
+        { value: "finder", label: t("colourFinder.title") },
       ]}
       value={value}
       onChange={(next) => {
-        if (next !== value) router.navigate(next === "book" ? "/shade-book" : "/catalogue");
+        if (next !== value) router.navigate(ROUTES[next]);
       }}
     />
   );

@@ -1072,3 +1072,46 @@ to keep — the chosen photo in the combination's colours over every part's Vist
 **As built:** the book is read again after a purchase (it is in `paymentChanges`) and the
 moment a running pass ends. Customers read Vista codes and colours only — the server sends
 no company, maker's code or maker's name.
+
+### C35 · Colour finder
+
+**Route** `(tabs)/colour-finder.tsx`, in the **Catalogue** tab beside the shades and the Shade
+Book: the switch at the top of all three reads **Shades · Shade Book · Colour finder**, and the
+Catalogue tab stays lit · **Phase** 8 · **Web reference** `app/(app)/find-a-colour/page.tsx`,
+`components/catalogue/customer-colour-finder.tsx`, `hooks/use-photo-sampler.ts`
+
+A colour the customer loves — a cushion, a tile, a neighbour's wall — photographed or chosen
+from the phone, tapped, and matched to the nearest **HueVistaa shades**: each a Vista code, its
+colour and the colour in our words ("Deep teal"), closest first. Never a paint company, a
+maker's code or a shade name — the server sends none of them — and only shades of the
+companies the customer's shop unlocked, when it did. The shop's Colour finder is a counter
+tool on the website and is not this.
+
+**Layout:** the switch · "Colour finder" and a line on what it does · where the customer
+stands (**open until 1 Nov, 10:05 am** with a running pass, or "Open it for 24 hours…" and
+**Unlock 24 hours · ₹49** without one) · before a photo, **Take a photo** and **Choose a
+photo** · with one, the photo at the screen's width up to 55% of its height, a ring where it
+was tapped, "Tap the colour you want to match.", the **Even out the lighting** switch, the
+colours in the photo (tap one to match it), and **Take a photo** / **Another photo** · once a
+colour is picked, a card: the colour and its hex, a warning when the spot held more than one
+colour, then the shades (each row copies its Vista code when tapped) — or, without the pass,
+"See the HueVistaa shades for this colour" with the Buy button · the shade disclaimer.
+
+**Reading the photo:** on the phone, nothing uploaded. The photo is shrunk twice from the same
+picture — 1440 px to show, 480 px as a PNG to read (`photo-pixels.ts`) — and the PNG's bytes
+decoded (`png.ts`, with `fflate`). A tap reads the surface around it, not a pixel, and the
+lighting can be evened out first: the website's own reading (`lib/surface-sample.ts`,
+`lib/palette.ts`, ported), so a wall reads the same in both.
+
+**Free and paid:** choosing a photo and picking a colour are free; the shades are what the
+pass opens — 24 hours, unlimited, ₹49 (priced by the server). Bought like the Shade Book's
+pass (C34): a Google Play product of its own in the store build (`playProductId`), Razorpay
+on the website elsewhere, on the rail every pass shares (`features/payments/day-pass.ts`),
+with D3 telling its order from the Shade Book's and the basket's on a cold start.
+
+**API:** `GET /api/colour-finder` · `GET /api/colour-finder/match?hex=&limit=` ·
+`POST /api/colour-finder/pass/order` · `POST /api/colour-finder/pass/verify`.
+
+**As built:** the finder's standing is read again after a purchase (it is in `paymentChanges`)
+and the moment a running pass ends; a 402 on a match (a pass that has just ended) reads it
+again too, which shuts the finder here.

@@ -112,6 +112,14 @@ Left for a real phone: the camera on a printed board, the reader on Android and 
 Left for a real phone: the location prompts, App Links on a signed build, and handing
 over to the dialler, WhatsApp and Maps.
 
+**The Colour finder (C35).** In the Catalogue tab, beside the shades and the Shade Book: a
+photo taken or chosen, a colour tapped on it, and the nearest HueVistaa shades — Vista code,
+colour and the colour in words, never a paint company. The photo is read on the phone (a
+small PNG decoded with `fflate`, sampled the website's way); picking a colour is free, and
+the shades are opened by a ₹49, 24-hour unlimited pass — a Google Play product of its own in
+the store build, the website's Razorpay checkout elsewhere, on the rail the Shade Book's pass
+shares (`src/features/payments/day-pass.ts`).
+
 **HueVistaa Certified painters.** Only certified painters are shown to customers in
 "Painters & shops near you", each with a "HueVistaa Certified" badge. A painter is certified
 for a year (₹499) on the painter website, once their mobile is confirmed and their trade

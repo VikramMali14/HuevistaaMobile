@@ -638,7 +638,8 @@ export interface PlayCatalogue {
   previousObfuscatedAccountIds?: string[];
   products: PlayProduct[];
   /**
-   * The 24-hour passes sold through Google Play — the Shade Book's — each its own product.
+   * The 24-hour passes sold through Google Play — the Shade Book's and the Colour finder's —
+   * each its own product.
    * Absent from a server that sells none (or doesn't know them yet).
    */
   passes?: PlayPass[];
@@ -647,7 +648,7 @@ export interface PlayCatalogue {
 /** A 24-hour pass Google Play sells: which one, and for how long each unit runs. */
 export interface PlayPass {
   productId: string;
-  kind: "SHADE_BOOK";
+  kind: "SHADE_BOOK" | "CUSTOMER_COLOR_FINDER";
   hours: number;
 }
 
@@ -847,6 +848,60 @@ export interface ShadeBookPassOrder {
 /** The 24 hours a payment opened. */
 export interface ShadeBookPass {
   kind: "SHADE_BOOK";
+  label: string;
+  startsAt: string;
+  expiresAt: string;
+  amountPaise: number;
+}
+
+// ── The Colour finder ───────────────────────────────────────────────────────────
+
+/**
+ * GET /api/colour-finder — whether a customer's Colour finder is open, and what opening it
+ * costs: the Shade Book's shape. ADMIN and a running PASS (until `expiresAt`) are open.
+ */
+export interface ColourFinderAccess {
+  open: boolean;
+  reason: "ADMIN" | "PASS" | "NONE";
+  /** When the pass shuts — India's wall clock, no zone (the server runs on IST). */
+  expiresAt?: string | null;
+  pricePaise: number;
+  currency: string;
+  hours: number;
+  /** Whether Razorpay can sell it (the website's checkout). */
+  purchasable: boolean;
+  /** The Google Play product it is sold as in the Android store build; absent when it isn't. */
+  playProductId?: string | null;
+}
+
+/**
+ * GET /api/colour-finder/match — a HueVistaa shade for a colour: its Vista code, its colour and
+ * the colour in our words. Never a company, a maker's code or a shade name; none is sent.
+ */
+export interface VistaShadeMatch {
+  hvCode: string;
+  hexCode: string;
+  /** "Pale beige". */
+  colourName: string;
+  /** CIE76 ΔE from the colour asked about. */
+  deltaE: number;
+}
+
+/** POST /api/colour-finder/pass/order — what the website's checkout page is opened with. */
+export interface ColourFinderPassOrder {
+  orderId: string;
+  kind: "CUSTOMER_COLOR_FINDER";
+  label: string;
+  /** Paise, priced by the server. */
+  amount: number;
+  currency: string;
+  hours: number;
+  razorpayKeyId: string;
+}
+
+/** The 24 hours a Colour finder payment opened. */
+export interface ColourFinderPass {
+  kind: "CUSTOMER_COLOR_FINDER";
   label: string;
   startsAt: string;
   expiresAt: string;

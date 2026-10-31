@@ -24,19 +24,20 @@ const tabs: { name: string; label: MessageKey; icon: IconName }[] = [
 /**
  * Customer tabs: Home · Studio · Catalogue · Boards · Nearby · Account (docs/01-product.md).
  *
- * The Shade Book (C34) lives in the Catalogue tab, beside the shades — a switch at the top
- * of both screens — rather than as a seventh tab: seven leave about 45 dp a label on a
- * 360–390 dp phone, and "Shade Book" needs 63. Its route has no button of its own, and the
- * Catalogue tab stays lit while it shows.
+ * The Shade Book (C34) and the Colour finder (C35) live in the Catalogue tab, beside the
+ * shades — a switch at the top of all three screens — rather than as tabs of their own: seven
+ * leave about 45 dp a label on a 360–390 dp phone, and "Shade Book" needs 63. Their routes have
+ * no button of their own, and the Catalogue tab stays lit while either shows.
  */
 export default function CustomerTabs() {
   const options = useTabBarOptions();
   const { colors } = useTheme();
-  const inShadeBook = usePathname() === "/shade-book";
+  const pathname = usePathname();
+  const inCatalogue = pathname === "/shade-book" || pathname === "/colour-finder";
   return (
     <Tabs screenOptions={options}>
       {tabs.map((tab) => {
-        const lit = tab.name === "catalogue" && inShadeBook;
+        const lit = tab.name === "catalogue" && inCatalogue;
         return (
           <Tabs.Screen
             key={tab.name}
@@ -51,6 +52,7 @@ export default function CustomerTabs() {
         );
       })}
       <Tabs.Screen name="shade-book" options={{ href: null, title: t("shadeBook.title") }} />
+      <Tabs.Screen name="colour-finder" options={{ href: null, title: t("colourFinder.title") }} />
     </Tabs>
   );
 }
