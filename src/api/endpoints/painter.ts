@@ -42,9 +42,15 @@ export interface PainterProfile {
   address?: string | null;
   /** Changes when the painter's photo does; null until they add one (on the painter website). */
   photoVersion?: string | null;
-  /** Already rounded by the server to two places (about a kilometre). */
+  /** Where customers' searches measure from: the pin, rounded by the server to two places (about a kilometre). */
   latitude?: number | null;
   longitude?: number | null;
+  /**
+   * Where the pin stands on the painter's map: exactly where they put it, or the rounded point
+   * for a location saved before pins. Only ever sent to them.
+   */
+  pinLatitude?: number | null;
+  pinLongitude?: number | null;
   locationUpdatedAt?: string | null;
   /**
    * The place nearest that position — "Kaiser Ganj Ajmer, Ajmer, Rajasthan" — so the painter

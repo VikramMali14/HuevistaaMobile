@@ -10,10 +10,10 @@ import { useAlive } from "@/lib/use-alive";
 import { useTheme } from "@/theme";
 
 /**
- * Where the painter is based, typed (P5): a town, an area or a PIN code, for a phone that can't
- * say — no GPS indoors, location refused, or simply wrong. The server finds the place in its own
- * directory (GET /api/nearby/places); the painter taps theirs, and its middle becomes the base,
- * saved with everything else. As the painter website's place-search.tsx.
+ * A town, an area or a PIN code typed, to take the pin map there (P5). The server finds the place
+ * in its own directory (GET /api/nearby/places); the painter taps theirs, its middle becomes the
+ * pin, and they move the map from there onto their own street before saving it with everything
+ * else. As the painter website's place-search.tsx.
  */
 export function PlaceSearch({ disabled, onPick }: { disabled?: boolean; onPick: (place: NearbyPlace, label: string) => void }) {
   const { space } = useTheme();
@@ -57,7 +57,7 @@ export function PlaceSearch({ disabled, onPick }: { disabled?: boolean; onPick: 
       <View style={[styles.row, styles.bottom, { gap: space.sm }]}>
         <View style={styles.fill}>
           <TextField
-            label={t("painter.nearby.orType")}
+            label={t("painter.nearby.findPlace")}
             placeholder={t("painter.nearby.placePlaceholder")}
             value={query}
             onChangeText={(next) => {

@@ -754,8 +754,9 @@ If the copies start drifting, move them into a shared npm package later. Not bef
   website uses and then checked by the server.
 - Payment results are trusted only after the server verifies them.
 - Board PDFs are read on the phone; only the token is sent (P7).
-- Location for nearby search is sent per search, never stored by the app; a painter's
-  base is coarsened to about 1 km before it is sent.
+- Location for nearby search is sent per search, never stored by the app. A painter's base
+  is a pin they put on a map — the phone's location is never read for it — kept by the server
+  for their own screen, and searched only rounded to about 1 km.
 
 ## Performance budget
 

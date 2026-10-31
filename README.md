@@ -87,7 +87,7 @@ photos.
 - Claim a board: an unanswered claim is checked against the points, never repeated.
 - Rewards priced against the balance, redeemed with a key that makes a retry safe, and
   vouchers with their codes.
-- Be found nearby (a rough location — from the phone, or a town or PIN typed — and where the
+- Be found nearby (a pin put on a map, after finding the town or PIN, with location left off — and where the
   painter can work: the divisions or regions of any state, their own state first, or
   anywhere in India — customers there find them however far off;
   customers see the painter's photo, name, address and those places), the trade profile, and

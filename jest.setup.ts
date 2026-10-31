@@ -45,6 +45,10 @@ jest.mock("react-native-webview", () => {
   return { __esModule: true, WebView, default: WebView };
 });
 jest.mock("@/features/painter/board-reader/reader-html.generated", () => ({ READER_HTML: "<!doctype html>", READER_INPUTS: {} }));
+// The pin map (P5) runs MapLibre in a WebView the same way: its 1 MB page is left out too. The
+// map is proved in Chromium (scripts/verify-pin-map.mjs), its conversation unit-tested
+// (pin-map-protocol.test.ts).
+jest.mock("@/features/painter/pin-map/map-html.generated", () => ({ MAP_HTML: "<!doctype html>", MAP_INPUTS: {} }));
 
 // Push notifications (Phase 8): the phone's notification centre, in memory. Off by default
 // (permission undetermined, no device); a test turns it on, and drives taps and arrivals

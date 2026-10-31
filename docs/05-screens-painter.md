@@ -87,11 +87,14 @@ confirmed mobile → a banner to S4.
 
 **Layout:**
 - **Show me to customers nearby** switch (off until turned on).
-- **Where you're based** — "Use my location" (kept to about a kilometre), or a town, area
-  or PIN code typed instead, or clear it. Once saved, it says which place it is in ("Near
-  Kaiser Ganj Ajmer, Ajmer, Rajasthan" — `locationName`).
+- **Where you're based** — a pin on a map. Find the town, area or PIN code to take the map
+  there, then drag the map, or tap it, until the pin in its middle is on the place; or clear
+  it. Nothing asks the phone where it is, so location can stay off, and the pin stays where it
+  was put until it is moved again. Once saved, it says which place it is in ("Near Kaiser Ganj
+  Ajmer, Ajmer, Rajasthan" — `locationName`). No kilometres anywhere: customers never see the
+  pin, nor a distance.
 - **Where can you work?** — **Your state** first: the one the location is in (`locationState`,
-  or for a location found but not saved yet `GET /api/nearby/where`, which also names it: "New
+  or for a pin moved but not saved yet `GET /api/nearby/where`, which also names it: "New
   location: near …"), a chip that opens its divisions below when pressed — Ajmer, Bharatpur,
   Bikaner, Jaipur, Jodhpur, Kota, Udaipur for Rajasthan — with **All of …**. Then **Other states**
   (folded behind **Show all states**; all of them when there is no location yet), each opening
@@ -108,17 +111,23 @@ confirmed mobile → a banner to S4.
 — `workAreas` only when they changed (left out, the server leaves them alone)
 — the old line about the painter is no longer sent (left out, the server clears it); the
 preview's photo is `GET /api/painters/me/photo?v={photoVersion}`.
-The website coarsens the position — keep that rule on the phone too
-(`PainterService.coarsen`, two decimal places).
+The pin goes as it was put, to five decimal places (about a metre): the server keeps it for
+the painter's own map (`pinLatitude`/`pinLongitude` on `GET /api/painters/me`) and searches
+only from it rounded to two (`PainterService.coarsen`), so no search gives away more than the
+kilometre it is in.
 
-**As built:** the location is read once, when asked, by C32's `findFix`
-(`features/nearby/locate.ts`): location off is said as such; a fix from the last minute is
-used at once, otherwise a fresh one (balanced accuracy) gets 15 s — Android's location service
-can take far longer indoors, or never answer, which used to leave "Finding you…" spinning with
-Save greyed out — and then the last fix from the past half hour. Rounded to 2 places (about a
-kilometre) before it's sent; the server keeps no more. A fix rougher than 2 km is warned about.
-A typed place (`GET /api/nearby/places`) uses the middle of the place chosen. **Remove** clears it on Save and turns the listing
-off. The switch waits for a location and a confirmed mobile (each shown, the mobile → S4).
+**As built:** the map is MapLibre GL JS in a WebView (`features/painter/pin-map`), drawing
+OpenFreeMap's free OpenStreetMap tiles — no key, no account. Its page is
+`scripts/pin-map/map.js` built with MapLibre into `map-html.generated.ts` by
+`scripts/build-pin-map.mjs`; the page's policy reaches OpenFreeMap and nothing else, and
+`scripts/verify-pin-map.mjs` proves it in Chromium. It opens on the saved pin (or, for a
+location saved before pins, the rounded point), on a typed place's streets, or on all of India.
+Only the painter's own moves count; a zoom that leaves the pin where it was doesn't. A finger
+on the map holds the page's scroll still (Android: `nestedScrollEnabled`; iOS: `onTouch` →
+`Screen.scrollEnabled`). A phone that can't draw the map (no WebGL) says so, and the typed
+place still sets the location. The place is asked of the server once per kilometre square the
+pin lands in. A typed place (`GET /api/nearby/places`) puts the pin on the middle of the place
+chosen. **Remove** clears it on Save and turns the listing off. The switch waits for a location and a confirmed mobile (each shown, the mobile → S4).
 `about` is always sent: the server overwrites it when it's missing.
 
 ### P6 · Claim a board

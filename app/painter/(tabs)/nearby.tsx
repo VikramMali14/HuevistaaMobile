@@ -2,19 +2,20 @@ import Feather from "@expo/vector-icons/Feather";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Linking, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 import { messageFor } from "@/api/errors";
 import { painterApi, type PainterProfile } from "@/api/endpoints/painter";
 import { keys } from "@/api/query-keys";
 import { useSession } from "@/auth/session";
 import { Banner, Button, Card, ErrorState, Screen, Skeleton, Switch, Text, useToast } from "@/components/ui";
-import { findFix } from "@/features/nearby/locate";
 import { PainterCardBody } from "@/features/nearby/NearbyCards";
 import { useWhere, useWorkAreas } from "@/features/nearby/use-nearby";
 import { sameAreas } from "@/features/nearby/work-areas";
-import { hasSavedLocation, listingBody, listingNeeds, ownPhotoUrl, ROUGH_FIX_METRES, type PendingLocation } from "@/features/painter/listing";
+import { hasSavedLocation, listingBody, listingNeeds, ownPhotoUrl, savedPin, type PendingLocation } from "@/features/painter/listing";
 import { PainterHeader } from "@/features/painter/PainterHeader";
+import { PinMap } from "@/features/painter/pin-map/PinMap";
+import { PLACE_ZOOM, STREET_ZOOM } from "@/features/painter/pin-map/protocol";
 import { PlaceSearch } from "@/features/painter/PlaceSearch";
 import { WorkAreasPicker } from "@/features/painter/WorkAreasPicker";
 import { isNoProfile, usePainterProfile } from "@/features/painter/use-painter";
@@ -30,15 +31,17 @@ import { useTheme } from "@/theme";
  * P5 · Nearby — be found by customers. Spec: docs/05-screens-painter.md — P5. Web
  * reference: HueVistaaPainter app/(app)/(painter)/listing/listing-screen.tsx.
  *
- * Whether customers nearby see this painter, where they're based (kept to about a kilometre
- * — rounded on the phone before it is sent, and again by the server), where they can go for a
- * job, and the card a customer would see: their photo, name and address (set on the painter
- * website) and those places, nothing else. Listing needs a base and a confirmed mobile; what's
- * missing is said, with the way to it. Location is asked for only when "Use where I am now"
- * is pressed, with why on the screen above it — and given up on after fifteen seconds rather
- * than spinning for ever (features/nearby/locate). A phone that can't say where it is is not the
- * end of it: the painter types their town or PIN code instead. Once saved, the screen names the
- * place the base is in, so a wrong one is plain to see.
+ * Whether customers nearby see this painter, where they're based, where they can go for a job,
+ * and the card a customer would see: their photo, name and address (set on the painter website)
+ * and those places, nothing else. Listing needs a base and a confirmed mobile; what's missing is
+ * said, with the way to it.
+ *
+ * Where they're based is a pin on a map (features/painter/pin-map): the painter finds their town
+ * or PIN code to take the map there, and drags it — or taps it — until the pin is on their place.
+ * Nothing asks the phone where it is, so location can stay off, and the pin stays where they put
+ * it until they move it again: the server keeps it for their own map, and searches only from it
+ * rounded to about a kilometre. Customers never see it, nor a distance. Once saved, the screen
+ * names the place the pin is in, so a wrong one is plain to see.
  *
  * Where they can work: divisions of their own state — the one their location is in, drawn first —
  * other states, or anywhere in India (WorkAreasPicker), named by the server's catalogue. Customers
@@ -105,10 +108,10 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
   const { profile: account } = useSession();
   const [listed, setListed] = useState(Boolean(profile.listedForCustomers));
   const [pending, setPending] = useState<PendingLocation>(null);
-  const [locError, setLocError] = useState<{ message: string; settings: boolean } | null>(null);
   const [areas, setAreas] = useState<string[]>(profile.workAreas ?? []);
   const [error, setError] = useState<string | null>(null);
-  const locating = useSubmit();
+  // A finger on the map: the page holds still under it.
+  const [onMap, setOnMap] = useState(false);
   const saving = useSubmit();
   const catalogue = useWorkAreas();
   // Where a location not saved yet is: named before it is saved, and its state first among the places.
@@ -123,18 +126,6 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
   // Without the catalogue the places can't be drawn or changed, so they are left as they are.
   const areasChanged = Boolean(catalogue.data) && !sameAreas(areas, profile.workAreas ?? [], catalogue.data!);
   const dirty = listed !== Boolean(profile.listedForCustomers) || pending !== null || areasChanged;
-  const rough = pending && pending !== "clear" && Number.isFinite(pending.accuracy) && pending.accuracy > ROUGH_FIX_METRES ? pending.accuracy : null;
-
-  const locate = () =>
-    void locating.run(async () => {
-      setLocError(null);
-      setError(null);
-      const found = await findFix();
-      if (found.kind === "fix") setPending(found.fix);
-      else if (found.kind === "denied") setLocError({ message: t("painter.nearby.locationDenied"), settings: found.settings });
-      else if (found.kind === "off") setLocError({ message: t("painter.nearby.locationOff"), settings: false });
-      else setLocError({ message: t("painter.nearby.locationFailed"), settings: false });
-    });
 
   const save = () =>
     void saving.run(async () => {
@@ -174,6 +165,7 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
   return (
     <Screen
       scroll
+      scrollEnabled={!onMap}
       edges={["top"]}
       onRefresh={pull.onRefresh}
       refreshing={pull.refreshing}
@@ -181,7 +173,7 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
       footer={
         <View style={{ gap: space.xs }}>
           {error ? <Banner tone="danger" message={error} testID="nearby-error" /> : null}
-          <Button label={t("painter.nearby.save")} onPress={save} loading={saving.busy} disabled={!dirty || locating.busy} testID="nearby-save" />
+          <Button label={t("painter.nearby.save")} onPress={save} loading={saving.busy} disabled={!dirty} testID="nearby-save" />
         </View>
       }
     >
@@ -240,28 +232,38 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
             {setOn}
           </Text>
         ) : null}
+        <PlaceSearch
+          disabled={saving.busy}
+          onPick={(place, label) => {
+            setError(null);
+            setPending({ latitude: place.latitude, longitude: place.longitude, label });
+          }}
+        />
+        {pending && pending !== "clear" && pending.label ? (
+          // India Post's directory is published under the Government Open Data License and
+          // GeoNames under CC BY 4.0; both ask to be credited where their data is used.
+          <Text variant="caption" tone="mute" testID="nearby-place-credit">
+            {t("painter.nearby.placeCredit")}
+          </Text>
+        ) : null}
+        <PinMap
+          pin={pending === "clear" ? null : (pending ?? savedPin(profile))}
+          zoom={pending && pending !== "clear" && pending.label ? PLACE_ZOOM : STREET_ZOOM}
+          disabled={saving.busy}
+          onMove={(moved) => {
+            setError(null);
+            setPending(moved);
+          }}
+          onTouch={setOnMap}
+        />
+        <Text variant="small" tone="soft">
+          {t("painter.nearby.mapHelp")}
+        </Text>
         <Text variant="small" tone="soft">
           {t("painter.nearby.kept")}
         </Text>
-        {rough ? <Banner tone="warning" message={t("painter.nearby.rough", { km: Math.max(1, Math.round(rough / 1000)) })} /> : null}
-        {locError ? (
-          <Banner tone="danger" message={locError.message} testID="nearby-location-error">
-            {locError.settings ? <Button variant="ghost" block={false} label={t("painter.scan.openSettings")} onPress={() => void Linking.openSettings()} /> : null}
-          </Banner>
-        ) : null}
-        <View style={[styles.row, { gap: space.sm }]}>
-          <View style={styles.fill}>
-            <Button
-              variant="secondary"
-              icon="crosshair"
-              label={locating.busy ? t("painter.nearby.finding") : needs.location ? t("painter.nearby.updateHere") : t("painter.nearby.useHere")}
-              onPress={locate}
-              loading={locating.busy}
-              disabled={saving.busy}
-              testID="nearby-locate"
-            />
-          </View>
-          {needs.location ? (
+        {needs.location ? (
+          <View style={styles.row}>
             <Button
               variant="ghost"
               block={false}
@@ -271,25 +273,10 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
                 // A painter with no base can't be listed.
                 setListed(false);
               }}
-              disabled={locating.busy || saving.busy}
+              disabled={saving.busy}
               testID="nearby-remove"
             />
-          ) : null}
-        </View>
-        <PlaceSearch
-          disabled={locating.busy || saving.busy}
-          onPick={(place, label) => {
-            setLocError(null);
-            setError(null);
-            setPending({ latitude: place.latitude, longitude: place.longitude, accuracy: NaN, label });
-          }}
-        />
-        {pending && pending !== "clear" && pending.label ? (
-          // India Post's directory is published under the Government Open Data License and
-          // GeoNames under CC BY 4.0; both ask to be credited where their data is used.
-          <Text variant="caption" tone="mute" testID="nearby-place-credit">
-            {t("painter.nearby.placeCredit")}
-          </Text>
+          </View>
         ) : null}
       </View>
 
