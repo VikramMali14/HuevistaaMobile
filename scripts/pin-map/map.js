@@ -52,6 +52,19 @@
     return !!a && !!b && Math.abs(a.latitude - b.latitude) < 2e-5 && Math.abs(a.longitude - b.longitude) < 2e-5;
   }
 
+  /**
+   * The style without its border lines. OpenStreetMap draws borders as they stand on the ground,
+   * which in Kashmir is not India's official map — and a pin on a street needs no borders at all.
+   * Place names stay.
+   */
+  function withoutBorders(_previous, next) {
+    return Object.assign({}, next, {
+      layers: next.layers.filter(function (layer) {
+        return layer["source-layer"] !== "boundary";
+      }),
+    });
+  }
+
   function pinFrom(value) {
     if (!value || typeof value.latitude !== "number" || typeof value.longitude !== "number") return null;
     if (!isFinite(value.latitude) || !isFinite(value.longitude)) return null;
@@ -63,7 +76,6 @@
     try {
       map = new gl.Map({
         container: "map",
-        style: options.style,
         center: first ? [first.longitude, first.latitude] : [INDIA.longitude, INDIA.latitude],
         zoom: first && typeof options.zoom === "number" ? options.zoom : INDIA.zoom,
         minZoom: MIN_ZOOM,
@@ -82,6 +94,7 @@
       fail();
       return;
     }
+    map.setStyle(options.style, { transformStyle: withoutBorders });
     at = first;
     map.touchZoomRotate.disableRotation();
     map.keyboard.disableRotation();

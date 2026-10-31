@@ -10,6 +10,7 @@
  *   - a drag is told to the app, to five decimal places;
  *   - the app's own "show" (a town typed) moves the map without being told back;
  *   - held while the screen saves, a tap does nothing; let go, a tap moves the pin there;
+ *   - no border lines are drawn, place names are;
  *   - nothing is fetched from anywhere but OpenFreeMap.
  * It needs the network (set HTTPS_PROXY to go through a proxy). Playwright isn't a dependency of
  * this app; point PLAYWRIGHT at any install of it.
@@ -52,6 +53,21 @@ page.on("request", (r) => {
 await page.addInitScript(() => {
   window.__heard = [];
   window.ReactNativeWebView = { postMessage: (text) => window.__heard.push(JSON.parse(text)) };
+  // Keep hold of the map the page makes, to look at its style: MapLibre puts itself on the
+  // window, and the page's map is the one whose style is set.
+  let gl;
+  Object.defineProperty(window, "maplibregl", {
+    configurable: true,
+    get: () => gl,
+    set: (value) => {
+      gl = value;
+      const setStyle = value.Map.prototype.setStyle;
+      value.Map.prototype.setStyle = function (...args) {
+        window.__map = this;
+        return setStyle.apply(this, args);
+      };
+    },
+  });
 });
 await page.goto("about:blank");
 await page.setContent(HTML);
@@ -65,6 +81,9 @@ await page.waitForFunction(() => window.__heard.some((m) => m.type === "loaded")
 await tell({ type: "start", pin: HOME, zoom: 15.5, style: STYLE, labels: { "NavigationControl.ZoomIn": "Zoom in" }, held: false });
 await page.waitForFunction(() => window.__heard.some((m) => m.type === "ready" || m.type === "failed"), null, { timeout: 30000 }).catch(() => {});
 expect("draws the map and says it is ready", (await heard()).some((m) => m.type === "ready"));
+const layers = await page.evaluate(() => window.__map.getStyle().layers.map((layer) => layer["source-layer"]));
+expect("draws no border lines", layers.length > 0 && !layers.includes("boundary"));
+expect("but draws place names", layers.includes("place"));
 
 await page.mouse.move(180, 150);
 await page.mouse.down();

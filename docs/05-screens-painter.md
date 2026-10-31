@@ -120,7 +120,8 @@ kilometre it is in.
 OpenFreeMap's free OpenStreetMap tiles — no key, no account. Its page is
 `scripts/pin-map/map.js` built with MapLibre into `map-html.generated.ts` by
 `scripts/build-pin-map.mjs`; the page's policy reaches OpenFreeMap and nothing else, and
-`scripts/verify-pin-map.mjs` proves it in Chromium. It opens on the saved pin (or, for a
+`scripts/verify-pin-map.mjs` proves it in Chromium. The style's border lines are left out:
+OpenStreetMap's are not India's official map in Kashmir, and a pin on a street needs none. It opens on the saved pin (or, for a
 location saved before pins, the rounded point), on a typed place's streets, or on all of India.
 Only the painter's own moves count; a zoom that leaves the pin where it was doesn't. A finger
 on the map holds the page's scroll still (Android: `nestedScrollEnabled`; iOS: `onTouch` →
