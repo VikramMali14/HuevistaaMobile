@@ -12,6 +12,7 @@ import { appVersion } from "@/lib/app-version";
 import { useSubmit } from "@/lib/use-submit";
 import { formatMobileForDisplay } from "@/lib/validation";
 import { useTheme } from "@/theme";
+import { SHOW_SHOP_CODES } from "@/config/hidden-features";
 
 /**
  * C5 · Account. Spec: docs/04-screens-customer.md — C5.
@@ -88,7 +89,7 @@ export default function Account() {
       </ListGroup>
 
       <ListGroup title={t("account.shop")}>
-        {!linked ? <ListRow icon="key" title={t("account.addCode")} onPress={() => router.push("/add-shop-code")} /> : null}
+        {!linked && SHOW_SHOP_CODES ? <ListRow icon="key" title={t("account.addCode")} onPress={() => router.push("/add-shop-code")} /> : null}
         {hasShop ? <ListRow icon="package" title={t("account.myProducts")} onPress={() => router.push("/my-products")} /> : null}
         <ListRow icon="map-pin" title={t("account.nearby")} onPress={() => router.push("/nearby")} />
         {linked ? (

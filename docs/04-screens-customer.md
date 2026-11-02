@@ -21,7 +21,7 @@ than "0 rooms". This lives in one hook, `useBalance()`, used everywhere.
 |---|---|---|
 | `ready` | At least one room to spend | **Paint my room** → C6 |
 | `exhausted` | A shop is behind this account and its rooms are used up | **Ask your shop for another room** → C27 (shop customers are never sold a room) |
-| `missing` | No shop, nothing bought | **Buy a room — ₹…** → C28, with "I have a shop code" → C30 beside it |
+| `missing` | No shop, nothing bought | **Buy a room — ₹…** → C28, with "I have a shop code" → C30 beside it while shop codes are on |
 
 The card says it in short sentences — "You can paint 3 rooms", "Your shop gave you 3 rooms.
 You have used 1." — with a picture for the state (a camera, the shop, a card), the same
@@ -59,7 +59,8 @@ go laid out on the page rather than behind a switch or a menu.
    resumes at the right step. "See all" → Rooms tab.
 6. **What would you like to do?** — picture tiles, two across, each with one short line:
    Colours (C3), Shade Book (C34), Colour finder (C35), Painters & shops (C32), Add a shop
-   code (C30), My balance (C27), My products (C29, only with a shop behind the account),
+   code (C30, only while shop codes are on — see C30), My balance (C27), My products (C29,
+   only with a shop behind the account),
    Help (`features/home/HomeTiles.tsx`). "Paint my room" is the card's button, not a tile.
 7. **Latest AI image** (if any) — large card → C24.
 8. **Ready-made rooms** strip (only when the library has rooms) → C21. "No photo? Paint
@@ -924,6 +925,14 @@ itself). There is no Try again and no Buy button on any of them.
 ### C30 · Add a shop code
 
 **Route** `add-shop-code.tsx` · **Phase** 2 · **Web reference** `app/unlock/unlock-form.tsx`
+
+**Switched off for now.** `SHOW_SHOP_CODES` in `src/config/hidden-features.ts` (the website's
+`lib/hidden-features.ts` has the same switch) hides every way here: the Home tile, the
+next-step card's "I have a shop code" / "Have a new shop code?", the tour's last button, the
+Account and Rooms-and-credits rows, and the empty Colours and My products screens' buttons —
+and the words that mention a code. The screen still opens from a link, and a customer who
+already used a code keeps their shop, its rooms and My products. Turning it back on is that
+one line.
 
 `ShopCodeInput` (8 character boxes — letters and numbers, uppercased, paste-friendly) ·
 "Your shop gave you this at the counter." · **Add code** → `POST /api/access-codes/redeem { code }` → "Added.

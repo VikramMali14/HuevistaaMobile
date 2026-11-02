@@ -24,6 +24,7 @@ import type { StoreFailure, StorePurchase } from "@/features/payments/play/store
 import { resetPaintStore, resetRecentShades } from "@/features/studio/paint-store";
 import { resetTrays, saveCombo } from "@/features/studio/tray-store";
 import type { BackendShade } from "@/lib/shade-mapping";
+import { SHOW_SHOP_CODES } from "@/config/hidden-features";
 
 const mockSecure: Record<string, string> = {};
 jest.mock("expo-secure-store", () => ({
@@ -969,7 +970,9 @@ describe("C28 · Checkout", () => {
       const app = renderRouter("./app", { initialUrl: "/home" });
       await waitFor(() => expect(screen.getByText("You have no rooms yet")).toBeTruthy());
       expect(screen.getByText("Buy a room")).toBeTruthy();
-      expect(screen.getByText("Buy a room to start. Or use a code from your paint shop.")).toBeTruthy();
+      expect(
+        screen.getByText(SHOW_SHOP_CODES ? "Buy a room to start. Or use a code from your paint shop." : "Buy a room to start."),
+      ).toBeTruthy();
       expect(screen.queryByText(/₹/)).toBeNull();
       app.unmount();
 
@@ -1238,11 +1241,25 @@ describe("A painter's or a shop's own home pays on the website", () => {
       balance.unmount();
 
       const home = renderRouter("./app", { initialUrl: "/home" });
-      await waitFor(() => expect(screen.getByText("Rooms for this account aren't sold in the app. Given a code by a paint shop? Use that.")).toBeTruthy());
+      // With shop codes switched off (src/config/hidden-features.ts) there is nothing this
+      // app may offer here at all: the card says so, and has no button.
+      await waitFor(() =>
+        expect(
+          screen.getByText(
+            SHOW_SHOP_CODES
+              ? "Rooms for this account aren't sold in the app. Given a code by a paint shop? Use that."
+              : "Rooms for this account aren't sold in the app.",
+          ),
+        ).toBeTruthy(),
+      );
       expect(screen.queryByText(/website/i)).toBeNull();
       expect(screen.queryByText(/^Buy/)).toBeNull();
-      fireEvent.press(screen.getByTestId("next-step"));
-      await waitFor(() => expect(screen).toHavePathname("/add-shop-code"));
+      if (SHOW_SHOP_CODES) {
+        fireEvent.press(screen.getByTestId("next-step"));
+        await waitFor(() => expect(screen).toHavePathname("/add-shop-code"));
+      } else {
+        expect(screen.queryByTestId("next-step")).toBeNull();
+      }
       home.unmount();
 
       renderRouter("./app", { initialUrl: "/checkout" });

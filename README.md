@@ -139,6 +139,11 @@ like to do?** lays out a picture tile, with one short line, for every other plac
 Shade Book, Colour finder, Painters & shops, Add a shop code, My balance, My products, Help.
 The website's customer home says the same things (docs/04, C1).
 
+**Shop codes are switched off for now.** Every way to "Add a shop code" (C30) is hidden behind
+one switch, `SHOW_SHOP_CODES` in `src/config/hidden-features.ts` — the same switch the
+website has. The screen still opens from a link, and what a customer already has from a code
+stays. Turning it back on is that one line (docs/04, C30).
+
 **Phase 8 — polish and release — is built.**
 - Hindi throughout, chosen in Settings or following the phone; print stays English.
 - Push notifications: walls ready, an AI image ready, a voucher settled, a support

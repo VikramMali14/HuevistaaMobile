@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { Text } from "@/components/ui";
 import { t, type MessageKey } from "@/i18n";
 import { hairline, minTouch, useTheme } from "@/theme";
+import { SHOW_SHOP_CODES } from "@/config/hidden-features";
 
 type IconName = ComponentProps<typeof Feather>["name"];
 
@@ -43,7 +44,10 @@ export function homeTiles({ hasShop }: { hasShop: boolean }): HomeTile[] {
     { key: "shade-book", href: "/shade-book", icon: "book-open", label: "home.tiles.shadeBook", hint: "home.tiles.shadeBookHint" },
     { key: "finder", href: "/colour-finder", icon: "crosshair", label: "home.tiles.finder", hint: "home.tiles.finderHint" },
     { key: "nearby", href: "/nearby", icon: "map-pin", label: "home.tiles.nearby", hint: "home.tiles.nearbyHint" },
-    { key: "code", href: "/add-shop-code", icon: "tag", label: "home.tiles.code", hint: "home.tiles.codeHint" },
+    // Only while shop codes are offered (src/config/hidden-features.ts).
+    ...(SHOW_SHOP_CODES
+      ? [{ key: "code", href: "/add-shop-code", icon: "tag", label: "home.tiles.code", hint: "home.tiles.codeHint" } as HomeTile]
+      : []),
     { key: "balance", href: "/balance", icon: "credit-card", label: "home.tiles.balance", hint: "home.tiles.balanceHint" },
     ...(hasShop
       ? [{ key: "products", href: "/my-products", icon: "package", label: "home.tiles.products", hint: "home.tiles.productsHint" } as HomeTile]

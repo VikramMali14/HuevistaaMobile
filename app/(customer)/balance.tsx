@@ -21,6 +21,7 @@ import { formatRupees } from "@/lib/money";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { useSubmit } from "@/lib/use-submit";
 import { hairline, useTheme } from "@/theme";
+import { SHOW_SHOP_CODES } from "@/config/hidden-features";
 
 const ACTIVITY = ["PURCHASED", "SPENT_ON_RENDER", "RENDER_REFUNDED", "GRANTED", "EXPIRED"];
 /** Credits lapsing within this long are worth a warning colour; later ones are just a fact. */
@@ -210,8 +211,9 @@ export default function BalanceScreen() {
           </Text>
         ) : null}
 
-        {/* Not on a linked profile, as on Account. */}
-        {profile?.linkedProfile ? null : (
+        {/* Not on a linked profile, as on Account — and not while shop codes are switched
+            off (src/config/hidden-features.ts). */}
+        {profile?.linkedProfile || !SHOW_SHOP_CODES ? null : (
           <ListGroup>
             <ListRow icon="key" title={t("balanceScreen.addCode")} onPress={() => router.push("/add-shop-code")} />
           </ListGroup>

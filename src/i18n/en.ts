@@ -969,6 +969,10 @@ export const en = {
     missingTitle: "You have no rooms yet",
     missingBody: "One room costs {price}. You can use it for {span}. Got a code from a paint shop? Use it instead.",
     missingBodyPlain: "Buy a room to start. Or use a code from your paint shop.",
+    // The same, while shop codes are switched off (src/config/hidden-features.ts).
+    missingBodyNoCode: "One room costs {price}. You can use it for {span}.",
+    missingBodyPlainNoCode: "Buy a room to start.",
+    missingBodyNoneNoCode: "Rooms for this account aren't sold in the app.",
     buy: "Buy a room — {price}",
     buyPlain: "Buy a room",
     // A painter's or a shop's own home pays on the website; in the store build, nothing says where.
@@ -1045,6 +1049,7 @@ export const en = {
     clearFilters: "Clear filters",
     empty: "No shades to show yet",
     emptyBody: "Your shop hasn't unlocked a paint company for you yet. Ask them, or add a shop code.",
+    emptyBodyNoCode: "Your shop hasn't unlocked a paint company for you yet. Ask them.",
     readyRooms: "Ready-made rooms",
     shadeLabel: "Shade {code}",
   },
@@ -1115,6 +1120,7 @@ export const en = {
     everything: "This shop hasn't narrowed anything down for you — you get the full range it carries.",
     empty: "No shop yet",
     emptyBody: "Add the code your shop gave you, and what it unlocked for you shows here.",
+    emptyBodyNoCode: "When a paint shop picks paints for you, they show here.",
   },
   account: {
     title: "Account",

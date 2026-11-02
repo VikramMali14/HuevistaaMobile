@@ -14,6 +14,7 @@ import type { CustomerEntitlement, FreeProject, ProjectSummary, UserProfile } fr
 import { forgetRememberedRoute } from "@/auth/pending-route";
 import { encodeShades } from "@/lib/shade-codec";
 import type { BackendShade } from "@/lib/shade-mapping";
+import { SHOW_SHOP_CODES } from "@/config/hidden-features";
 
 const mockSecure: Record<string, string> = {};
 jest.mock("expo-secure-store", () => ({
@@ -190,14 +191,20 @@ describe("C1 · Home", () => {
     await waitFor(() => expect(screen).toHavePathname("/balance"));
   });
 
-  it("missing: buy one at its price, or add a shop code", async () => {
+  it("missing: buy one at its price — or add a shop code, while shop codes are on", async () => {
     signedInAs(person());
     renderRouter("./app", { initialUrl: "/home" });
     await waitFor(() => expect(screen.getByText("You have no rooms yet")).toBeTruthy());
     expect(screen.getByText("Buy a room — ₹199")).toBeTruthy();
     expect(screen.getByText(/One room costs ₹199\. You can use it for 30 days\./)).toBeTruthy();
-    press("I have a shop code");
-    await waitFor(() => expect(screen).toHavePathname("/add-shop-code"));
+    // Shop codes are switched off for now (src/config/hidden-features.ts): no button for
+    // one, and no word about one.
+    expect(screen.queryByText("I have a shop code") !== null).toBe(SHOW_SHOP_CODES);
+    expect(screen.queryByText(/Got a code from a paint shop/) !== null).toBe(SHOW_SHOP_CODES);
+    if (SHOW_SHOP_CODES) {
+      press("I have a shop code");
+      await waitFor(() => expect(screen).toHavePathname("/add-shop-code"));
+    }
   });
 
   it("says nothing about rooms when the balance cannot be read — never 0 rooms", async () => {
@@ -273,7 +280,6 @@ describe("C1 · Home in pictures and plain words", () => {
       "Shade Book. Colours that go together, on real homes",
       "Colour finder. Find our colour from your photo",
       "Painters & shops. Call a painter, find a paint shop",
-      "Add a shop code. Got a code from a paint shop? Type it in",
       "My balance. Rooms you have left. Buy more",
       "Help. Ask us anything",
     ]) {
@@ -281,8 +287,10 @@ describe("C1 · Home in pictures and plain words", () => {
     }
     // No shop behind this account: nothing a shop unlocked to show.
     expect(screen.queryByTestId("home-tile-products")).toBeNull();
-    fireEvent.press(screen.getByTestId("home-tile-code"));
-    await waitFor(() => expect(screen).toHavePathname("/add-shop-code"));
+    // The shop-code tile only while shop codes are on (src/config/hidden-features.ts).
+    expect(screen.queryByTestId("home-tile-code") !== null).toBe(SHOW_SHOP_CODES);
+    fireEvent.press(screen.getByTestId("home-tile-balance"));
+    await waitFor(() => expect(screen).toHavePathname("/balance"));
   });
 
   it("offers My products to a customer a shop's code is behind", async () => {
@@ -481,7 +489,9 @@ describe("C30 · Add a shop code", () => {
     await waitFor(() => expect(screen.getByText("You have no rooms yet")).toBeTruthy());
     mockMe.entitlement.mockResolvedValue(entitlement(3));
     mockMe.projects.mockResolvedValue([room()]);
-    press("I have a shop code");
+    // Straight to the screen: Home offers no button for it while shop codes are switched
+    // off (src/config/hidden-features.ts), and the screen still answers a link to it.
+    act(() => router.push("/add-shop-code"));
     await waitFor(() => expect(screen).toHavePathname("/add-shop-code"));
     fireEvent.changeText(screen.getByTestId("shop-code"), "7K2NQ9PX");
     press("Add code");
@@ -538,6 +548,38 @@ describe("C31 · My products", () => {
 // ── C5 Account ────────────────────────────────────────────────────────────────
 
 describe("C5 · Account", () => {
+  /**
+   * Shop codes are switched off for now (src/config/hidden-features.ts): Account, Rooms and
+   * credits, and the empty catalogue and products screens offer no way to one. This reads
+   * the switch, so turning it back on is one line.
+   */
+  it("offers a shop code on Account and on the balance only while shop codes are on", async () => {
+    signedInAs(person());
+    const account = renderRouter("./app", { initialUrl: "/account" });
+    await waitFor(() => expect(screen.getByText("Work as a painter")).toBeTruthy());
+    expect(screen.queryByText("Add a shop code") !== null).toBe(SHOW_SHOP_CODES);
+    account.unmount();
+
+    renderRouter("./app", { initialUrl: "/balance" });
+    await waitFor(() => expect(screen.getByTestId("balance-credits-n")).toBeTruthy());
+    expect(screen.queryByText("Add a shop code") !== null).toBe(SHOW_SHOP_CODES);
+  });
+
+  it("says nothing about a code on an empty My products while shop codes are off", async () => {
+    signedInAs(person());
+    mockMe.assignedProducts.mockResolvedValue({ shops: [] });
+    renderRouter("./app", { initialUrl: "/my-products" });
+    await waitFor(() => expect(screen.getByText("No shop yet")).toBeTruthy());
+    expect(screen.queryByText("Add a shop code") !== null).toBe(SHOW_SHOP_CODES);
+    expect(
+      screen.getByText(
+        SHOW_SHOP_CODES
+          ? "Add the code your shop gave you, and what it unlocked for you shows here."
+          : "When a paint shop picks paints for you, they show here.",
+      ),
+    ).toBeTruthy();
+  });
+
   it("shows the sign-in details, and signs out after asking", async () => {
     signedInAs(person({ email: "priya@example.com", emailVerified: false, phoneNumber: "+919876543210", phoneVerified: true }));
     renderRouter("./app", { initialUrl: "/account" });

@@ -34,6 +34,7 @@ import { t, type MessageKey } from "@/i18n";
 import { displayCodeOf } from "@/lib/shade-codes";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { useTheme } from "@/theme";
+import { SHOW_SHOP_CODES } from "@/config/hidden-features";
 
 const COLUMNS = 3;
 
@@ -225,7 +226,11 @@ export default function CatalogueScreen() {
   } else if (catalogue.error) {
     body = <ErrorState error={catalogue.error} onRetry={() => void catalogue.refetch()} />;
   } else if (!shades?.length) {
-    body = <EmptyState icon="droplet" title={t("catalogue.empty")} body={t("catalogue.emptyBody")} actionLabel={t("account.addCode")} onAction={() => router.push("/add-shop-code")} />;
+    body = SHOW_SHOP_CODES ? (
+      <EmptyState icon="droplet" title={t("catalogue.empty")} body={t("catalogue.emptyBody")} actionLabel={t("account.addCode")} onAction={() => router.push("/add-shop-code")} />
+    ) : (
+      <EmptyState icon="droplet" title={t("catalogue.empty")} body={t("catalogue.emptyBodyNoCode")} />
+    );
   } else {
     body = (
       <FlashList
