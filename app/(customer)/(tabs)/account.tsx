@@ -91,7 +91,8 @@ export default function Account() {
       <ListGroup title={t("account.shop")}>
         {!linked && SHOW_SHOP_CODES ? <ListRow icon="key" title={t("account.addCode")} onPress={() => router.push("/add-shop-code")} /> : null}
         {hasShop ? <ListRow icon="package" title={t("account.myProducts")} onPress={() => router.push("/my-products")} /> : null}
-        <ListRow icon="map-pin" title={t("account.nearby")} onPress={() => router.push("/nearby")} />
+        <ListRow icon="map-pin" title={t("home.tiles.painters")} onPress={() => router.push("/nearby")} />
+        <ListRow icon="shopping-bag" title={t("home.tiles.shops")} onPress={() => router.push("/shops")} />
         {linked ? (
           <ListRow
             icon="repeat"

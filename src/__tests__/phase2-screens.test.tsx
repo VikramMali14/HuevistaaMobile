@@ -287,7 +287,8 @@ describe("C1 · Home in pictures and plain words", () => {
       "Colours. Every colour, with its code",
       "Shade Book. Colours that go together, on real homes",
       "Colour finder. Find our colour from your photo",
-      "Painters & shops. Call a painter, find a paint shop",
+      "Find a painter. Painters near you. Call them",
+      "Find a paint shop. Paint shops near you, with directions",
       "My balance. Rooms you have left. Buy more",
       "Help. Ask us anything",
     ]) {

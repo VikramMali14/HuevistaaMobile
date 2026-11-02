@@ -486,7 +486,7 @@ iOS (memory on a 25 MB board), and "Open with" from WhatsApp.
 
 | | Screen | Spec |
 |---|---|---|
-| ☑ | C32 Painters and shops near you | [04](04-screens-customer.md#c32--painters-and-shops-near-you) |
+| ☑ | C32 Find a painter · C36 Find a paint shop (one screen each since 2026-11) | [04](04-screens-customer.md#c32--find-a-painter--c36--find-a-paint-shop) |
 | ☑ | C26 Review the job | [04](04-screens-customer.md#c26--review-the-job) |
 | ☑ | S6 Help and support | [06](06-screens-shared.md#s6--help-and-support) |
 | ☑ | S7 Support conversation | [06](06-screens-shared.md#s7--support-conversation) |

@@ -58,7 +58,8 @@ go laid out on the page rather than behind a switch or a menu.
 5. **Rooms in progress** — horizontal strip: photo, name, status chip, days left. Tap
    resumes at the right step. "See all" → Rooms tab.
 6. **What would you like to do?** — picture tiles, two across, each with one short line:
-   Colours (C3), Shade Book (C34), Colour finder (C35), Painters & shops (C32), Add a shop
+   Colours (C3), Shade Book (C34), Colour finder (C35), Find a painter (C32), Find a paint
+   shop (C36), Add a shop
    code (C30, only while shop codes are on — see C30), My balance (C27), My products (C29,
    only with a shop behind the account),
    Help (`features/home/HomeTiles.tsx`). "Paint my room" is the card's button, not a tile.
@@ -184,7 +185,7 @@ C24, All my AI images), it opens on the AI images, once.
   given yet (`namePending`) it reads "Add your name" and the Name row "No name yet".
 - **Your balance** → C27 (the rooms and credits under the title, so neither wraps).
 - **Shop:** "Add a shop code" → C30. Shop customers also see **My products** → C31.
-- **Painters and shops near you** → C32.
+- **Find a painter** → C32 · **Find a paint shop** → C36.
 - **Help:** Help & support → S6 · Questions & answers → S8.
 - **Sign-in details:** Name → S2 · Email → S3 · Mobile → S4 · Password → S5.
 - **More:** Work as a painter → C33 — shown to every account but a customer profile; rooms
@@ -591,7 +592,7 @@ goes with the other two · family (the parent family and the company's own, once
 depth and light reflectance · finishes · good for (rooms) · the backend's description ·
 **Try it on a room** (a sheet of the rooms **ready to paint** — walls marked, not
 closed — → `/room/{id}/paint?shade=&brand=`; none ready → C6 with the same params) ·
-**Find a shop near you** (→ C32 `?tab=shops`) · the shade disclaimer. The status bar
+**Find a shop near you** (→ C36) · the shade disclaimer. The status bar
 takes dark or light text to read on the colour behind it, and goes back to the app's
 own when the screen is left.
 
@@ -961,12 +962,17 @@ by company, with the shop's own price. A shop that picked nothing out still show
 all → "No shop yet" + **Add a shop code**. **API:** `GET /api/me/assigned-products`.
 Shown only to shop customers.
 
-### C32 · Painters and shops near you
+### C32 · Find a painter · C36 · Find a paint shop
 
-**Route** `(tabs)/nearby.tsx` (the **Nearby** tab) · **Phase** 7 · **Web reference** `components/app/nearby-finder.tsx`, `lib/geolocation.ts`, `lib/nearby.ts`
+**Routes** `(tabs)/nearby.tsx` (C32, the **Painters** tab) and `shops.tsx` (C36, pushed over
+the tabs, with a way back — from its tile on Home, from Account, and a shade's **Find a shop
+near you**) · both `features/nearby/NearbySearch.tsx` · **Phase** 7 · **Web reference**
+`components/app/nearby-finder.tsx` (its `only` mode), `lib/geolocation.ts`, `lib/nearby.ts`
 
-**Layout:** segmented **Painters / Shops** · "Within 50 km, nearest first" · list, nearest
-first. No distance to pick, as on the website: the search always reaches 50 km — and painters
+Who will paint it and where to buy the paint are two different jobs, so they are two places,
+each with one list — never both behind a switch. An old `/nearby?tab=shops` link lands on C36.
+
+**Layout:** "Within 50 km, nearest first" · the one list, nearest first. No distance to pick, as on the website: the search always reaches 50 km — and painters
 further off who said they work in the place the search is from (its division, its state, or
 anywhere in India) come after the nearby ones, marked **Works in your area**
 (`worksInYourArea`). A search from the phone's own location names it, as a typed place is

@@ -222,9 +222,9 @@ beforeEach(async () => {
 
 const tick = (ms = 50) => act(async () => jest.advanceTimersByTime(ms));
 
-// ── C32 · Painters and shops near you ─────────────────────────────────────────
+// ── C32 · Find a painter · C36 · Find a paint shop ────────────────────────────
 
-describe("C32 · Painters and shops near you", () => {
+describe("C32 · Find a painter, and C36 · Find a paint shop", () => {
   const here = () => {
     mockLocation.requestForegroundPermissionsAsync.mockResolvedValue({ granted: true, canAskAgain: true });
     mockLocation.getCurrentPositionAsync.mockResolvedValue({ coords: { latitude: 15.852347, longitude: 74.504981, accuracy: 30 } });
@@ -251,15 +251,42 @@ describe("C32 · Painters and shops near you", () => {
     expect(screen.getByTestId("painter-address-p1")).toHaveTextContent("Tilakwadi, Belagavi");
     // Only certified painters are listed, and each card says so.
     expect(screen.getAllByText("HueVistaa Certified")).toHaveLength(2);
-    expect(screen.getByText("Painters · 2")).toBeTruthy();
-    fireEvent.press(screen.getByText("Shops · 1"));
+    // Painters alone: no switch to shops on this screen, and no shops asked for.
+    expect(screen.getByText("Find a painter")).toBeTruthy();
+    expect(screen.queryByText(/^Shops/)).toBeNull();
+    expect(mockNearby.shops).not.toHaveBeenCalled();
+  });
+
+  /** Paint shops are a screen of their own, pushed over the tabs, with a way back. */
+  it("lists paint shops on a screen of their own, with directions", async () => {
+    signedInAs("CUSTOMER");
+    here();
+    mockNearby.shops.mockResolvedValue([shopRow()]);
+    renderRouter("./app", { initialUrl: "/shops" });
+    await waitFor(() => expect(screen.getByTestId("nearby-ask")).toBeTruthy());
+    expect(screen.getByText("Find a paint shop")).toBeTruthy();
+    expect(screen.getByText("Find a paint shop near you.")).toBeTruthy();
+    fireEvent.press(screen.getByTestId("nearby-locate"));
+    await waitFor(() => expect(screen.getByTestId("nearby-shops")).toBeTruthy());
+    expect(mockNearby.shops).toHaveBeenCalledWith({ lat: 15.852, lon: 74.505, radiusKm: 50 });
+    expect(mockNearby.painters).not.toHaveBeenCalled();
     expect(screen.getByText("Shop 4, Khade Bazar · Belagavi, Karnataka")).toBeTruthy();
     expect(screen.getByText("Open 9 am – 9 pm")).toBeTruthy();
     fireEvent.press(screen.getByTestId("directions-s1"));
     expect(openURL).toHaveBeenCalledWith(expect.stringContaining("15.852,74.5"));
   });
 
-  it("searches at once for someone who already allowed it, and opens on Shops when asked", async () => {
+  /** Two places, two tiles on Home: who will paint it, and where to buy the paint. */
+  it("offers Find a painter and Find a paint shop as two tiles on Home", async () => {
+    signedInAs("CUSTOMER");
+    renderRouter("./app", { initialUrl: "/home" });
+    await waitFor(() => expect(screen.getByText("Find a paint shop")).toBeTruthy());
+    expect(screen.getByText("Find a painter")).toBeTruthy();
+    fireEvent.press(screen.getByText("Find a paint shop"));
+    await waitFor(() => expect(screen).toHavePathname("/shops"));
+  });
+
+  it("searches at once for someone who already allowed it, and sends an old Shops link to the shops screen", async () => {
     signedInAs("CUSTOMER");
     here();
     mockLocation.getForegroundPermissionsAsync.mockResolvedValue({ granted: true, canAskAgain: true });
@@ -280,13 +307,14 @@ describe("C32 · Painters and shops near you", () => {
     expect(screen.getByText("Find a painter near you.")).toBeTruthy();
   });
 
-  // A shade's "Find a shop near you" can arrive while the tab is already up on Painters.
-  it("follows ?tab= when it is opened again while already up", async () => {
+  // An old "Shops" link can arrive while the Painters tab is already up.
+  it("sends ?tab=shops to the shops screen even while the Painters tab is up", async () => {
     signedInAs("CUSTOMER");
     renderRouter("./app", { initialUrl: "/nearby" });
     await waitFor(() => expect(screen.getByText("Find a painter near you.")).toBeTruthy());
     act(() => router.push({ pathname: "/nearby", params: { tab: "shops" } }));
     await waitFor(() => expect(screen.getByText("Find a paint shop near you.")).toBeTruthy());
+    expect(screen).toHavePathname("/shops");
   });
 
   // Each number asked for counts against 20 a day — never asked twice.
@@ -460,7 +488,8 @@ describe("C32 · Painters and shops near you", () => {
 
     expect(mockNearby.places).toHaveBeenCalledWith("590001");
     expect(mockNearby.painters).toHaveBeenCalledWith({ lat: 15.858, lon: 74.511, radiusKm: 50 });
-    expect(mockNearby.shops).toHaveBeenCalledWith({ lat: 15.858, lon: 74.511, radiusKm: 50 });
+    // Painters alone on this screen: the shops are another screen's to ask for.
+    expect(mockNearby.shops).not.toHaveBeenCalled();
     expect(mockLocation.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
     expect(screen.getByTestId("nearby-near")).toHaveTextContent(/^Near PIN 590001 · Belagavi, Karnataka/);
     expect(screen.getByTestId("nearby-place-credit")).toHaveTextContent(/India Post.*GeoNames/);

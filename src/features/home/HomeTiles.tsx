@@ -15,6 +15,7 @@ type TileHref =
   | "/shade-book"
   | "/colour-finder"
   | "/nearby"
+  | "/shops"
   | "/add-shop-code"
   | "/balance"
   | "/my-products"
@@ -30,8 +31,9 @@ export interface HomeTile {
 
 /**
  * The places, in the order a customer is most likely to want them, each with the same
- * picture its tab wears where it has one (Colours is the droplet, Painters & shops the pin)
- * so learning one teaches the other.
+ * picture its tab wears where it has one (Colours is the droplet, Painters the pin) so
+ * learning one teaches the other. Finding a painter and finding a paint shop are two tiles,
+ * as they are two places.
  *
  * "Paint my room" is not here: it is the big button on the next-step card above, which
  * already knows whether there is a room to paint, a shop to ask or a room to buy. "My
@@ -43,7 +45,8 @@ export function homeTiles({ hasShop }: { hasShop: boolean }): HomeTile[] {
     { key: "colours", href: "/catalogue", icon: "droplet", label: "home.tiles.colours", hint: "home.tiles.coloursHint" },
     { key: "shade-book", href: "/shade-book", icon: "book-open", label: "home.tiles.shadeBook", hint: "home.tiles.shadeBookHint" },
     { key: "finder", href: "/colour-finder", icon: "crosshair", label: "home.tiles.finder", hint: "home.tiles.finderHint" },
-    { key: "nearby", href: "/nearby", icon: "map-pin", label: "home.tiles.nearby", hint: "home.tiles.nearbyHint" },
+    { key: "painters", href: "/nearby", icon: "map-pin", label: "home.tiles.painters", hint: "home.tiles.paintersHint" },
+    { key: "shops", href: "/shops", icon: "shopping-bag", label: "home.tiles.shops", hint: "home.tiles.shopsHint" },
     // Only while shop codes are offered (src/config/hidden-features.ts).
     ...(SHOW_SHOP_CODES
       ? [{ key: "code", href: "/add-shop-code", icon: "tag", label: "home.tiles.code", hint: "home.tiles.codeHint" } as HomeTile]

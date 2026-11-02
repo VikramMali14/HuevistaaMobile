@@ -97,7 +97,7 @@ real-time developer notifications, the secrets — is in the backend repository'
   4. C3 Catalogue, with codes.
   5. C16 Board ready, or C25 Board detail.
   6. C24 AI image, with its disclaimer.
-  7. C32 Painters and shops near you.
+  7. C32 Find a painter, and C36 Find a paint shop.
   8. P2 Points, or P3 Scan, for painters.
 
 ### App access (for review)

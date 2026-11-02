@@ -100,8 +100,8 @@ calls them. Their routes keep their names (`studio`, `catalogue`).
 | **Rooms** (`studio`) | Every room, and "New room" | C2 → C6 … C18 |
 | **Colours** (`catalogue`) | All shades, filters, shade detail, ready-made rooms — and, beside the shades (a switch at the top), the Shade Book: combinations tried on four photos, a few free, the rest with a 24-hour pass — and the Colour finder: a colour in a photo matched to HueVistaa shades by Vista code, opened by a ₹59 24-hour pass | C3, C19–C21, C34, C35 |
 | **Boards** | Finished colour boards and AI images | C4, C22–C26 |
-| **Nearby** | Painters and shops near me, nearest first | C32 |
-| **Account** | Rooms & credits, shop code, my products, nearby, help, settings | C5, C27–C33, S1–S9 |
+| **Painters** | Painters near me, nearest first (paint shops are their own screen, C36, from Home and Account) | C32, C36 |
+| **Account** | Rooms & credits, shop code, my products, find a painter, find a paint shop, help, settings | C5, C27–C33, C36, S1–S9 |
 
 The tab bar **hides** inside the studio's canvas steps (C10, C11, C14), so the room
 gets the whole screen. The system back gesture always goes one step back.
