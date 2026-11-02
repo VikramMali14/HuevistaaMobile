@@ -71,11 +71,25 @@ export function NextStepCard({
         : ent && ent.projectAllowance === 1
           ? t("home.allUsedOne")
           : t("home.noneOnCode");
-    detail = t("home.exhaustedBody");
-    // Shop customers are never sold a room: their shop adds one free from the counter.
-    main = { label: t("home.ask"), onPress: go("/balance") };
-    icon = "shopping-bag";
-    if (SHOW_SHOP_CODES) extras.push({ label: t("home.freshCode"), to: "/add-shop-code", variant: "ghost" });
+    if (SHOW_SHOP_CODES) {
+      detail = t("home.exhaustedBody");
+      // Shop customers are never sold a room: their shop adds one free from the counter.
+      main = { label: t("home.ask"), onPress: go("/balance") };
+      icon = "shopping-bag";
+      extras.push({ label: t("home.freshCode"), to: "/add-shop-code", variant: "ghost" });
+    } else if (where === "none") {
+      // Shop codes switched off (src/config/hidden-features.ts): no shop can add a room,
+      // and this account is sold none in the app — say so, and offer nothing.
+      detail = t("home.missingBodyNoneNoCode");
+      main = null;
+    } else {
+      // …so the way on is buying, as for anybody else.
+      detail = t("home.exhaustedBodyNoCode");
+      main =
+        where === "website"
+          ? { label: t("home.buyWebsite"), onPress: () => void buyOnWebsite() }
+          : { label: t("home.buyMore"), onPress: go("/checkout") };
+    }
   } else if (where === "none") {
     // A painter's or a shop's own home in the store build: no room is sold here, and
     // nothing may say where else to buy one.

@@ -700,7 +700,7 @@ describe("C17 · Share this room", () => {
 // ── C27 Rooms and credits ─────────────────────────────────────────────────────
 
 describe("C27 · Rooms and credits", () => {
-  it("a shop's customer with no rooms left asks the shop — and is never sold one", async () => {
+  it("a shop's customer with no rooms left asks the shop — and is never sold one — while shop codes are on", async () => {
     signedIn();
     mockMe.entitlement.mockResolvedValue({ customerId: "u1", customerName: "Priya", retailerOrgId: "s1", projectAllowance: 2, projectsCreated: 2, projectsRemaining: 0 });
     mockMe.projectOptions.mockResolvedValue({ subscribed: false, projectPricePoints: 0, projectPricePaise: 14900, pointsBalance: 0, validDays: 30, availableCredits: 0 });
@@ -713,6 +713,13 @@ describe("C27 · Rooms and credits", () => {
     });
     mockMe.requestMoreRooms.mockResolvedValue(undefined);
     renderRouter("./app", { initialUrl: "/balance" });
+    if (!SHOW_SHOP_CODES) {
+      // Switched off (src/config/hidden-features.ts), no shop can add a room: nothing to
+      // ask, and rooms to buy like anybody else.
+      await waitFor(() => expect(screen.getByTestId("balance-buy-rooms")).toBeTruthy());
+      expect(screen.queryByTestId("balance-ask")).toBeNull();
+      return;
+    }
     await waitFor(() => expect(screen.getByTestId("balance-ask")).toBeTruthy());
     expect(screen.getByTestId("balance-rooms-n")).toHaveTextContent("0");
     expect(screen.queryByTestId("balance-buy-rooms")).toBeNull();
@@ -861,10 +868,16 @@ describe("C28 · Checkout", () => {
     await waitFor(() => expect(screen.getByTestId("checkout-pay")).toBeDisabled());
   });
 
-  it("a shop's customer buys Vista images only", async () => {
+  it("a shop's customer buys Vista images only — while shop codes are on", async () => {
     signedIn();
     mockMe.entitlement.mockResolvedValue({ customerId: "u1", customerName: "Priya", projectAllowance: 2, projectsCreated: 2, projectsRemaining: 0 });
     renderRouter("./app", { initialUrl: "/checkout?credits=1" });
+    if (!SHOW_SHOP_CODES) {
+      // Switched off, no shop can add a room, so the counter sells this customer rooms too.
+      await waitFor(() => expect(screen.getByTestId("stepper-rooms")).toBeTruthy());
+      expect(screen.queryByText("Your shop adds your rooms — ask them from Rooms and credits.")).toBeNull();
+      return;
+    }
     await waitFor(() => expect(screen.getByText("Your shop adds your rooms — ask them from Rooms and credits.")).toBeTruthy());
     expect(screen.queryByTestId("stepper-rooms")).toBeNull();
     await waitFor(() => expect(screen.getByText("Pay ₹70")).toBeTruthy());

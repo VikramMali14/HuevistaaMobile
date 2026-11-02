@@ -964,6 +964,9 @@ export const en = {
     allUsedOne: "You have used the room from your shop",
     noneOnCode: "Your shop code has no rooms yet",
     exhaustedBody: "Ask your paint shop to add another room. The rooms you have painted stay safe.",
+    // While shop codes are switched off no shop can add a room, so the way on is buying.
+    exhaustedBodyNoCode: "Buy more rooms to carry on. The rooms you have painted stay safe.",
+    buyMore: "Buy more rooms",
     ask: "Ask your shop for another room",
     freshCode: "Have a new shop code? Add it",
     missingTitle: "You have no rooms yet",

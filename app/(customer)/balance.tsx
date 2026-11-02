@@ -57,7 +57,10 @@ export default function BalanceScreen() {
   const { profile } = useSession();
   const balance = useBalance();
   const wallet = useQuery({ queryKey: keys.aiCredits, queryFn: meApi.aiCredits });
-  const shopCustomer = Boolean(balance.entitlement);
+  // A shop adds this account's rooms — only while shop codes are on
+  // (src/config/hidden-features.ts). Switched off, no shop can, so a shop's customer is
+  // offered rooms to buy like everybody else, and nothing to ask.
+  const shopCustomer = Boolean(balance.entitlement) && SHOW_SHOP_CODES;
   const where = useWhereToBuy();
   const stuck = usePaidButUnconfirmed(profile?.id);
   const pull = usePullToRefresh(() => Promise.all([balance.refetch(), wallet.refetch()]));
@@ -151,7 +154,7 @@ export default function BalanceScreen() {
             ) : null}
             {asked && balance.nextStep === "exhausted" ? <Banner tone="success" message={asked} testID="balance-asked" /> : null}
             {askError ? <Banner tone="danger" message={askError} /> : null}
-            {balance.nextStep === "exhausted" && !asked ? (
+            {balance.nextStep === "exhausted" && !asked && SHOW_SHOP_CODES ? (
               <Button label={t("balanceScreen.ask")} onPress={ask} loading={asking.busy} testID="balance-ask" />
             ) : null}
             {balance.nextStep !== null && balance.roomsKnown && !shopCustomer && where !== "none" ? (

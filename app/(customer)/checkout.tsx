@@ -23,6 +23,7 @@ import { validitySpan } from "@/lib/dates";
 import { formatRupees } from "@/lib/money";
 import { useSubmit } from "@/lib/use-submit";
 import { hairline, useTheme } from "@/theme";
+import { SHOW_SHOP_CODES } from "@/config/hidden-features";
 
 function count(raw: string | undefined, fallback: number): number {
   const n = Number(raw);
@@ -97,8 +98,10 @@ function RazorpayCheckout() {
   const balance = useBalance();
   const cart = useQuery({ queryKey: keys.cart, queryFn: billingApi.cart });
   // Whether a shop adds this account's rooms (they are never sold one): unknown until the
-  // entitlement answers, and nothing is sold on a guess.
-  const shopCustomer = Boolean(balance.entitlement);
+  // entitlement answers, and nothing is sold on a guess. Only while shop codes are on
+  // (src/config/hidden-features.ts): switched off, no shop can add a room, so a shop's
+  // customer buys theirs like everybody else.
+  const shopCustomer = Boolean(balance.entitlement) && SHOW_SHOP_CODES;
   const entitlementKnown = balance.nextStep !== null;
   const [want, setWant] = useState(() => {
     const credits = count(params.credits, 0);

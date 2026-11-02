@@ -20,7 +20,7 @@ than "0 rooms". This lives in one hook, `useBalance()`, used everywhere.
 | State | Meaning | The one button |
 |---|---|---|
 | `ready` | At least one room to spend | **Paint my room** → C6 |
-| `exhausted` | A shop is behind this account and its rooms are used up | **Ask your shop for another room** → C27 (shop customers are never sold a room) |
+| `exhausted` | A shop is behind this account and its rooms are used up | **Ask your shop for another room** → C27 (shop customers are never sold a room) — while shop codes are on. Switched off, no shop can add a room, so it is **Buy more rooms** → C28, and C27 and C28 sell rooms to a shop's customer like anybody else's |
 | `missing` | No shop, nothing bought | **Buy a room — ₹…** → C28, with "I have a shop code" → C30 beside it while shop codes are on |
 
 The card says it in short sentences — "You can paint 3 rooms", "Your shop gave you 3 rooms.
@@ -931,8 +931,10 @@ itself). There is no Try again and no Buy button on any of them.
 next-step card's "I have a shop code" / "Have a new shop code?", the tour's last button, the
 Account and Rooms-and-credits rows, and the empty Colours and My products screens' buttons —
 and the words that mention a code. The screen still opens from a link, and a customer who
-already used a code keeps their shop, its rooms and My products. Turning it back on is that
-one line.
+already used a code keeps their shop, its rooms and My products. With codes off no shop can
+add a room either (the website hides the shop's customers list), so a customer whose shop's
+rooms are used up is offered rooms to buy instead of a request to ask. Turning it back on is
+that one line.
 
 `ShopCodeInput` (8 character boxes — letters and numbers, uppercased, paste-friendly) ·
 "Your shop gave you this at the counter." · **Add code** → `POST /api/access-codes/redeem { code }` → "Added.

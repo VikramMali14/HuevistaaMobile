@@ -181,14 +181,22 @@ describe("C1 · Home", () => {
     await waitFor(() => expect(screen).toHavePathname("/room/new"));
   });
 
-  it("exhausted: a shop customer is sent to ask the shop, never to buy", async () => {
+  it("exhausted: a shop customer asks the shop while shop codes are on — and buys while they are off", async () => {
     signedInAs(person());
     mockMe.entitlement.mockResolvedValue(entitlement(0));
     renderRouter("./app", { initialUrl: "/home" });
     await waitFor(() => expect(screen.getByText("You have used all 3 rooms from your shop")).toBeTruthy());
     expect(screen.queryByText(/Buy a room/)).toBeNull();
-    press("Ask your shop for another room");
-    await waitFor(() => expect(screen).toHavePathname("/balance"));
+    if (SHOW_SHOP_CODES) {
+      press("Ask your shop for another room");
+      await waitFor(() => expect(screen).toHavePathname("/balance"));
+    } else {
+      // No shop can add a room with codes switched off (src/config/hidden-features.ts).
+      expect(screen.queryByText("Ask your shop for another room")).toBeNull();
+      expect(screen.getByText("Buy more rooms to carry on. The rooms you have painted stay safe.")).toBeTruthy();
+      press("Buy more rooms");
+      await waitFor(() => expect(screen).toHavePathname("/checkout"));
+    }
   });
 
   it("missing: buy one at its price — or add a shop code, while shop codes are on", async () => {
