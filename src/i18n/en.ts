@@ -1625,7 +1625,7 @@ export const en = {
       ledgerEmpty: "Nothing has moved yet.",
       vouchers: "My vouchers",
       whereTitle: "Where points come from",
-      whereBoards: "Every colour board carries a QR on its last page, and it pays two people: the shop that sold the job, and a painter. The painter's half goes to the first painter who scans it, once, however many times the board is reprinted.",
+      whereBoards: "When a customer pays for their room, its colour board has a QR on the last page. It pays two people: a shop and a painter. The painter's half goes to the first painter who scans it, once, however many times the board is reprinted.",
       whereNotMoney: "Points are not money and never turn into it — they buy kit from the catalogue, which the HueVistaa team delivers to you.",
       earned: "+{n}",
       spent: "−{n}",

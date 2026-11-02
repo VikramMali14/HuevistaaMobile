@@ -458,7 +458,7 @@ New in `src/features/painter`:
   and a real board's PDF picked and read by the iframe reader to its claim.
 
 As built, against the spec (details under each screen in [05](05-screens-painter.md)):
-- A board pays what the server says: 25 points today, not 50. A refunded voucher is the
+- A board pays what the server says: 40 points today, not 50. A refunded voucher is the
   server's `REJECTED`. The record is `jobsCompleted`.
 - The ledger is the newest 20 movements, all the server gives.
 - P7 reads PDFs and photos; **Open with HueVistaa** works, **Share to** is left for later
