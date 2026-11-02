@@ -19,9 +19,13 @@ than "0 rooms". This lives in one hook, `useBalance()`, used everywhere.
 
 | State | Meaning | The one button |
 |---|---|---|
-| `ready` | At least one room to spend | **Start a new room** → C6 |
+| `ready` | At least one room to spend | **Paint my room** → C6 |
 | `exhausted` | A shop is behind this account and its rooms are used up | **Ask your shop for another room** → C27 (shop customers are never sold a room) |
 | `missing` | No shop, nothing bought | **Buy a room — ₹…** → C28, with "I have a shop code" → C30 beside it |
+
+The card says it in short sentences — "You can paint 3 rooms", "Your shop gave you 3 rooms.
+You have used 1." — with a picture for the state (a camera, the shop, a card), the same
+words the website's home page uses.
 
 A painter's or a shop's own home (their customer profile, `linkedProfile`) is never sold
 anything here: painters and shops pay on the website. In `missing` its one button is **Buy
@@ -34,19 +38,31 @@ say where else to pay, **I have a shop code** (07 "Painters and shops pay on the
 
 ### C1 · Home
 
-**Route** `(tabs)/home.tsx` · **Phase** 2 · **Web reference** `app/(app)/dashboard/page.tsx`, `components/app/customer-next-step.tsx`, `dashboard-projects.tsx`
+**Route** `(tabs)/home.tsx` · **Phase** 2 · **Web reference** `app/(app)/dashboard/page.tsx`, `components/app/customer-next-step.tsx`, `customer-home.tsx`, `dashboard-projects.tsx`
+
+**Who it is laid out for:** somebody painting their own home who may read slowly, or read
+little English. So: pictures, a few plain words, one big button, and every place they can
+go laid out on the page rather than behind a switch or a menu.
 
 **Layout (top to bottom):**
 1. Greeting by time of day — "Good evening, Priya" — and the avatar (→ Account). An
    account still wearing its stand-in name (`namePending`, a mobile sign-up) is greeted
    without one — "Good evening" — never "Good evening, User".
 2. Two `BalanceChip`s: "3 rooms left", "12 AI credits" (→ C27).
-3. **Next-step card** — one sentence of what they hold and the one button for their
-   state (table above).
-4. **Rooms in progress** — horizontal strip: photo, name, status chip, days left. Tap
-   resumes at the right step. "See all" → Studio tab.
-5. **Latest AI image** (if any) — large card → C24.
-6. **Ready-made rooms** strip (only when the library has rooms) → C21. "No photo? Paint
+3. **Next-step card** — a picture for the state, one sentence of what they hold and the
+   one button for their state (table above).
+4. **How it works** — three numbered steps, each a picture and a line: take a photo of
+   your wall · tap a colour to see it on your wall · show the colour code at the paint
+   shop (`features/home/HowItWorks.tsx`). Always shown: it is the answer to "what was I
+   meant to do next?".
+5. **Rooms in progress** — horizontal strip: photo, name, status chip, days left. Tap
+   resumes at the right step. "See all" → Rooms tab.
+6. **What would you like to do?** — picture tiles, two across, each with one short line:
+   Colours (C3), Shade Book (C34), Colour finder (C35), Painters & shops (C32), Add a shop
+   code (C30), My balance (C27), My products (C29, only with a shop behind the account),
+   Help (`features/home/HomeTiles.tsx`). "Paint my room" is the card's button, not a tile.
+7. **Latest AI image** (if any) — large card → C24.
+8. **Ready-made rooms** strip (only when the library has rooms) → C21. "No photo? Paint
    one of ours."
 
 **States:** first visit with nothing → the next-step card fills the screen with a

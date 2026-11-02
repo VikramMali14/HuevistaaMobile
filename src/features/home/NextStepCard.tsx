@@ -1,6 +1,8 @@
+import Feather from "@expo/vector-icons/Feather";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import type { ComponentProps } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { Button, Card, Text } from "@/components/ui";
@@ -11,7 +13,7 @@ import { buyOnWebsite, useWhereToBuy } from "@/features/payments/where-to-buy";
 import { t } from "@/i18n";
 import { validitySpan } from "@/lib/dates";
 import { formatRupees } from "@/lib/money";
-import { useTheme } from "@/theme";
+import { hairline, useTheme } from "@/theme";
 
 /**
  * The one thing to do next, worked out from what the account holds (docs/04 "The three
@@ -42,6 +44,9 @@ export function NextStepCard({
   const go = (to: "/room/new" | "/balance" | "/checkout" | "/add-shop-code") => () => router.push(to);
   let headline: string;
   let detail: string;
+  // The state as a picture, read before any word is: a photo to take, the shop to ask, a
+  // room to buy. Not on the hero card, whose room photo is the picture already.
+  let icon: ComponentProps<typeof Feather>["name"] = "credit-card";
   let main: { label: string; onPress: () => void };
   const extras: { label: string; to: "/add-shop-code" | "/library"; variant: "secondary" | "ghost" }[] = [];
 
@@ -55,6 +60,7 @@ export function NextStepCard({
         (bought > 0 ? t("home.boughtToo", { n: bought }) : "")
       : t("home.boughtOnly");
     main = { label: t("home.start"), onPress: go("/room/new") };
+    icon = "camera";
   } else if (nextStep === "exhausted") {
     headline =
       ent && ent.projectAllowance > 1
@@ -65,6 +71,7 @@ export function NextStepCard({
     detail = t("home.exhaustedBody");
     // Shop customers are never sold a room: their shop adds one free from the counter.
     main = { label: t("home.ask"), onPress: go("/balance") };
+    icon = "shopping-bag";
     extras.push({ label: t("home.freshCode"), to: "/add-shop-code", variant: "ghost" });
   } else if (where === "none") {
     // A painter's or a shop's own home in the store build: no room is sold here, and
@@ -94,6 +101,11 @@ export function NextStepCard({
 
   const content = (
     <View style={{ gap: space.md }}>
+      {!hero ? (
+        <View style={[styles.pic, { borderColor: colors.ruleBrass, backgroundColor: colors.surfaceSoft }]} testID="next-step-picture">
+          <Feather name={icon} size={26} color={colors.accentText} />
+        </View>
+      ) : null}
       <View style={{ gap: space.xs }}>
         <Text variant={hero ? "display" : "title2"} accessibilityRole="header">
           {headline}
@@ -132,4 +144,12 @@ export function NextStepCard({
 
 const styles = StyleSheet.create({
   photo: { height: 240 },
+  pic: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: hairline,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });

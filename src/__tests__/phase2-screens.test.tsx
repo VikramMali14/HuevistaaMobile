@@ -171,12 +171,12 @@ describe("C1 · Home", () => {
     mockMe.entitlement.mockResolvedValue(entitlement(2));
     mockMe.projectOptions.mockResolvedValue(options(1));
     renderRouter("./app", { initialUrl: "/home" });
-    await waitFor(() => expect(screen.getByText("3 rooms ready")).toBeTruthy());
-    expect(screen.getByText("1 of your shop's 3 rooms used · 1 you bought")).toBeTruthy();
+    await waitFor(() => expect(screen.getByText("You can paint 3 rooms")).toBeTruthy());
+    expect(screen.getByText("Your shop gave you 3 rooms. You have used 1. You bought 1 more.")).toBeTruthy();
     expect(screen.getByText("3 rooms left")).toBeTruthy();
     expect(screen.getByText("12 Vista credits")).toBeTruthy();
     expect(screen.getByText(/Good (morning|afternoon|evening), Priya/)).toBeTruthy();
-    press("Start a new room");
+    press("Paint my room");
     await waitFor(() => expect(screen).toHavePathname("/room/new"));
   });
 
@@ -184,7 +184,7 @@ describe("C1 · Home", () => {
     signedInAs(person());
     mockMe.entitlement.mockResolvedValue(entitlement(0));
     renderRouter("./app", { initialUrl: "/home" });
-    await waitFor(() => expect(screen.getByText("All 3 of your shop's rooms used")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("You have used all 3 rooms from your shop")).toBeTruthy());
     expect(screen.queryByText(/Buy a room/)).toBeNull();
     press("Ask your shop for another room");
     await waitFor(() => expect(screen).toHavePathname("/balance"));
@@ -193,9 +193,9 @@ describe("C1 · Home", () => {
   it("missing: buy one at its price, or add a shop code", async () => {
     signedInAs(person());
     renderRouter("./app", { initialUrl: "/home" });
-    await waitFor(() => expect(screen.getByText("No rooms yet")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("You have no rooms yet")).toBeTruthy());
     expect(screen.getByText("Buy a room — ₹199")).toBeTruthy();
-    expect(screen.getByText(/A room is ₹199 and stays open for 30 days/)).toBeTruthy();
+    expect(screen.getByText(/One room costs ₹199\. You can use it for 30 days\./)).toBeTruthy();
     press("I have a shop code");
     await waitFor(() => expect(screen).toHavePathname("/add-shop-code"));
   });
@@ -208,7 +208,7 @@ describe("C1 · Home", () => {
     renderRouter("./app", { initialUrl: "/home" });
     await waitFor(() => expect(screen.getByLabelText("Your account")).toBeTruthy());
     expect(screen.queryByText(/rooms? left/)).toBeNull();
-    expect(screen.queryByText("No rooms yet")).toBeNull();
+    expect(screen.queryByText("You have no rooms yet")).toBeNull();
   });
 
   it("hides Vista credits an account cannot hold", async () => {
@@ -237,9 +237,61 @@ describe("C1 · Home", () => {
     mockLibrary.list.mockResolvedValue([libraryRoom]);
     renderRouter("./app", { initialUrl: "/home" });
     await waitFor(() => expect(screen.getByText("Sunlit lounge")).toBeTruthy());
-    expect(screen.getByText("Or paint a ready-made room, free")).toBeTruthy();
+    expect(screen.getByText("No photo? Paint one of ours, free")).toBeTruthy();
     press("Sunlit lounge");
     await waitFor(() => expect(screen).toHavePathname("/library/sunlit-lounge"));
+  });
+});
+
+// ── C1 Home, for somebody who reads slowly ───────────────────────────────────────
+
+describe("C1 · Home in pictures and plain words", () => {
+  it("shows how the app works in three numbered steps", async () => {
+    signedInAs(person());
+    renderRouter("./app", { initialUrl: "/home" });
+    await waitFor(() => expect(screen.getByText("How it works")).toBeTruthy());
+    expect(screen.getByLabelText("Step 1: Take a photo of your wall")).toBeTruthy();
+    expect(screen.getByLabelText("Step 2: Tap a colour to see it on your wall")).toBeTruthy();
+    expect(screen.getByLabelText("Step 3: Show the colour code at the paint shop")).toBeTruthy();
+  });
+
+  it("draws the next step as a picture as well as words", async () => {
+    signedInAs(person());
+    mockMe.entitlement.mockResolvedValue(entitlement(2));
+    mockMe.projects.mockResolvedValue([room()]);
+    renderRouter("./app", { initialUrl: "/home" });
+    await waitFor(() => expect(screen.getByText("You can paint 2 rooms")).toBeTruthy());
+    expect(screen.getByTestId("next-step-picture")).toBeTruthy();
+  });
+
+  it("offers a tile for every other place, each saying what it is for", async () => {
+    signedInAs(person());
+    renderRouter("./app", { initialUrl: "/home" });
+    await waitFor(() => expect(screen.getByText("What would you like to do?")).toBeTruthy());
+    for (const label of [
+      "Colours. Every colour, with its code",
+      "Shade Book. Colours that go together, on real homes",
+      "Colour finder. Find our colour from your photo",
+      "Painters & shops. Call a painter, find a paint shop",
+      "Add a shop code. Got a code from a paint shop? Type it in",
+      "My balance. Rooms you have left. Buy more",
+      "Help. Ask us anything",
+    ]) {
+      expect(screen.getByLabelText(label)).toBeTruthy();
+    }
+    // No shop behind this account: nothing a shop unlocked to show.
+    expect(screen.queryByTestId("home-tile-products")).toBeNull();
+    fireEvent.press(screen.getByTestId("home-tile-code"));
+    await waitFor(() => expect(screen).toHavePathname("/add-shop-code"));
+  });
+
+  it("offers My products to a customer a shop's code is behind", async () => {
+    signedInAs(person());
+    mockMe.entitlement.mockResolvedValue(entitlement(2));
+    renderRouter("./app", { initialUrl: "/home" });
+    await waitFor(() => expect(screen.getByTestId("home-tile-products")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("home-tile-products"));
+    await waitFor(() => expect(screen).toHavePathname("/my-products"));
   });
 });
 
@@ -426,7 +478,7 @@ describe("C30 · Add a shop code", () => {
     signedInAs(person());
     mockMe.redeemCode.mockResolvedValue({ id: "c1", code: "7K2NQ9PX", organizationId: "o1", organizationName: "Sharma Paints", projectQuota: 3, projectsRemaining: 3 });
     renderRouter("./app", { initialUrl: "/home" });
-    await waitFor(() => expect(screen.getByText("No rooms yet")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("You have no rooms yet")).toBeTruthy());
     mockMe.entitlement.mockResolvedValue(entitlement(3));
     mockMe.projects.mockResolvedValue([room()]);
     press("I have a shop code");
@@ -436,7 +488,7 @@ describe("C30 · Add a shop code", () => {
     await waitFor(() => expect(screen.getByText("Go home")).toBeTruthy());
     press("Go home");
     await waitFor(() => expect(screen.getByText("Rooms in progress")).toBeTruthy());
-    expect(screen.getByText("3 rooms ready")).toBeTruthy();
+    expect(screen.getByText("You can paint 3 rooms")).toBeTruthy();
   });
 
   it("puts an unknown code in plain words", async () => {

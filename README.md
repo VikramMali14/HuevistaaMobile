@@ -130,6 +130,15 @@ The link to the year on the website is offered only in web-payment builds
 (`paymentsMode() === "web"`): in the Play build nothing may send somebody to the website to
 pay.
 
+**A customer's Home, in pictures and plain words.** For somebody who may read slowly, or
+read little English: the tabs say **Rooms** and **Colours** (कमरे, रंग) rather than Studio and
+Catalogue; the next-step card says what they can do in short sentences ("You can paint 3
+rooms") with a picture for the state; **How it works** shows the three steps as numbered
+pictures (photo of the wall → tap a colour → show the code at the shop); and **What would you
+like to do?** lays out a picture tile, with one short line, for every other place — Colours,
+Shade Book, Colour finder, Painters & shops, Add a shop code, My balance, My products, Help.
+The website's customer home says the same things (docs/04, C1).
+
 **Phase 8 — polish and release — is built.**
 - Hindi throughout, chosen in Settings or following the phone; print stays English.
 - Push notifications: walls ready, an AI image ready, a voucher settled, a support

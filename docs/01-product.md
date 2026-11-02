@@ -90,11 +90,15 @@ pay on the website ("Thinking as the business").
 
 ### Customer — six tabs
 
+Each tab is a picture and an everyday word, in English or Hindi: the studio's tab says
+**Rooms** (कमरे) and the catalogue's **Colours** (रंग) — what they hold, not what the product
+calls them. Their routes keep their names (`studio`, `catalogue`).
+
 | Tab | What it holds | Main screens |
 |---|---|---|
-| **Home** | What I hold, the one next step, rooms in progress, latest AI image, ready-made rooms | C1 |
-| **Studio** | Every room, and "New room" | C2 → C6 … C18 |
-| **Catalogue** | All shades, filters, shade detail, ready-made rooms — and, beside the shades (a switch at the top), the Shade Book: combinations tried on four photos, a few free, the rest with a 24-hour pass — and the Colour finder: a colour in a photo matched to HueVistaa shades by Vista code, opened by a ₹59 24-hour pass | C3, C19–C21, C34, C35 |
+| **Home** | What I hold, the one next step, how it works in three pictures, rooms in progress, a picture tile for every other place, latest AI image, ready-made rooms | C1 |
+| **Rooms** (`studio`) | Every room, and "New room" | C2 → C6 … C18 |
+| **Colours** (`catalogue`) | All shades, filters, shade detail, ready-made rooms — and, beside the shades (a switch at the top), the Shade Book: combinations tried on four photos, a few free, the rest with a 24-hour pass — and the Colour finder: a colour in a photo matched to HueVistaa shades by Vista code, opened by a ₹59 24-hour pass | C3, C19–C21, C34, C35 |
 | **Boards** | Finished colour boards and AI images | C4, C22–C26 |
 | **Nearby** | Painters and shops near me, nearest first | C32 |
 | **Account** | Rooms & credits, shop code, my products, nearby, help, settings | C5, C27–C33, S1–S9 |

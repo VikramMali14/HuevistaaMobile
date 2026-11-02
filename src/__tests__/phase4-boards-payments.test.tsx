@@ -967,9 +967,9 @@ describe("C28 · Checkout", () => {
       mockMe.projectOptions.mockResolvedValue({ subscribed: false, projectPricePoints: 0, projectPricePaise: 9900, pointsBalance: 0, validDays: 30, availableCredits: 0 });
       signedIn();
       const app = renderRouter("./app", { initialUrl: "/home" });
-      await waitFor(() => expect(screen.getByText("No rooms yet")).toBeTruthy());
+      await waitFor(() => expect(screen.getByText("You have no rooms yet")).toBeTruthy());
       expect(screen.getByText("Buy a room")).toBeTruthy();
-      expect(screen.getByText("Buy a room to start, or add a code from your paint shop.")).toBeTruthy();
+      expect(screen.getByText("Buy a room to start. Or use a code from your paint shop.")).toBeTruthy();
       expect(screen.queryByText(/₹/)).toBeNull();
       app.unmount();
 
@@ -1208,7 +1208,7 @@ describe("A painter's or a shop's own home pays on the website", () => {
     mockMe.projectOptions.mockResolvedValue(noRooms);
     ownHome("PAINTER");
     renderRouter("./app", { initialUrl: "/home" });
-    await waitFor(() => expect(screen.getByText("No rooms yet")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("You have no rooms yet")).toBeTruthy());
     expect(screen.queryByText(/₹/)).toBeNull();
     fireEvent.press(screen.getByText("Buy a room on the website"));
     await waitFor(() => expect(openBrowser).toHaveBeenCalledWith(website, expect.anything()));

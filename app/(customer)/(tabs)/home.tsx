@@ -15,6 +15,8 @@ import {
 } from "@/components/ui";
 import { givenName } from "@/features/account/display-name";
 import { useBalance } from "@/features/account/use-balance";
+import { HomeTiles } from "@/features/home/HomeTiles";
+import { HowItWorks } from "@/features/home/HowItWorks";
 import { NextStepCard } from "@/features/home/NextStepCard";
 import { LibraryCard } from "@/features/library/LibraryCard";
 import { useLibrary } from "@/features/library/use-library";
@@ -36,9 +38,11 @@ function greeting(name: string | null): string {
 /**
  * C1 · Home. Spec: docs/04-screens-customer.md — C1.
  *
- * What this person holds and the one thing to do next, then their rooms, their latest
- * Vista image and the ready-made rooms. A first visit with nothing yet is the next step
- * alone, filling the screen. Painters and shops near you have their own tab now (C32).
+ * What this person holds and the one thing to do next, how the app works in three
+ * pictures, their rooms, a picture tile for every other place they can go, then their
+ * latest Vista image and the ready-made rooms. Laid out for somebody who may read slowly
+ * or read little English: pictures, a few plain words, one big button. A first visit
+ * with nothing yet opens on the next step, filling the screen.
  */
 export default function Home() {
   const router = useRouter();
@@ -101,6 +105,8 @@ export default function Home() {
         <NextStepCard balance={balance} libraryLive={library.live} hero={firstVisit} />
       )}
 
+      <HowItWorks />
+
       {projects.isPending ? (
         <View style={{ gap: space.sm }}>
           <Skeleton width={180} height={22} />
@@ -131,6 +137,9 @@ export default function Home() {
           </ScrollView>
         </View>
       ) : null}
+
+      {/* "My products" only with a shop behind the account — the entitlement says so. */}
+      <HomeTiles hasShop={balance.entitlement != null} />
 
       {latestImage ? (
         <View style={{ gap: space.sm }}>

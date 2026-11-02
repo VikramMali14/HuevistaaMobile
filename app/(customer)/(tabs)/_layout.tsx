@@ -22,7 +22,9 @@ const tabs: { name: string; label: MessageKey; icon: IconName }[] = [
 ];
 
 /**
- * Customer tabs: Home · Studio · Catalogue · Boards · Nearby · Account (docs/01-product.md).
+ * Customer tabs: Home · Rooms · Colours · Boards · Nearby · Account (docs/01-product.md). The
+ * studio's tab says "Rooms" and the catalogue's "Colours" — everyday words for what they hold,
+ * for a customer who may read slowly; the routes keep their names.
  *
  * The Shade Book (C34) and the Colour finder (C35) live in the Catalogue tab, beside the
  * shades — a switch at the top of all three screens — rather than as tabs of their own: seven
