@@ -1089,7 +1089,7 @@ tool on the website and is not this.
 
 **Layout:** the switch · "Colour finder" and a line on what it does · where the customer
 stands (**open until 1 Nov, 10:05 am** with a running pass, or "Open it for 24 hours…" and
-**Unlock 24 hours · ₹49** without one) · before a photo, **Take a photo** and **Choose a
+**Unlock 24 hours · ₹59** without one) · before a photo, **Take a photo** and **Choose a
 photo** · with one, the photo at the screen's width up to 55% of its height, a ring where it
 was tapped, "Tap the colour you want to match.", the **Even out the lighting** switch, the
 colours in the photo (tap one to match it), and **Take a photo** / **Another photo** · once a
@@ -1104,7 +1104,7 @@ lighting can be evened out first: the website's own reading (`lib/surface-sample
 `lib/palette.ts`, ported), so a wall reads the same in both.
 
 **Free and paid:** choosing a photo and picking a colour are free; the shades are what the
-pass opens — 24 hours, unlimited, ₹49 (priced by the server). Bought like the Shade Book's
+pass opens — 24 hours, unlimited, ₹59 (priced by the server). Bought like the Shade Book's
 pass (C34): a Google Play product of its own in the store build (`playProductId`), Razorpay
 on the website elsewhere, on the rail every pass shares (`features/payments/day-pass.ts`),
 with D3 telling its order from the Shade Book's and the basket's on a cold start.

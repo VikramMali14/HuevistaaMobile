@@ -1,7 +1,7 @@
 /**
  * The Colour finder (C35) through the REAL route tree: beside the shades and the Shade Book in
  * the Catalogue tab, a photo chosen and tapped for free, and the HueVistaa shades for that
- * colour — Vista codes and colours alone — once the ₹49 pass is running, bought on the website.
+ * colour — Vista codes and colours alone — once the ₹59 pass is running, bought on the website.
  * Only the network, the secure store, the browser, the photo picker and the photo's pixels are
  * faked.
  */
@@ -67,7 +67,7 @@ jest.mock("@/api/endpoints/colour-finder", () => ({
 }));
 
 const ist = (fromNow: number) => new Date(Date.now() + fromNow + 5.5 * 3600_000).toISOString().slice(0, 19);
-const SHUT: ColourFinderAccess = { open: false, reason: "NONE", pricePaise: 4900, currency: "INR", hours: 24, purchasable: true };
+const SHUT: ColourFinderAccess = { open: false, reason: "NONE", pricePaise: 5900, currency: "INR", hours: 24, purchasable: true };
 const OPEN = (): ColourFinderAccess => ({ ...SHUT, open: true, reason: "PASS", expiresAt: ist(20 * 3600_000) });
 const MATCHES: VistaShadeMatch[] = [
   { hvCode: "HV9101", hexCode: "#0B7A6E", colourName: "Deep teal", deltaE: 0 },
@@ -121,7 +121,7 @@ describe("C35 · Colour finder", () => {
     mockFinder.get.mockResolvedValue(SHUT);
     renderRouter("./app", { initialUrl: "/colour-finder" });
     await waitFor(() => expect(screen.getAllByTestId("colour-finder-buy").length).toBeGreaterThan(0));
-    expect(screen.getAllByText("Unlock 24 hours · ₹49").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Unlock 24 hours · ₹59").length).toBeGreaterThan(0);
 
     await tapAColour();
 
@@ -158,7 +158,7 @@ describe("C35 · Colour finder", () => {
       orderId: "order_FINDER1234",
       kind: "CUSTOMER_COLOR_FINDER",
       label: "Colour finder",
-      amount: 4900,
+      amount: 5900,
       currency: "INR",
       hours: 24,
       razorpayKeyId: "rzp_test_123456",
@@ -168,7 +168,7 @@ describe("C35 · Colour finder", () => {
       label: "Colour finder",
       startsAt: ist(0),
       expiresAt: ist(24 * 3600_000),
-      amountPaise: 4900,
+      amountPaise: 5900,
     });
     mockBrowser.openAuthSessionAsync.mockResolvedValue({
       type: "success",
@@ -181,7 +181,7 @@ describe("C35 · Colour finder", () => {
 
     await waitFor(() => expect(screen.getByTestId("shade-book-notice")).toHaveTextContent(/The Colour finder is open until/));
     const [url] = mockBrowser.openAuthSessionAsync.mock.calls[0] as [string];
-    expect(url).toContain("amount=4900");
+    expect(url).toContain("amount=5900");
     expect(mockFinder.passVerify).toHaveBeenCalledWith({ orderId: "order_FINDER1234", paymentId: "pay_FINDER6789", signature: "f".repeat(64) });
     await waitFor(() => expect(screen.getByTestId("colour-finder-matches")).toHaveTextContent(/HV9101/));
   });

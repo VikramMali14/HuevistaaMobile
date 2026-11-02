@@ -116,7 +116,7 @@ over to the dialler, WhatsApp and Maps.
 photo taken or chosen, a colour tapped on it, and the nearest HueVistaa shades — Vista code,
 colour and the colour in words, never a paint company. The photo is read on the phone (a
 small PNG decoded with `fflate`, sampled the website's way); picking a colour is free, and
-the shades are opened by a ₹49, 24-hour unlimited pass — a Google Play product of its own in
+the shades are opened by a ₹59, 24-hour unlimited pass — a Google Play product of its own in
 the store build, the website's Razorpay checkout elsewhere, on the rail the Shade Book's pass
 shares (`src/features/payments/day-pass.ts`).
 

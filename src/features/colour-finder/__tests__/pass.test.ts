@@ -40,7 +40,7 @@ const ORDER: ColourFinderPassOrder = {
   orderId: "order_FINDER1234",
   kind: "CUSTOMER_COLOR_FINDER",
   label: "Colour finder",
-  amount: 4900,
+  amount: 5900,
   currency: "INR",
   hours: 24,
   razorpayKeyId: "rzp_test_123456",
@@ -50,7 +50,7 @@ const PASS = {
   label: "Colour finder",
   startsAt: "2026-10-31T10:05:00",
   expiresAt: "2026-11-01T10:05:00",
-  amountPaise: 4900,
+  amountPaise: 5900,
 };
 const success = `huevista://pay/callback#status=success&order_id=${ORDER.orderId}&payment_id=pay_FINDER6789&signature=${SIG}`;
 
@@ -65,13 +65,13 @@ beforeEach(async () => {
 });
 
 describe("the Colour finder's pass on the website", () => {
-  it("orders on the finder's routes, opens the checkout for the server's ₹49, and confirms it", async () => {
+  it("orders on the finder's routes, opens the checkout for the server's ₹59, and confirms it", async () => {
     mockOpen.mockResolvedValue({ type: "success", url: success });
 
     const outcome = await colourFinderPass.buyOnWebsite({ name: "Asha" });
 
     const [url] = mockOpen.mock.calls[0] as [string, string];
-    expect(url).toMatch(/order=order_FINDER1234&key=rzp_test_123456&amount=4900&currency=INR/);
+    expect(url).toMatch(/order=order_FINDER1234&key=rzp_test_123456&amount=5900&currency=INR/);
     expect(decodeURIComponent(url)).toContain("desc=Colour finder · 24-hour pass");
     expect(mockBilling.reportCheckout).toHaveBeenCalledWith(
       ORDER.orderId,
