@@ -11,7 +11,7 @@ import { useSubmit } from "@/lib/use-submit";
 import { useTheme } from "@/theme";
 
 import { passEnds } from "./book";
-import type { PassNotice } from "./pass";
+import type { PassNotice } from "@/features/payments/day-pass";
 import { PictureNotFetched, pictureFile, savePictureToPhotos, sharePicture } from "./pictures";
 
 /** "Room" or "House": what a photo shows. */

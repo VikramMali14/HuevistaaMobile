@@ -10,7 +10,9 @@ import { parsePayCallback, type PayCallback } from "@/features/payments/pay-link
 import { checkoutInProgress, deliverPayAnswer, paymentState, settledRecently, settlePayment } from "@/features/payments/payments";
 import { loadPending, markPaid, pendingIsFor } from "@/features/payments/pending-payment";
 import { useOpeningUrl } from "@/features/payments/use-opening-url";
-import { isPassAnswer, noticeFor, settlePassAnswer } from "@/features/shade-book/pass";
+import { colourFinderPass } from "@/features/colour-finder/pass";
+import { latestStart } from "@/features/payments/day-pass";
+import { isPassAnswer, keptPassOrder, noticeFor, settlePassAnswer } from "@/features/shade-book/pass";
 import { t } from "@/i18n";
 import { useTheme } from "@/theme";
 
@@ -84,13 +86,23 @@ export default function PaymentReturn() {
       }
       const pending = await loadPending();
       const ours = pendingIsFor(pending, signedIn.id) ? pending : null;
-      // The Shade Book's pass, paid for on the website while Android stopped the app: it is
-      // confirmed with its own route, and the book says what it opened.
-      const passOrder = await isPassAnswer(callback, ours?.startedAt ?? null);
-      if (passOrder) {
-        const notice = noticeFor(await settlePassAnswer(callback, passOrder));
+      // A pass — the Shade Book's or the Colour finder's — paid for on the website while
+      // Android stopped the app: it is confirmed with its own route, and its screen says what
+      // it opened. A cancel names no order, so it is the checkout this phone opened last.
+      const [bookKept, finderKept] = await Promise.all([keptPassOrder(), colourFinderPass.kept()]);
+      const show = (notice: ReturnType<typeof noticeFor>) => {
         if (notice) toast.show(notice.message, notice.tone === "danger" ? "error" : notice.tone === "success" ? "success" : "info");
+      };
+      const passOrder = await isPassAnswer(callback, latestStart(ours?.startedAt, finderKept?.startedAt));
+      if (passOrder) {
+        show(noticeFor(await settlePassAnswer(callback, passOrder)));
         router.replace("/shade-book");
+        return;
+      }
+      const finderOrder = await colourFinderPass.isAnswer(callback, latestStart(ours?.startedAt, bookKept?.startedAt));
+      if (finderOrder) {
+        show(colourFinderPass.noticeFor(await colourFinderPass.settleAnswer(callback, finderOrder)));
+        router.replace("/colour-finder");
         return;
       }
       const settled = await settlePayment(callback, ours?.orderId ?? null, signedIn.id);

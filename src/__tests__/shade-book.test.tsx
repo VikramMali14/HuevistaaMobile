@@ -152,9 +152,10 @@ describe("C34 · Shade Book", () => {
     signedIn();
     mockBook.get.mockResolvedValue(shut());
     renderRouter("./app", { initialUrl: "/catalogue" });
-    await waitFor(() => expect(screen.getByLabelText("Shades or the Shade Book")).toBeTruthy());
-    // Six tabs: the Shade Book has no button of its own.
+    await waitFor(() => expect(screen.getByLabelText("Shades, the Shade Book or the Colour finder")).toBeTruthy());
+    // Six tabs: the Shade Book and the Colour finder have no buttons of their own.
     expect(screen.queryByTestId("tab-shade-book")).toBeNull();
+    expect(screen.queryByTestId("tab-colour-finder")).toBeNull();
 
     fireEvent.press(screen.getByRole("tab", { name: "Shade Book" }));
 
