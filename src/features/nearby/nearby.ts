@@ -105,6 +105,21 @@ export function shopPlace(shop: Pick<NearbyShop, "addressLine" | "city" | "state
   return [shop.addressLine?.trim(), town].filter(Boolean).join(" · ");
 }
 
+/**
+ * The street line under a shop's district and state (`place`, from its pin): its address, and the
+ * town it typed when neither already says it — "Shop 4, Khade Bazar · Gokak" under "Belagavi,
+ * Karnataka", but not "Belagavi" twice. Without a `place` (an older server) it is the whole of
+ * what the shop typed, as before. As the website's shopAddress.
+ */
+export function shopAddress(shop: Pick<NearbyShop, "addressLine" | "city" | "state" | "place">): string {
+  const place = shop.place?.trim();
+  if (!place) return shopPlace(shop);
+  const street = shop.addressLine?.trim() ?? "";
+  const city = shop.city?.trim();
+  const said = `${street} ${place}`.toLowerCase();
+  return [street, city && !said.includes(city.toLowerCase()) ? city : null].filter(Boolean).join(" · ");
+}
+
 /** "Open 9 am – 9 pm" — without saying "Open" twice when the shop already did. */
 export function shopHours(hours: string | null | undefined): string | null {
   const text = hours?.trim();

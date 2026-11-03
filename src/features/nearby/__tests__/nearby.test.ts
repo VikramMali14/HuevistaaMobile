@@ -2,8 +2,8 @@
 import type { WorkAreas } from "@/api/endpoints/nearby";
 import { setLanguage } from "@/i18n";
 
-import { SEARCH_RADIUS_KM, dialable, directionsHref, distanceLabel, placeLabel, searchPoint, shopHours, shopPlace, telHref, whatsappHref } from "../nearby";
-import { normalise, sameAreas, toggleDivision, toggleState, workAreasText } from "../work-areas";
+import { SEARCH_RADIUS_KM, dialable, directionsHref, distanceLabel, placeLabel, searchPoint, shopAddress, shopHours, shopPlace, telHref, whatsappHref } from "../nearby";
+import { normalise, sameAreas, serviceAreasText, toggleDivision, toggleState, workAreasText } from "../work-areas";
 
 describe("distanceLabel", () => {
   it("speaks in metres under a kilometre, never below 100 m", () => {
@@ -75,6 +75,20 @@ describe("shopPlace and shopHours", () => {
   });
 });
 
+/** Under the district and state from a shop's pin: its street, and a town the district doesn't name. */
+describe("shopAddress", () => {
+  it("doesn't say the district twice, and keeps a town it doesn't name", () => {
+    expect(shopAddress({ addressLine: "Shop 4, Khade Bazar", city: "Belagavi", state: "Karnataka", place: "Belagavi, Karnataka" })).toBe("Shop 4, Khade Bazar");
+    expect(shopAddress({ addressLine: "Station Road", city: "Gokak", state: "Karnataka", place: "Belagavi, Karnataka" })).toBe("Station Road · Gokak");
+    expect(shopAddress({ addressLine: null, city: "Gokak", state: null, place: "Belagavi, Karnataka" })).toBe("Gokak");
+  });
+
+  it("is everything the shop typed when there is no place to read first", () => {
+    expect(shopAddress({ addressLine: "Shop 4, Khade Bazar", city: "Belagavi", state: "Karnataka", place: null })).toBe("Shop 4, Khade Bazar · Belagavi, Karnataka");
+    expect(shopAddress({ addressLine: "Shop 4", city: "Belagavi", state: "Karnataka" })).toBe("Shop 4 · Belagavi, Karnataka");
+  });
+});
+
 describe("the search's reach", () => {
   // No distance to pick, as on the website: always the server's widest, nearest first.
   it("is the server's widest, 50 km", () => {
@@ -130,6 +144,18 @@ describe("where a painter can work", () => {
     expect(workAreasText([], catalogue)).toBeNull();
     expect(workAreasText(undefined, catalogue)).toBeNull();
     expect(workAreasText(["RJ-AJMER"], null)).toBeNull();
+  });
+
+  /** A shop's places, chosen on the website, read the same way on its card. */
+  it("says where a shop serves, in the app's language", () => {
+    expect(serviceAreasText(["RJ-AJMER", "RJ-KOTA", "GJ", "MP"], catalogue)).toBe("Serves Ajmer, Kota (Rajasthan) · Gujarat · Madhya Pradesh");
+    expect(serviceAreasText(["IN"], catalogue)).toBe("Serves anywhere in India");
+    expect(serviceAreasText([], catalogue)).toBeNull();
+    expect(serviceAreasText(undefined, catalogue)).toBeNull();
+    expect(serviceAreasText(["RJ"], null)).toBeNull();
+    setLanguage("hi");
+    expect(serviceAreasText(["RJ-AJMER", "MP"], catalogue)).toBe("अजमेर (राजस्थान) · मध्य प्रदेश में सेवा देते हैं");
+    expect(serviceAreasText(["IN"], catalogue)).toBe("पूरे भारत में कहीं भी सेवा देते हैं");
   });
 });
 
