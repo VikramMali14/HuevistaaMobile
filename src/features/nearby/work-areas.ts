@@ -63,13 +63,11 @@ export function placeName(place: { name: string; nameHi: string }): string {
 }
 
 /**
- * Where a painter works, as their card says it: "Works in Ajmer, Jaipur (Rajasthan) · Gujarat",
- * or "Works anywhere in India". Null when they haven't said, or before the names have loaded; a
- * code the catalogue doesn't know is left out rather than shown as a code.
+ * The places as a card names them, in the app's language — "Ajmer, Jaipur (Rajasthan) · Gujarat" —
+ * or null when none is chosen. A code the catalogue doesn't know is left out rather than shown as
+ * a code. Anywhere in India is said by the caller, in its own words.
  */
-export function workAreasText(codes: readonly string[] | null | undefined, catalogue: WorkAreas | null | undefined): string | null {
-  if (!codes?.length || !catalogue) return null;
-  if (codes.includes(catalogue.anywhere)) return t("nearby.worksAnywhere");
+export function placesText(codes: readonly string[], catalogue: WorkAreas): string | null {
   const parts: string[] = [];
   for (const state of catalogue.states) {
     if (codes.includes(state.code)) {
@@ -79,5 +77,28 @@ export function workAreasText(codes: readonly string[] | null | undefined, catal
     const divisions = state.divisions.filter((d) => codes.includes(d.code)).map(placeName);
     if (divisions.length > 0) parts.push(`${divisions.join(", ")} (${placeName(state)})`);
   }
-  return parts.length > 0 ? t("nearby.worksIn", { places: parts.join(" · ") }) : null;
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+/**
+ * Where a painter works, as their card says it: "Works in Ajmer, Jaipur (Rajasthan) · Gujarat",
+ * or "Works anywhere in India". Null when they haven't said, or before the names have loaded.
+ */
+export function workAreasText(codes: readonly string[] | null | undefined, catalogue: WorkAreas | null | undefined): string | null {
+  if (!codes?.length || !catalogue) return null;
+  if (codes.includes(catalogue.anywhere)) return t("nearby.worksAnywhere");
+  const places = placesText(codes, catalogue);
+  return places ? t("nearby.worksIn", { places }) : null;
+}
+
+/**
+ * Where a shop serves, as its card says it — the same places, named the same way: "Serves Ajmer
+ * (Rajasthan) · Gujarat", or "Serves anywhere in India". Null when the shop hasn't said, or before
+ * the names have loaded. Shops choose them on the website, in their settings.
+ */
+export function serviceAreasText(codes: readonly string[] | null | undefined, catalogue: WorkAreas | null | undefined): string | null {
+  if (!codes?.length || !catalogue) return null;
+  if (codes.includes(catalogue.anywhere)) return t("nearby.servesAnywhere");
+  const places = placesText(codes, catalogue);
+  return places ? t("nearby.servesIn", { places }) : null;
 }

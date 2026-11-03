@@ -1482,6 +1482,9 @@ export const hi: Translation = {
     worksIn: "{places} में काम करते हैं",
     worksAnywhere: "पूरे भारत में कहीं भी काम करते हैं",
     worksHere: "आपके इलाके में काम करते हैं",
+    servesIn: "{places} में सेवा देते हैं",
+    servesAnywhere: "पूरे भारत में कहीं भी सेवा देते हैं",
+    servesHere: "आपके इलाके में सेवा देते हैं",
   },
   painter: {
     onePoint: "1 पॉइंट",

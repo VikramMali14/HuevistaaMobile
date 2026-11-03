@@ -975,7 +975,8 @@ each with one list — never both behind a switch. An old `/nearby?tab=shops` li
 **Layout:** "Within 50 km, nearest first" · the one list, nearest first. No distance to pick, as on the website: the search always reaches 50 km — and painters
 further off who said they work in the place the search is from (its division, its state, or
 anywhere in India) come after the nearby ones, marked **Works in your area**
-(`worksInYourArea`). A search from the phone's own location names it, as a typed place is
+(`worksInYourArea`) — and shops the same way, those further off that serve the place marked
+**Serves your area** (`servesYourArea`). A search from the phone's own location names it, as a typed place is
 ("Near Belagavi Camp, Belagavi, Karnataka" — `GET /api/nearby/where`, asked to about a
 kilometre).
 - **Painter row:** the painter's card — photo (`photoUrl`, public while they're listed),
@@ -985,7 +986,10 @@ kilometre).
   they're based in ("Jaipur, Rajasthan" — `place`). No distance and no line of jobs or reviews:
   the list is already nearest first. Nothing else a painter fills in is shown.
   **Call** reveals the number (`GET /api/nearby/painters/{id}/phone`) and opens the dialler.
-- **Shop row:** name, address, hours, distance · **Call** · **Directions** (opens Maps).
+- **Shop row:** name and distance, the district and state it is in ("Belagavi, Karnataka" —
+  `place`, from its pin), its street, hours, where it serves ("Serves Ajmer (Rajasthan) ·
+  Gujarat" — `serviceAreas`, chosen on the website, named like a painter's), and **Serves your
+  area** when that takes in the customer's place · **Call** · **Directions** (opens Maps).
 
 **Location:** ask with a reason first ("To find painters and shops near you"). Denied →
 "Turn on location to search near you" + **Open settings** — and the place search below
@@ -1009,8 +1013,10 @@ settings**; location off or no fix → said, and **Use my location** tries again
   then shows it on its own line with **WhatsApp**; it is kept for the session and never
   asked for again. Refused → the server's sentence under the card. Offline → said at
   once; it never waits for the signal and dials by itself later.
-- **Shops:** address, hours, **Directions** (Apple Maps on iOS, Google Maps elsewhere),
-  and **Call** when the number can be dialled.
+- **Shops:** the district and state under the name (`place`), then the street — with the town
+  the shop typed only when the district doesn't already say it (`shopAddress`) — hours, where
+  it serves (`serviceAreasText`, in the app's language), **Serves your area**, **Directions**
+  (Apple Maps on iOS, Google Maps elsewhere), and **Call** when the number can be dialled.
 - Always 50 km, nearest first; an empty list says nobody is listed within 50 km yet. The 50
   nearest are shown, and the list says so. Searches share 60 an hour per account, so a
   refusal is shown in the server's words and never retried by itself; nothing reloads on

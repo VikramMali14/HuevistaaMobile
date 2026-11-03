@@ -56,11 +56,15 @@ export interface NearbyPainter {
   worksInYourArea?: boolean;
 }
 
-/** GET /api/nearby/shops (NearbyShopResponse). Nearest first, at most 50. */
+/**
+ * GET /api/nearby/shops (NearbyShopResponse). Nearest first, at most 50: the shops within the
+ * radius, then those further off that serve the customer's place (`servesYourArea`).
+ */
 export interface NearbyShop {
   id: string;
   name: string;
   addressLine: string | null;
+  /** As the shop typed them. The card reads `place` first. */
   city: string | null;
   state: string | null;
   /** The counter's number, as the shop typed it — not checked, not the owner's mobile. */
@@ -71,6 +75,22 @@ export interface NearbyShop {
   latitude: number;
   longitude: number;
   distanceKm: number;
+  /**
+   * Where the shop is, to the district, from its pin: "Belagavi, Karnataka", "South Delhi" — or the
+   * state alone. Null when the server can't tell; absent from older servers.
+   */
+  place?: string | null;
+  /**
+   * Where the shop serves, as WorkAreas codes — divisions ("RJ-AJMER"), whole states ("GJ"), or
+   * "IN" for anywhere in India — named by `nearbyApi.workAreas`. Empty when the shop hasn't said;
+   * absent from older servers.
+   */
+  serviceAreas?: string[];
+  /**
+   * The shop said it serves the place the search is from — its division, its whole state, or
+   * anywhere in India — and is found however far off it is. Absent from older servers.
+   */
+  servesYourArea?: boolean;
 }
 
 /** GET /api/nearby/painters/{id}/phone — the painter's confirmed mobile, E.164. */
@@ -131,9 +151,10 @@ export interface WorkAreaState {
 }
 
 /**
- * GET /api/nearby/work-areas (WorkAreasResponse) — the places a painter can say they work in:
- * every state A to Z, each by division, and the code for anywhere in India. Each named in English
- * and Hindi. Public, and the same for everybody; P5 puts the painter's own state first.
+ * GET /api/nearby/work-areas (WorkAreasResponse) — the places a painter can say they work in, and
+ * a shop (on the website) that it serves: every state A to Z, each by division, and the code for
+ * anywhere in India. Each named in English and Hindi. Public, and the same for everybody; P5 puts
+ * the painter's own state first.
  */
 export interface WorkAreas {
   /** "IN" */

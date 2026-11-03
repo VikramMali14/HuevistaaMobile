@@ -1544,6 +1544,11 @@ export const en = {
     worksAnywhere: "Works anywhere in India",
     /** A painter further off who said they work where the customer is searching from. */
     worksHere: "Works in your area",
+    /** Where a shop serves, on its card — the same places, chosen on the website. */
+    servesIn: "Serves {places}",
+    servesAnywhere: "Serves anywhere in India",
+    /** A shop further off that said it serves where the customer is searching from. */
+    servesHere: "Serves your area",
   },
   /** P1–P12 · the painter's app (docs/05). Words as on the painter website. */
   painter: {

@@ -276,6 +276,44 @@ describe("C32 · Find a painter, and C36 · Find a paint shop", () => {
     expect(openURL).toHaveBeenCalledWith(expect.stringContaining("15.852,74.5"));
   });
 
+  /**
+   * A shop's card, like a painter's: the district and state it is in, from its pin, and where it
+   * serves — and one found from far off, because it serves the customer's place, says so.
+   */
+  it("says where each shop is and where it serves, and marks one that serves your area", async () => {
+    signedInAs("CUSTOMER");
+    here();
+    mockNearby.shops.mockResolvedValue([
+      shopRow({ place: "Belagavi, Karnataka", serviceAreas: ["RJ-AJMER", "GJ"] }),
+      shopRow({
+        id: "s2",
+        name: "Jaipur Paint House",
+        addressLine: "MI Road",
+        city: "Jaipur",
+        state: "Rajasthan",
+        distanceKm: 1237.1,
+        place: "Jaipur, Rajasthan",
+        serviceAreas: ["IN"],
+        servesYourArea: true,
+      }),
+    ]);
+    renderRouter("./app", { initialUrl: "/shops" });
+    await waitFor(() => expect(screen.getByTestId("nearby-ask")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("nearby-locate"));
+    await waitFor(() => expect(screen.getByTestId("nearby-shops")).toBeTruthy());
+
+    expect(screen.getByTestId("shop-place-s1")).toHaveTextContent("Belagavi, Karnataka");
+    // The street, without the district said twice.
+    expect(screen.getByText("Shop 4, Khade Bazar")).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId("shop-areas-s1")).toHaveTextContent("Serves Ajmer (Rajasthan) · Gujarat"));
+    expect(screen.queryByTestId("shop-serves-here-s1")).toBeNull();
+
+    expect(screen.getByTestId("shop-place-s2")).toHaveTextContent("Jaipur, Rajasthan");
+    expect(screen.getByText("1,237 km away")).toBeTruthy();
+    expect(screen.getByTestId("shop-areas-s2")).toHaveTextContent("Serves anywhere in India");
+    expect(screen.getByTestId("shop-serves-here-s2")).toBeTruthy();
+  });
+
   /** Two places, two tiles on Home: who will paint it, and where to buy the paint. */
   it("offers Find a painter and Find a paint shop as two tiles on Home", async () => {
     signedInAs("CUSTOMER");

@@ -11,9 +11,9 @@ import { useAlive } from "@/lib/use-alive";
 import { useSubmit } from "@/lib/use-submit";
 import { useTheme } from "@/theme";
 
-import { directionsHref, distanceLabel, shopHours, shopPlace, telHref, whatsappHref } from "./nearby";
+import { directionsHref, distanceLabel, shopAddress, shopHours, telHref, whatsappHref } from "./nearby";
 import { usePainterPhone, useWorkAreas } from "./use-nearby";
-import { workAreasText } from "./work-areas";
+import { serviceAreasText, workAreasText } from "./work-areas";
 
 /** Opens a link the phone may have nothing for (tel: on a tablet): nothing happens then. */
 function open(url: string | null) {
@@ -133,28 +133,56 @@ export function PainterCard({ painter }: { painter: NearbyPainter }) {
   );
 }
 
-/** A shop: name and distance, where, when it's open — Directions, and Call when dialable. */
+/**
+ * A shop: name and distance, the district and state it is in (from its pin, as a painter's card
+ * says where they are based), its street and when it's open, where it serves — Directions, and Call
+ * when dialable. A shop found because it serves the customer's place, maybe from far off, says so,
+ * so the distance makes sense. As the website's shop card.
+ */
 export function ShopCard({ shop: s }: { shop: NearbyShop }) {
-  const { space } = useTheme();
-  const place = shopPlace(s);
+  const { space, colors } = useTheme();
+  const address = shopAddress(s);
   const hours = shopHours(s.openingHours);
   const tel = telHref(s.phone);
+  const catalogue = useWorkAreas();
+  const areas = serviceAreasText(s.serviceAreas, catalogue.data);
   return (
     <Card>
       <View style={{ gap: space.sm }}>
         <View style={styles.head}>
-          <Text variant="title3" accessibilityRole="header" style={styles.fill}>
-            {s.name}
-          </Text>
+          <View style={[styles.fill, { gap: 2 }]}>
+            <Text variant="title3" accessibilityRole="header">
+              {s.name}
+            </Text>
+            {s.place?.trim() ? (
+              <Text variant="small" tone="accent" testID={`shop-place-${s.id}`}>
+                {s.place.trim()}
+              </Text>
+            ) : null}
+          </View>
           <Text variant="small" tone="accent">
             {distanceLabel(s.distanceKm)}
           </Text>
         </View>
-        {place ? <Text variant="body">{place}</Text> : null}
+        {address ? <Text variant="body">{address}</Text> : null}
         {hours ? (
           <Text variant="small" tone="mute">
             {hours}
           </Text>
+        ) : null}
+        {areas ? (
+          <View style={[styles.areas, { gap: space.xs }]}>
+            <Feather name="map" size={16} color={colors.accentText} style={styles.areasIcon} />
+            <Text variant="small" style={styles.fill} testID={`shop-areas-${s.id}`}>
+              {areas}
+            </Text>
+          </View>
+        ) : null}
+        {/* Found because it serves where the customer is, maybe from far off: said, so the distance makes sense. */}
+        {s.servesYourArea ? (
+          <View style={[styles.row, styles.wrap, { gap: space.xs }]}>
+            <Pill label={t("nearby.servesHere")} tone="success" testID={`shop-serves-here-${s.id}`} />
+          </View>
         ) : null}
         <View style={[styles.row, { gap: space.xs }]}>
           <View style={styles.fill}>
