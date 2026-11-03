@@ -21,6 +21,7 @@ import { formatRupees } from "@/lib/money";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { useSubmit } from "@/lib/use-submit";
 import { hairline, useTheme } from "@/theme";
+import { SHOW_SHOP_CODES } from "@/config/hidden-features";
 
 const ACTIVITY = ["PURCHASED", "SPENT_ON_RENDER", "RENDER_REFUNDED", "GRANTED", "EXPIRED"];
 /** Credits lapsing within this long are worth a warning colour; later ones are just a fact. */
@@ -56,7 +57,10 @@ export default function BalanceScreen() {
   const { profile } = useSession();
   const balance = useBalance();
   const wallet = useQuery({ queryKey: keys.aiCredits, queryFn: meApi.aiCredits });
-  const shopCustomer = Boolean(balance.entitlement);
+  // A shop adds this account's rooms — only while shop codes are on
+  // (src/config/hidden-features.ts). Switched off, no shop can, so a shop's customer is
+  // offered rooms to buy like everybody else, and nothing to ask.
+  const shopCustomer = Boolean(balance.entitlement) && SHOW_SHOP_CODES;
   const where = useWhereToBuy();
   const stuck = usePaidButUnconfirmed(profile?.id);
   const pull = usePullToRefresh(() => Promise.all([balance.refetch(), wallet.refetch()]));
@@ -150,7 +154,7 @@ export default function BalanceScreen() {
             ) : null}
             {asked && balance.nextStep === "exhausted" ? <Banner tone="success" message={asked} testID="balance-asked" /> : null}
             {askError ? <Banner tone="danger" message={askError} /> : null}
-            {balance.nextStep === "exhausted" && !asked ? (
+            {balance.nextStep === "exhausted" && !asked && SHOW_SHOP_CODES ? (
               <Button label={t("balanceScreen.ask")} onPress={ask} loading={asking.busy} testID="balance-ask" />
             ) : null}
             {balance.nextStep !== null && balance.roomsKnown && !shopCustomer && where !== "none" ? (
@@ -210,8 +214,9 @@ export default function BalanceScreen() {
           </Text>
         ) : null}
 
-        {/* Not on a linked profile, as on Account. */}
-        {profile?.linkedProfile ? null : (
+        {/* Not on a linked profile, as on Account — and not while shop codes are switched
+            off (src/config/hidden-features.ts). */}
+        {profile?.linkedProfile || !SHOW_SHOP_CODES ? null : (
           <ListGroup>
             <ListRow icon="key" title={t("balanceScreen.addCode")} onPress={() => router.push("/add-shop-code")} />
           </ListGroup>

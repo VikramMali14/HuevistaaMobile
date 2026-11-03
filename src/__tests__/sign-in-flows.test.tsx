@@ -10,6 +10,7 @@ import * as WebBrowser from "expo-web-browser";
 import type { AuthResponse, UserProfile } from "@/api/types";
 import { ApiError } from "@/api/errors";
 import { forgetRememberedRoute } from "@/auth/pending-route";
+import { SHOW_SHOP_CODES } from "@/config/hidden-features";
 
 const mockSecure: Record<string, string> = {};
 jest.mock("expo-secure-store", () => ({
@@ -601,15 +602,19 @@ describe("A11 · tour", () => {
     expect(mockAuth.welcomeSeen).toHaveBeenCalled();
   });
 
-  it("goes to the shop-code screen from the last card", async () => {
+  it("goes to the shop-code screen from the last card, while shop codes are on", async () => {
     signedInAs(person({ welcomePending: true }));
     mockAuth.welcomeSeen.mockResolvedValue(person());
     renderRouter("./app", { initialUrl: "/tour" });
     await waitFor(() => expect(screen.getByText("Next")).toBeTruthy());
     press("Next");
     press("Next");
-    press("I have a code from my shop");
-    await waitFor(() => expect(screen).toHavePathname("/add-shop-code"));
+    // Switched off for now (src/config/hidden-features.ts): the last card offers Start alone.
+    expect(screen.queryByText("I have a code from my shop") !== null).toBe(SHOW_SHOP_CODES);
+    if (SHOW_SHOP_CODES) {
+      press("I have a code from my shop");
+      await waitFor(() => expect(screen).toHavePathname("/add-shop-code"));
+    }
   });
 });
 

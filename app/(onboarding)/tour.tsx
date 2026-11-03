@@ -19,6 +19,7 @@ import { welcomeFrames } from "@/features/auth/welcome-frames";
 import { t, type MessageKey } from "@/i18n";
 import { useSubmit } from "@/lib/use-submit";
 import { fonts, hairline, minTouch, useTheme } from "@/theme";
+import { SHOW_SHOP_CODES } from "@/config/hidden-features";
 
 interface Card {
   start: MessageKey;
@@ -182,7 +183,9 @@ export default function Tour() {
         {last ? (
           <View style={{ gap: space.sm }}>
             <Button label={t("onboarding.tour.start")} onPress={() => finish("start")} loading={leaving.busy} />
-            <Button variant="secondary" label={t("onboarding.tour.haveCode")} onPress={() => finish("shopCode")} />
+            {SHOW_SHOP_CODES ? (
+              <Button variant="secondary" label={t("onboarding.tour.haveCode")} onPress={() => finish("shopCode")} />
+            ) : null}
           </View>
         ) : (
           <Button label={t("onboarding.tour.next")} onPress={() => goTo(index + 1)} />

@@ -19,9 +19,13 @@ than "0 rooms". This lives in one hook, `useBalance()`, used everywhere.
 
 | State | Meaning | The one button |
 |---|---|---|
-| `ready` | At least one room to spend | **Start a new room** → C6 |
-| `exhausted` | A shop is behind this account and its rooms are used up | **Ask your shop for another room** → C27 (shop customers are never sold a room) |
-| `missing` | No shop, nothing bought | **Buy a room — ₹…** → C28, with "I have a shop code" → C30 beside it |
+| `ready` | At least one room to spend | **Paint my room** → C6 |
+| `exhausted` | A shop is behind this account and its rooms are used up | **Ask your shop for another room** → C27 (shop customers are never sold a room) — while shop codes are on. Switched off, no shop can add a room, so it is **Buy more rooms** → C28, and C27 and C28 sell rooms to a shop's customer like anybody else's |
+| `missing` | No shop, nothing bought | **Buy a room — ₹…** → C28, with "I have a shop code" → C30 beside it while shop codes are on |
+
+The card says it in short sentences — "You can paint 3 rooms", "Your shop gave you 3 rooms.
+You have used 1." — with a picture for the state (a camera, the shop, a card), the same
+words the website's home page uses.
 
 A painter's or a shop's own home (their customer profile, `linkedProfile`) is never sold
 anything here: painters and shops pay on the website. In `missing` its one button is **Buy
@@ -34,19 +38,33 @@ say where else to pay, **I have a shop code** (07 "Painters and shops pay on the
 
 ### C1 · Home
 
-**Route** `(tabs)/home.tsx` · **Phase** 2 · **Web reference** `app/(app)/dashboard/page.tsx`, `components/app/customer-next-step.tsx`, `dashboard-projects.tsx`
+**Route** `(tabs)/home.tsx` · **Phase** 2 · **Web reference** `app/(app)/dashboard/page.tsx`, `components/app/customer-next-step.tsx`, `customer-home.tsx`, `dashboard-projects.tsx`
+
+**Who it is laid out for:** somebody painting their own home who may read slowly, or read
+little English. So: pictures, a few plain words, one big button, and every place they can
+go laid out on the page rather than behind a switch or a menu.
 
 **Layout (top to bottom):**
 1. Greeting by time of day — "Good evening, Priya" — and the avatar (→ Account). An
    account still wearing its stand-in name (`namePending`, a mobile sign-up) is greeted
    without one — "Good evening" — never "Good evening, User".
 2. Two `BalanceChip`s: "3 rooms left", "12 AI credits" (→ C27).
-3. **Next-step card** — one sentence of what they hold and the one button for their
-   state (table above).
-4. **Rooms in progress** — horizontal strip: photo, name, status chip, days left. Tap
-   resumes at the right step. "See all" → Studio tab.
-5. **Latest AI image** (if any) — large card → C24.
-6. **Ready-made rooms** strip (only when the library has rooms) → C21. "No photo? Paint
+3. **Next-step card** — a picture for the state, one sentence of what they hold and the
+   one button for their state (table above).
+4. **How it works** — three numbered steps, each a picture and a line: take a photo of
+   your wall · tap a colour to see it on your wall · show the colour code at the paint
+   shop (`features/home/HowItWorks.tsx`). Always shown: it is the answer to "what was I
+   meant to do next?".
+5. **Rooms in progress** — horizontal strip: photo, name, status chip, days left. Tap
+   resumes at the right step. "See all" → Rooms tab.
+6. **What would you like to do?** — picture tiles, two across, each with one short line:
+   Colours (C3), Shade Book (C34), Colour finder (C35), Find a painter (C32), Find a paint
+   shop (C36), Add a shop
+   code (C30, only while shop codes are on — see C30), My balance (C27), My products (C29,
+   only with a shop behind the account),
+   Help (`features/home/HomeTiles.tsx`). "Paint my room" is the card's button, not a tile.
+7. **Latest AI image** (if any) — large card → C24.
+8. **Ready-made rooms** strip (only when the library has rooms) → C21. "No photo? Paint
    one of ours."
 
 **States:** first visit with nothing → the next-step card fills the screen with a
@@ -167,7 +185,7 @@ C24, All my AI images), it opens on the AI images, once.
   given yet (`namePending`) it reads "Add your name" and the Name row "No name yet".
 - **Your balance** → C27 (the rooms and credits under the title, so neither wraps).
 - **Shop:** "Add a shop code" → C30. Shop customers also see **My products** → C31.
-- **Painters and shops near you** → C32.
+- **Find a painter** → C32 · **Find a paint shop** → C36.
 - **Help:** Help & support → S6 · Questions & answers → S8.
 - **Sign-in details:** Name → S2 · Email → S3 · Mobile → S4 · Password → S5.
 - **More:** Work as a painter → C33 — shown to every account but a customer profile; rooms
@@ -574,7 +592,7 @@ goes with the other two · family (the parent family and the company's own, once
 depth and light reflectance · finishes · good for (rooms) · the backend's description ·
 **Try it on a room** (a sheet of the rooms **ready to paint** — walls marked, not
 closed — → `/room/{id}/paint?shade=&brand=`; none ready → C6 with the same params) ·
-**Find a shop near you** (→ C32 `?tab=shops`) · the shade disclaimer. The status bar
+**Find a shop near you** (→ C36) · the shade disclaimer. The status bar
 takes dark or light text to read on the colour behind it, and goes back to the app's
 own when the screen is left.
 
@@ -909,6 +927,16 @@ itself). There is no Try again and no Buy button on any of them.
 
 **Route** `add-shop-code.tsx` · **Phase** 2 · **Web reference** `app/unlock/unlock-form.tsx`
 
+**Switched off for now.** `SHOW_SHOP_CODES` in `src/config/hidden-features.ts` (the website's
+`lib/hidden-features.ts` has the same switch) hides every way here: the Home tile, the
+next-step card's "I have a shop code" / "Have a new shop code?", the tour's last button, the
+Account and Rooms-and-credits rows, and the empty Colours and My products screens' buttons —
+and the words that mention a code. The screen still opens from a link, and a customer who
+already used a code keeps their shop, its rooms and My products. With codes off no shop can
+add a room either (the website hides the shop's customers list), so a customer whose shop's
+rooms are used up is offered rooms to buy instead of a request to ask. Turning it back on is
+that one line.
+
 `ShopCodeInput` (8 character boxes — letters and numbers, uppercased, paste-friendly) ·
 "Your shop gave you this at the counter." · **Add code** → `POST /api/access-codes/redeem { code }` → "Added.
 Sharma Paints gave you 3 rooms." The rooms and boards already on the account stay.
@@ -934,12 +962,17 @@ by company, with the shop's own price. A shop that picked nothing out still show
 all → "No shop yet" + **Add a shop code**. **API:** `GET /api/me/assigned-products`.
 Shown only to shop customers.
 
-### C32 · Painters and shops near you
+### C32 · Find a painter · C36 · Find a paint shop
 
-**Route** `(tabs)/nearby.tsx` (the **Nearby** tab) · **Phase** 7 · **Web reference** `components/app/nearby-finder.tsx`, `lib/geolocation.ts`, `lib/nearby.ts`
+**Routes** `(tabs)/nearby.tsx` (C32, the **Painters** tab) and `shops.tsx` (C36, pushed over
+the tabs, with a way back — from its tile on Home, from Account, and a shade's **Find a shop
+near you**) · both `features/nearby/NearbySearch.tsx` · **Phase** 7 · **Web reference**
+`components/app/nearby-finder.tsx` (its `only` mode), `lib/geolocation.ts`, `lib/nearby.ts`
 
-**Layout:** segmented **Painters / Shops** · "Within 50 km, nearest first" · list, nearest
-first. No distance to pick, as on the website: the search always reaches 50 km — and painters
+Who will paint it and where to buy the paint are two different jobs, so they are two places,
+each with one list — never both behind a switch. An old `/nearby?tab=shops` link lands on C36.
+
+**Layout:** "Within 50 km, nearest first" · the one list, nearest first. No distance to pick, as on the website: the search always reaches 50 km — and painters
 further off who said they work in the place the search is from (its division, its state, or
 anywhere in India) come after the nearby ones, marked **Works in your area**
 (`worksInYourArea`). A search from the phone's own location names it, as a typed place is

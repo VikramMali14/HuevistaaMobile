@@ -39,7 +39,7 @@ HuevistaaMobile/
 │   ├── sign-in/callback.tsx          # A9 Google return
 │   ├── (onboarding)/                 # first run                  A10–A11
 │   ├── (customer)/                   # CUSTOMER only
-│   │   ├── (tabs)/                   # Home · Studio · Catalogue · Boards · Nearby · Account
+│   │   ├── (tabs)/                   # Home · Rooms (studio) · Colours (catalogue) · Boards · Painters · Account
 │   │   ├── room/                     # the studio pipeline        C6–C18
 │   │   ├── shade/[brand]/[code].tsx  # C19
 │   │   ├── library/                  # C20–C21
@@ -578,7 +578,7 @@ The rules for every write:
   server's internal wording ("Project not found: …") is replaced where it would leak an
   id.
 
-**Nearby (C32).**
+**Find a painter (C32) and Find a paint shop (C36).**
 - `locate.ts` returns one of four outcomes: a fix, refused (and whether Settings is the
   only way), location off, or failed. It asks once, takes a fix up to 60 s old, then a
   fresh one raced against 15 s.

@@ -69,7 +69,8 @@ describe("start-up (A1)", () => {
     signedInAs({ role: "CUSTOMER" });
     renderRouter("./app", { initialUrl: "/" });
     await waitFor(() => expect(screen).toHavePathname("/home"));
-    for (const tab of ["Home", "Studio", "Catalogue", "Boards", "Account"]) {
+    // Everyday words: "Rooms" for the rooms list, "Colours" for the catalogue.
+    for (const tab of ["Home", "Rooms", "Colours", "Boards", "Account"]) {
       expect(screen.getAllByText(tab).length).toBeGreaterThan(0);
     }
   });

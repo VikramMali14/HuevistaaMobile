@@ -458,7 +458,7 @@ New in `src/features/painter`:
   and a real board's PDF picked and read by the iframe reader to its claim.
 
 As built, against the spec (details under each screen in [05](05-screens-painter.md)):
-- A board pays what the server says: 25 points today, not 50. A refunded voucher is the
+- A board pays what the server says: 40 points today, not 50. A refunded voucher is the
   server's `REJECTED`. The record is `jobsCompleted`.
 - The ledger is the newest 20 movements, all the server gives.
 - P7 reads PDFs and photos; **Open with HueVistaa** works, **Share to** is left for later
@@ -486,7 +486,7 @@ iOS (memory on a 25 MB board), and "Open with" from WhatsApp.
 
 | | Screen | Spec |
 |---|---|---|
-| ☑ | C32 Painters and shops near you | [04](04-screens-customer.md#c32--painters-and-shops-near-you) |
+| ☑ | C32 Find a painter · C36 Find a paint shop (one screen each since 2026-11) | [04](04-screens-customer.md#c32--find-a-painter--c36--find-a-paint-shop) |
 | ☑ | C26 Review the job | [04](04-screens-customer.md#c26--review-the-job) |
 | ☑ | S6 Help and support | [06](06-screens-shared.md#s6--help-and-support) |
 | ☑ | S7 Support conversation | [06](06-screens-shared.md#s7--support-conversation) |

@@ -1,6 +1,8 @@
+import Feather from "@expo/vector-icons/Feather";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import type { ComponentProps } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { Button, Card, Text } from "@/components/ui";
@@ -11,7 +13,8 @@ import { buyOnWebsite, useWhereToBuy } from "@/features/payments/where-to-buy";
 import { t } from "@/i18n";
 import { validitySpan } from "@/lib/dates";
 import { formatRupees } from "@/lib/money";
-import { useTheme } from "@/theme";
+import { hairline, useTheme } from "@/theme";
+import { SHOW_SHOP_CODES } from "@/config/hidden-features";
 
 /**
  * The one thing to do next, worked out from what the account holds (docs/04 "The three
@@ -42,7 +45,12 @@ export function NextStepCard({
   const go = (to: "/room/new" | "/balance" | "/checkout" | "/add-shop-code") => () => router.push(to);
   let headline: string;
   let detail: string;
-  let main: { label: string; onPress: () => void };
+  // The state as a picture, read before any word is: a photo to take, the shop to ask, a
+  // room to buy. Not on the hero card, whose room photo is the picture already.
+  let icon: ComponentProps<typeof Feather>["name"] = "credit-card";
+  // Null only where there is nothing this app may offer: a painter's or a shop's own home
+  // in the store build while shop codes are switched off (src/config/hidden-features.ts).
+  let main: { label: string; onPress: () => void } | null;
   const extras: { label: string; to: "/add-shop-code" | "/library"; variant: "secondary" | "ghost" }[] = [];
 
   if (nextStep === "ready") {
@@ -55,6 +63,7 @@ export function NextStepCard({
         (bought > 0 ? t("home.boughtToo", { n: bought }) : "")
       : t("home.boughtOnly");
     main = { label: t("home.start"), onPress: go("/room/new") };
+    icon = "camera";
   } else if (nextStep === "exhausted") {
     headline =
       ent && ent.projectAllowance > 1
@@ -62,38 +71,61 @@ export function NextStepCard({
         : ent && ent.projectAllowance === 1
           ? t("home.allUsedOne")
           : t("home.noneOnCode");
-    detail = t("home.exhaustedBody");
-    // Shop customers are never sold a room: their shop adds one free from the counter.
-    main = { label: t("home.ask"), onPress: go("/balance") };
-    extras.push({ label: t("home.freshCode"), to: "/add-shop-code", variant: "ghost" });
+    if (SHOW_SHOP_CODES) {
+      detail = t("home.exhaustedBody");
+      // Shop customers are never sold a room: their shop adds one free from the counter.
+      main = { label: t("home.ask"), onPress: go("/balance") };
+      icon = "shopping-bag";
+      extras.push({ label: t("home.freshCode"), to: "/add-shop-code", variant: "ghost" });
+    } else if (where === "none") {
+      // Shop codes switched off (src/config/hidden-features.ts): no shop can add a room,
+      // and this account is sold none in the app — say so, and offer nothing.
+      detail = t("home.missingBodyNoneNoCode");
+      main = null;
+    } else {
+      // …so the way on is buying, as for anybody else.
+      detail = t("home.exhaustedBodyNoCode");
+      main =
+        where === "website"
+          ? { label: t("home.buyWebsite"), onPress: () => void buyOnWebsite() }
+          : { label: t("home.buyMore"), onPress: go("/checkout") };
+    }
   } else if (where === "none") {
     // A painter's or a shop's own home in the store build: no room is sold here, and
     // nothing may say where else to buy one.
     headline = t("home.missingTitle");
-    detail = t("home.missingBodyNone");
-    main = { label: t("home.haveCode"), onPress: go("/add-shop-code") };
+    detail = SHOW_SHOP_CODES ? t("home.missingBodyNone") : t("home.missingBodyNoneNoCode");
+    main = SHOW_SHOP_CODES ? { label: t("home.haveCode"), onPress: go("/add-shop-code") } : null;
   } else if (where === "website") {
     headline = t("home.missingTitle");
     detail = t("checkout.onWebsite");
     main = { label: t("home.buyWebsite"), onPress: () => void buyOnWebsite() };
-    extras.push({ label: t("home.haveCode"), to: "/add-shop-code", variant: "secondary" });
+    if (SHOW_SHOP_CODES) extras.push({ label: t("home.haveCode"), to: "/add-shop-code", variant: "secondary" });
   } else {
     headline = t("home.missingTitle");
     // Google Play charges its own price for a room, so the website's is never quoted there.
     const priced = paymentsMode() === "play" ? null : options;
     detail = priced
-      ? t("home.missingBody", { price: formatRupees(priced.projectPricePaise), span: validitySpan(priced.validDays) })
-      : t("home.missingBodyPlain");
+      ? t(SHOW_SHOP_CODES ? "home.missingBody" : "home.missingBodyNoCode", {
+          price: formatRupees(priced.projectPricePaise),
+          span: validitySpan(priced.validDays),
+        })
+      : t(SHOW_SHOP_CODES ? "home.missingBodyPlain" : "home.missingBodyPlainNoCode");
     main = {
       label: priced ? t("home.buy", { price: formatRupees(priced.projectPricePaise) }) : t("home.buyPlain"),
       onPress: go("/checkout"),
     };
-    extras.push({ label: t("home.haveCode"), to: "/add-shop-code", variant: "secondary" });
+    if (SHOW_SHOP_CODES) extras.push({ label: t("home.haveCode"), to: "/add-shop-code", variant: "secondary" });
   }
   if (libraryLive && nextStep !== "ready") extras.push({ label: t("home.tryReady"), to: "/library", variant: "ghost" });
 
   const content = (
     <View style={{ gap: space.md }}>
+      {!hero ? (
+        <View style={[styles.pic, { borderColor: colors.ruleBrass, backgroundColor: colors.surfaceSoft }]} testID="next-step-picture">
+          <Feather name={icon} size={26} color={colors.accentText} />
+        </View>
+      ) : null}
       <View style={{ gap: space.xs }}>
         <Text variant={hero ? "display" : "title2"} accessibilityRole="header">
           {headline}
@@ -103,7 +135,7 @@ export function NextStepCard({
         </Text>
       </View>
       <View style={{ gap: space.xs }}>
-        <Button label={main.label} onPress={main.onPress} testID="next-step" />
+        {main ? <Button label={main.label} onPress={main.onPress} testID="next-step" /> : null}
         {extras.map((x) => (
           <Button key={x.to} label={x.label} variant={x.variant} onPress={() => router.push(x.to)} />
         ))}
@@ -132,4 +164,12 @@ export function NextStepCard({
 
 const styles = StyleSheet.create({
   photo: { height: 240 },
+  pic: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: hairline,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });

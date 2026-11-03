@@ -95,8 +95,9 @@ export interface PdfAiImage {
 /**
  * The reward QR that closes a finished board, and the people it is for.
  *
- * <p>The shop that sold the job and the painter who did it each scan this once for their
- * points; the customer scans it to review the job on the Community page. It gets a
+ * <p>A shop and a painter each scan this once for their points — the shop that sold the
+ * job, or, for a room the customer bought online, the first shop they take the board to —
+ * and the customer scans it to review the job on the Community page. It gets a
  * page of its own rather than a corner of the last picture page for a practical reason:
  * the board changes hands at a counter, and somebody has to FIND the thing. A full page
  * with one big symbol and one line of instruction is found; a stamp in a footer, under a

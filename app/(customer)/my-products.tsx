@@ -10,6 +10,7 @@ import { BackButton, Button, Card, EmptyState, ErrorState, Screen, Skeleton, Tex
 import { t } from "@/i18n";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { useTheme } from "@/theme";
+import { SHOW_SHOP_CODES } from "@/config/hidden-features";
 
 /** "₹1,250 · per litre" — the shop's own price, in rupees as they typed it. */
 function priceOf(p: ShopProduct): string | null {
@@ -48,9 +49,9 @@ export default function MyProducts() {
       <EmptyState
         icon="package"
         title={t("products.empty")}
-        body={t("products.emptyBody")}
-        actionLabel={t("account.addCode")}
-        onAction={() => router.push("/add-shop-code")}
+        body={SHOW_SHOP_CODES ? t("products.emptyBody") : t("products.emptyBodyNoCode")}
+        actionLabel={SHOW_SHOP_CODES ? t("account.addCode") : undefined}
+        onAction={SHOW_SHOP_CODES ? () => router.push("/add-shop-code") : undefined}
       />
     );
   } else {

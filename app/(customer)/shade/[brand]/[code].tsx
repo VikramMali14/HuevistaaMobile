@@ -186,8 +186,8 @@ export default function ShadeDetail() {
             <Button
               variant="secondary"
               label={t("shade.findShop")}
-              icon="map-pin"
-              onPress={() => router.push({ pathname: "/nearby", params: { tab: "shops" } })}
+              icon="shopping-bag"
+              onPress={() => router.push("/shops")}
             />
           </View>
 

@@ -145,12 +145,12 @@ up, the new balance, **Scan another** / **Done**. Haptic on success.
 already claimed by you · expired · not a board that pays painters — each in one plain
 sentence with **Scan another**.
 
-**As built:** the server says what a board pays — 25 points today, not 50. A claim has no
+**As built:** the server says what a board pays — 40 points today, not 50. A claim has no
 request key, so an unanswered one is never repeated: the points and the board are read
 again, and it counts as landed only when the board no longer reads claimable and a board
 credit for that much has appeared since the ask. Otherwise "this board hasn't paid you —
 try again". A refusal reads the board again and shows how it stands, in the server's
-words. Claimed: **+25** counting up, a tap of the hand, **Scan another board** · **See
+words. Claimed: **+40** counting up, a tap of the hand, **Scan another board** · **See
 what that buys** · **Done**.
 
 ### P7 · Board came as a PDF

@@ -24,6 +24,7 @@ import type { StoreFailure, StorePurchase } from "@/features/payments/play/store
 import { resetPaintStore, resetRecentShades } from "@/features/studio/paint-store";
 import { resetTrays, saveCombo } from "@/features/studio/tray-store";
 import type { BackendShade } from "@/lib/shade-mapping";
+import { SHOW_SHOP_CODES } from "@/config/hidden-features";
 
 const mockSecure: Record<string, string> = {};
 jest.mock("expo-secure-store", () => ({
@@ -699,7 +700,7 @@ describe("C17 · Share this room", () => {
 // ── C27 Rooms and credits ─────────────────────────────────────────────────────
 
 describe("C27 · Rooms and credits", () => {
-  it("a shop's customer with no rooms left asks the shop — and is never sold one", async () => {
+  it("a shop's customer with no rooms left asks the shop — and is never sold one — while shop codes are on", async () => {
     signedIn();
     mockMe.entitlement.mockResolvedValue({ customerId: "u1", customerName: "Priya", retailerOrgId: "s1", projectAllowance: 2, projectsCreated: 2, projectsRemaining: 0 });
     mockMe.projectOptions.mockResolvedValue({ subscribed: false, projectPricePoints: 0, projectPricePaise: 14900, pointsBalance: 0, validDays: 30, availableCredits: 0 });
@@ -712,6 +713,13 @@ describe("C27 · Rooms and credits", () => {
     });
     mockMe.requestMoreRooms.mockResolvedValue(undefined);
     renderRouter("./app", { initialUrl: "/balance" });
+    if (!SHOW_SHOP_CODES) {
+      // Switched off (src/config/hidden-features.ts), no shop can add a room: nothing to
+      // ask, and rooms to buy like anybody else.
+      await waitFor(() => expect(screen.getByTestId("balance-buy-rooms")).toBeTruthy());
+      expect(screen.queryByTestId("balance-ask")).toBeNull();
+      return;
+    }
     await waitFor(() => expect(screen.getByTestId("balance-ask")).toBeTruthy());
     expect(screen.getByTestId("balance-rooms-n")).toHaveTextContent("0");
     expect(screen.queryByTestId("balance-buy-rooms")).toBeNull();
@@ -860,10 +868,16 @@ describe("C28 · Checkout", () => {
     await waitFor(() => expect(screen.getByTestId("checkout-pay")).toBeDisabled());
   });
 
-  it("a shop's customer buys Vista images only", async () => {
+  it("a shop's customer buys Vista images only — while shop codes are on", async () => {
     signedIn();
     mockMe.entitlement.mockResolvedValue({ customerId: "u1", customerName: "Priya", projectAllowance: 2, projectsCreated: 2, projectsRemaining: 0 });
     renderRouter("./app", { initialUrl: "/checkout?credits=1" });
+    if (!SHOW_SHOP_CODES) {
+      // Switched off, no shop can add a room, so the counter sells this customer rooms too.
+      await waitFor(() => expect(screen.getByTestId("stepper-rooms")).toBeTruthy());
+      expect(screen.queryByText("Your shop adds your rooms — ask them from Rooms and credits.")).toBeNull();
+      return;
+    }
     await waitFor(() => expect(screen.getByText("Your shop adds your rooms — ask them from Rooms and credits.")).toBeTruthy());
     expect(screen.queryByTestId("stepper-rooms")).toBeNull();
     await waitFor(() => expect(screen.getByText("Pay ₹70")).toBeTruthy());
@@ -967,9 +981,11 @@ describe("C28 · Checkout", () => {
       mockMe.projectOptions.mockResolvedValue({ subscribed: false, projectPricePoints: 0, projectPricePaise: 9900, pointsBalance: 0, validDays: 30, availableCredits: 0 });
       signedIn();
       const app = renderRouter("./app", { initialUrl: "/home" });
-      await waitFor(() => expect(screen.getByText("No rooms yet")).toBeTruthy());
+      await waitFor(() => expect(screen.getByText("You have no rooms yet")).toBeTruthy());
       expect(screen.getByText("Buy a room")).toBeTruthy();
-      expect(screen.getByText("Buy a room to start, or add a code from your paint shop.")).toBeTruthy();
+      expect(
+        screen.getByText(SHOW_SHOP_CODES ? "Buy a room to start. Or use a code from your paint shop." : "Buy a room to start."),
+      ).toBeTruthy();
       expect(screen.queryByText(/₹/)).toBeNull();
       app.unmount();
 
@@ -1208,7 +1224,7 @@ describe("A painter's or a shop's own home pays on the website", () => {
     mockMe.projectOptions.mockResolvedValue(noRooms);
     ownHome("PAINTER");
     renderRouter("./app", { initialUrl: "/home" });
-    await waitFor(() => expect(screen.getByText("No rooms yet")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("You have no rooms yet")).toBeTruthy());
     expect(screen.queryByText(/₹/)).toBeNull();
     fireEvent.press(screen.getByText("Buy a room on the website"));
     await waitFor(() => expect(openBrowser).toHaveBeenCalledWith(website, expect.anything()));
@@ -1238,11 +1254,25 @@ describe("A painter's or a shop's own home pays on the website", () => {
       balance.unmount();
 
       const home = renderRouter("./app", { initialUrl: "/home" });
-      await waitFor(() => expect(screen.getByText("Rooms for this account aren't sold in the app. Given a code by a paint shop? Use that.")).toBeTruthy());
+      // With shop codes switched off (src/config/hidden-features.ts) there is nothing this
+      // app may offer here at all: the card says so, and has no button.
+      await waitFor(() =>
+        expect(
+          screen.getByText(
+            SHOW_SHOP_CODES
+              ? "Rooms for this account aren't sold in the app. Given a code by a paint shop? Use that."
+              : "Rooms for this account aren't sold in the app.",
+          ),
+        ).toBeTruthy(),
+      );
       expect(screen.queryByText(/website/i)).toBeNull();
       expect(screen.queryByText(/^Buy/)).toBeNull();
-      fireEvent.press(screen.getByTestId("next-step"));
-      await waitFor(() => expect(screen).toHavePathname("/add-shop-code"));
+      if (SHOW_SHOP_CODES) {
+        fireEvent.press(screen.getByTestId("next-step"));
+        await waitFor(() => expect(screen).toHavePathname("/add-shop-code"));
+      } else {
+        expect(screen.queryByTestId("next-step")).toBeNull();
+      }
       home.unmount();
 
       renderRouter("./app", { initialUrl: "/checkout" });

@@ -286,7 +286,7 @@ describe("C6–C7 · Add photo and name it", () => {
     signedIn();
     mockMe.entitlement.mockResolvedValue(null);
     renderRouter("./app", { initialUrl: "/room/new" });
-    await waitFor(() => expect(screen.getByText("No rooms yet")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("You have no rooms yet")).toBeTruthy());
     expect(screen.queryByTestId("shutter")).toBeNull();
   });
 

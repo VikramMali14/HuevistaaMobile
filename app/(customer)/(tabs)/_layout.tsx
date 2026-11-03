@@ -15,14 +15,17 @@ const tabs: { name: string; label: MessageKey; icon: IconName }[] = [
   { name: "studio", label: "tabs.studio", icon: "camera" },
   { name: "catalogue", label: "tabs.catalogue", icon: "droplet" },
   { name: "boards", label: "tabs.boards", icon: "layers" },
-  // Painters and shops near you (C32). A tab, not a card on Home: whoever opens the app
-  // to find a painter shouldn't have to scroll past their rooms to reach the search.
-  { name: "nearby", label: "tabs.nearby", icon: "map-pin" },
+  // Painters near you (C32). A tab, not only a card on Home: whoever opens the app to find
+  // a painter shouldn't have to scroll past their rooms to reach the search. Paint shops are
+  // a screen of their own (C36), from Home and Account — a seventh tab would not fit.
+  { name: "nearby", label: "tabs.painters", icon: "map-pin" },
   { name: "account", label: "tabs.account", icon: "user" },
 ];
 
 /**
- * Customer tabs: Home · Studio · Catalogue · Boards · Nearby · Account (docs/01-product.md).
+ * Customer tabs: Home · Rooms · Colours · Boards · Painters · Account (docs/01-product.md). The
+ * studio's tab says "Rooms" and the catalogue's "Colours" — everyday words for what they hold,
+ * for a customer who may read slowly; the routes keep their names.
  *
  * The Shade Book (C34) and the Colour finder (C35) live in the Catalogue tab, beside the
  * shades — a switch at the top of all three screens — rather than as tabs of their own: seven
