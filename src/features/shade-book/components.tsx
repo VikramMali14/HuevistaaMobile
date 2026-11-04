@@ -1,16 +1,17 @@
-import { useState } from "react";
+import Feather from "@expo/vector-icons/Feather";
+import { useState, type ReactNode } from "react";
 import { Linking, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 import { shadeBookPhotoPath, shadeBookPicturePath } from "@/api/endpoints/shade-book";
 import { keys } from "@/api/query-keys";
 import { queryClient } from "@/api/query-client";
 import type { ShadeBook, ShadeBookPage, ShadeBookPart, ShadeBookPhoto } from "@/api/types";
-import { Banner, Button, Pill, RemoteImage, Segmented, Text, useToast } from "@/components/ui";
+import { Banner, Button, RemoteImage, Segmented, Text, useToast } from "@/components/ui";
 import { t } from "@/i18n";
 import { useSubmit } from "@/lib/use-submit";
 import { fonts, hairline, useTheme } from "@/theme";
 
-import { NO_FILTER, SHADE_FAMILIES, passEnds, type ShadeBookFilter, type ShadeBookKind } from "./book";
+import { NO_FILTER, SHADE_FAMILIES, partsOn, passEnds, type ShadeBookFilter, type ShadeBookKind } from "./book";
 import type { PassNotice } from "@/features/payments/day-pass";
 import { PictureNotFetched, pictureFile, savePictureToPhotos, sharePicture } from "./pictures";
 
@@ -220,57 +221,160 @@ function FamilyChip({
   );
 }
 
+/** What a page is painted on, in words: its house's name, or "House" or "Room" with no photo to name. */
+export function whereOf(page: Pick<ShadeBookPage, "scope">, house: ShadeBookPhoto | undefined): string {
+  return house?.title ?? (page.scope === "INTERIOR" ? t("shadeBook.room") : t("shadeBook.house"));
+}
+
 /**
- * One combination in the list: its colours side by side, its name and its Vista codes — in the
- * order of the parts of the photo it would be painted on (`parts`), so the row reads as the
- * picture does.
+ * One combination in the grid: painted on its house — pressing it opens it large — then its
+ * name, the house, and each part's Vista code by its colour, in the order of that house's parts
+ * as the picture has them. `frame` is the picture's shape: the house's own while every picture
+ * is on one house, else one each house sits in whole.
  */
-export function ComboRow({
+export function PageCard({
   page,
-  parts = page.shades,
-  chosen,
+  house,
+  frame,
   free,
   onPress,
 }: {
   page: ShadeBookPage;
-  parts?: ShadeBookPart[];
-  chosen: boolean;
+  house: ShadeBookPhoto | undefined;
+  frame: number;
   free: boolean;
   onPress: () => void;
 }) {
   const { colors, radius, space } = useTheme();
+  const parts = (house ? partsOn(page, house) : null) ?? page.shades;
+  const where = whereOf(page, house);
+  const codes = parts.map((part) => part.shade?.hvCode ?? "—");
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityState={{ selected: chosen }}
-      accessibilityLabel={`${page.title}, ${parts.map((part) => part.shade?.hvCode ?? "").join(", ")}`}
+      accessibilityLabel={t("shadeBook.cardLabel", { title: page.title, house: where, codes: codes.join(", ") })}
+      accessibilityHint={t("shadeBook.cardHint")}
+      testID={`shade-book-page-${page.id}`}
       style={({ pressed }) => [
-        styles.row,
-        {
-          gap: space.sm,
-          padding: space.sm,
-          borderRadius: radius.sm,
-          borderColor: chosen ? colors.fg : "transparent",
-          backgroundColor: chosen || pressed ? colors.surfaceSoft : "transparent",
-        },
+        styles.card,
+        { borderRadius: radius.md, borderColor: colors.rule, backgroundColor: colors.surface, opacity: pressed ? 0.85 : 1 },
       ]}
     >
-      <View style={[styles.chips, { borderColor: colors.ruleStrong }]}>
-        {parts.map((part) => (
-          <View key={part.surfaceId} style={[styles.chip, { backgroundColor: part.shade?.hexCode }]} />
-        ))}
+      <View style={{ aspectRatio: frame, backgroundColor: colors.surfaceSoft }}>
+        <RemoteImage url={shadeBookPicturePath(page, house, "thumb")} contentFit="contain" style={StyleSheet.absoluteFill} />
+        {free ? (
+          <View style={styles.free}>
+            <Text variant="caption" style={[styles.freeText, { color: colors.ivory }]}>
+              {t("shadeBook.free")}
+            </Text>
+          </View>
+        ) : null}
       </View>
-      <View style={styles.rowText}>
+      <View style={{ padding: space.sm, gap: 3 }}>
         <Text variant="bodyStrong" numberOfLines={2}>
           {page.title}
         </Text>
         <Text variant="caption" tone="mute" numberOfLines={1}>
-          {parts.map((part) => part.shade?.hvCode ?? "—").join(" · ")}
+          {where} · {t("shadeBook.colours", { n: page.colours })}
         </Text>
+        <View style={styles.codes}>
+          {parts.map((part, i) => (
+            <View key={part.surfaceId} style={styles.code}>
+              <View style={[styles.codeDot, { backgroundColor: part.shade?.hexCode, borderColor: colors.ruleStrong }]} />
+              <Text variant="caption" tone="soft">
+                {codes[i]}
+              </Text>
+            </View>
+          ))}
+        </View>
       </View>
-      {free ? <Pill label={t("shadeBook.free")} tone="accent" /> : null}
     </Pressable>
+  );
+}
+
+/**
+ * Which house the grid is painted on: each combination on its own house, or all of them on one
+ * of the houses the filter keeps — each shown as it is, with its name — in a row that scrolls
+ * sideways.
+ */
+export function HouseChooser({
+  houses,
+  chosen,
+  onChoose,
+}: {
+  houses: ShadeBookPhoto[];
+  chosen: string | null;
+  onChoose: (id: string | null) => void;
+}) {
+  const { colors, radius, space } = useTheme();
+  const option = (id: string | null, title: string, meta: string, label: string, picture: ReactNode) => {
+    const on = id === chosen;
+    return (
+      <Pressable
+        key={id ?? "own"}
+        onPress={() => onChoose(id)}
+        accessibilityRole="radio"
+        accessibilityState={{ checked: on }}
+        accessibilityLabel={label}
+        testID={`shade-book-on-${id ?? "own"}`}
+        style={[
+          styles.onHouse,
+          {
+            gap: space.xs,
+            borderRadius: radius.sm,
+            borderColor: on ? colors.fg : colors.ruleStrong,
+            borderWidth: on ? 2 : StyleSheet.hairlineWidth,
+            backgroundColor: colors.surface,
+          },
+        ]}
+      >
+        {picture}
+        <View style={styles.onText}>
+          <Text variant="small" numberOfLines={1} style={styles.onTitle}>
+            {title}
+          </Text>
+          <Text variant="caption" tone="mute" numberOfLines={1}>
+            {meta}
+          </Text>
+        </View>
+      </Pressable>
+    );
+  };
+  return (
+    <View style={{ gap: space.xs }}>
+      <Text variant="label" tone="mute">
+        {t("shadeBook.showOn")}
+      </Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        accessibilityRole="radiogroup"
+        accessibilityLabel={t("shadeBook.showOn")}
+        contentContainerStyle={{ gap: space.xs }}
+        testID="shade-book-on"
+      >
+        {option(
+          null,
+          t("shadeBook.everyHouse"),
+          t("shadeBook.eachOwn"),
+          t("shadeBook.everyHouseLabel"),
+          <View style={[styles.onPicture, styles.onIcon, { backgroundColor: colors.surfaceSoft }]}>
+            <Feather name="grid" size={18} color={colors.fgMute} />
+          </View>,
+        )}
+        {houses.map((house) =>
+          option(
+            house.id,
+            house.title,
+            `${kindOf(house)} · ${t("shadeBook.colours", { n: house.surfaces.length })}`,
+            t("shadeBook.onLabel", { title: house.title, kind: kindOf(house), colours: house.surfaces.length }),
+            <RemoteImage url={shadeBookPhotoPath(house)} style={[styles.onPicture, { borderRadius: 4 }]} />,
+          ),
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -353,7 +457,7 @@ export function useSavePicture() {
   const toast = useToast();
   const saving = useSubmit();
   const [denied, setDenied] = useState(false);
-  const save = (page: ShadeBookPage, photo: ShadeBookPhoto, how: "photos" | "share") =>
+  const save = (page: ShadeBookPage, photo: ShadeBookPhoto | undefined, how: "photos" | "share") =>
     void saving.run(async () => {
       try {
         const uri = await pictureFile(page, photo);
@@ -394,8 +498,16 @@ const styles = StyleSheet.create({
   // Dark under the number whatever the photo or the theme, as the website's "Painting…" pill.
   number: { position: "absolute", top: 3, left: 3, minWidth: 18, height: 18, paddingHorizontal: 5, borderRadius: 9, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,.62)" },
   numberText: { fontWeight: "700", lineHeight: 16 },
-  row: { flexDirection: "row", alignItems: "center", borderWidth: 1 },
-  chips: { flexDirection: "row", borderWidth: StyleSheet.hairlineWidth, borderRadius: 6, overflow: "hidden" },
-  chip: { width: 18, height: 32 },
-  rowText: { flex: 1, gap: 2 },
+  card: { borderWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
+  // Dark under the word whatever the photo or the theme, as the number on a house is.
+  free: { position: "absolute", top: 6, left: 6, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 9, backgroundColor: "rgba(0,0,0,.62)" },
+  freeText: { fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase" },
+  codes: { flexDirection: "row", flexWrap: "wrap", columnGap: 10, rowGap: 4, marginTop: 2 },
+  code: { flexDirection: "row", alignItems: "center", gap: 5 },
+  codeDot: { width: 14, height: 14, borderRadius: 7, borderWidth: StyleSheet.hairlineWidth },
+  onHouse: { flexDirection: "row", alignItems: "center", maxWidth: 230, paddingVertical: 4, paddingLeft: 4, paddingRight: 12 },
+  onPicture: { width: 48, height: 36 },
+  onIcon: { alignItems: "center", justifyContent: "center", borderRadius: 4 },
+  onText: { flexShrink: 1, gap: 1 },
+  onTitle: { fontFamily: fonts.medium },
 });

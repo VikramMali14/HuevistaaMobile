@@ -1,9 +1,9 @@
 /**
- * The Shade Book (C34) through the REAL route tree: beside the shades in the Catalogue tab,
- * every house the chosen combination fits painted along the top, the filters and the
- * combinations below — the free ones and the pass's price, buying it on the website, and saving
- * the picture with its Vista codes. Only the network, the secure store, the browser and the
- * phone's photos are faked.
+ * The Shade Book (C34) and a picture of it opened large (C37) through the REAL route tree: beside
+ * the shades in the Catalogue tab, the filters, which house to see them on, and every combination
+ * in a grid of pictures — the free ones and the pass's price, buying it on the website — then one
+ * opened large on every house it fits, stepped through, and saved with its Vista codes. Only the
+ * network, the secure store, the browser and the phone's photos are faked.
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
@@ -170,6 +170,11 @@ beforeEach(async () => {
   await AsyncStorage.clear();
 });
 
+/** A picture in the grid, by what it shows: the combination, the house and its codes in that house's order. */
+const card = (label: string) => screen.getByLabelText(label);
+const MODERN_SAMPLE = "Pale beige with deep indigo blue, on the Modern house: HV0348, HV1102, HV2210";
+const TOWN_SECOND = "Off-white with sage green, on the Town house: HV0101, HV0202";
+
 describe("C34 · Shade Book", () => {
   it("sits beside the shades, at the top of the Catalogue tab, which stays lit", async () => {
     signedIn();
@@ -183,125 +188,82 @@ describe("C34 · Shade Book", () => {
     fireEvent.press(screen.getByRole("tab", { name: "Shade Book" }));
 
     await waitFor(() => expect(screen).toHavePathname("/shade-book"));
-    await waitFor(() => expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(new RegExp(SAMPLE.title)));
+    await waitFor(() => expect(screen.getByTestId("shade-book-page-s1")).toBeTruthy());
     expect(screen.getByRole("tab", { name: "Shade Book", selected: true })).toBeTruthy();
     fireEvent.press(screen.getByRole("tab", { name: "Shades" }));
     await waitFor(() => expect(screen).toHavePathname("/catalogue"));
   });
 
-  it("opens on the first combination, painted on every house with as many parts, the combinations below", async () => {
+  it("shows every combination as a picture on its own house, the free ones marked and the rest counted", async () => {
     signedIn();
     mockBook.get.mockResolvedValue(shut());
     renderRouter("./app", { initialUrl: "/shade-book" });
-    await waitFor(() => expect(screen.getByTestId("shade-book-chosen")).toBeTruthy());
-    // Its own photo, the house the team added, then the room with three parts; none with two.
-    for (const id of ["exterior-3", "house-k3x9q2mf", "interior-3"]) expect(screen.getByTestId(`shade-book-photo-${id}`)).toBeTruthy();
-    for (const id of ["exterior-2", "interior-2"]) expect(screen.queryByTestId(`shade-book-photo-${id}`)).toBeNull();
-    expect(screen.getByRole("radio", { name: "1, Modern house, House, 3 colours", checked: true })).toBeTruthy();
-    expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(/Pale beige with deep indigo blue/);
-    for (const code of ["HV0348", "HV1102", "HV2210"]) expect(screen.getAllByText(code).length).toBeGreaterThan(0);
-    // Two colours and three alike until narrowed, the free ones marked; the rest counted.
-    expect(screen.getByText(SECOND.title)).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId("shade-book-page-s1")).toBeTruthy());
+
+    expect(card(MODERN_SAMPLE)).toBeTruthy();
+    expect(card(TOWN_SECOND)).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "Every house, each combination on its own", checked: true })).toBeTruthy();
+    for (const id of ["interior-2", "interior-3", "exterior-2", "exterior-3", "house-k3x9q2mf"]) expect(screen.getByTestId(`shade-book-on-${id}`)).toBeTruthy();
     expect(screen.getAllByText("Free")).toHaveLength(2);
+    expect(screen.getByTestId("shade-book-count")).toHaveTextContent("2 of 239 combinations");
     expect(screen.getByText("237 more combinations")).toBeTruthy();
     expect(screen.getAllByText("Open all 239 · ₹49 for 24 hours").length).toBeGreaterThan(0);
     expect(screen.queryByText("Save to photos")).toBeNull();
   });
 
-  it("moves to a house with two parts for a two-colour combination, its parts named by the room chosen", async () => {
+  it("paints every combination it fits on the house chosen, the same photo for each, in the order of its parts", async () => {
     signedIn();
-    mockBook.get.mockResolvedValue(shut());
+    mockBook.get.mockResolvedValue(opened());
     renderRouter("./app", { initialUrl: "/shade-book" });
-    await waitFor(() => expect(screen.getByTestId("shade-book-chosen")).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId("shade-book-page-s1")).toBeTruthy());
 
-    fireEvent.press(screen.getByLabelText("Off-white with sage green, HV0101, HV0202"));
+    fireEvent.press(screen.getByTestId("shade-book-on-house-k3x9q2mf"));
 
-    await waitFor(() => expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(/Town house/));
-    expect(screen.getByTestId("shade-book-photo-interior-2")).toBeTruthy();
-    expect(screen.queryByTestId("shade-book-photo-exterior-3")).toBeNull();
-    fireEvent.press(screen.getByTestId("shade-book-photo-interior-2"));
-    await waitFor(() => expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(/Living room/));
-    expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(/Walls/);
-    expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(/Ceiling/);
+    await waitFor(() => expect(card("Pale beige with deep indigo blue, on the Corner bungalow: HV0348, HV2210, HV1102")).toBeTruthy());
+    expect(card("Cream with charcoal, on the Corner bungalow: HV0400, HV0600, HV0500")).toBeTruthy();
+    // Two colours don't go on three parts.
+    expect(screen.queryByTestId("shade-book-page-p2")).toBeNull();
+    expect(screen.getByRole("radio", { name: "Corner bungalow, House, 3 colours", checked: true })).toBeTruthy();
   });
 
   it("narrows the book to two colours, or to a colour family, counting what the pass would add", async () => {
     signedIn();
     mockBook.get.mockResolvedValue(shut());
     renderRouter("./app", { initialUrl: "/shade-book" });
-    await waitFor(() => expect(screen.getByTestId("shade-book-chosen")).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId("shade-book-page-s1")).toBeTruthy());
 
     fireEvent.press(screen.getByRole("tab", { name: "2 colours" }));
-    await waitFor(() => expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(/Off-white with sage green/));
-    expect(screen.queryByText("Pale beige with deep indigo blue")).toBeNull();
+    await waitFor(() => expect(screen.queryByTestId("shade-book-page-s1")).toBeNull());
+    expect(card(TOWN_SECOND)).toBeTruthy();
     expect(screen.getByText("11 more like these")).toBeTruthy();
+    // Only the houses with two parts to paint them on.
+    expect(screen.getByTestId("shade-book-on-exterior-2")).toBeTruthy();
+    expect(screen.queryByTestId("shade-book-on-exterior-3")).toBeNull();
 
     fireEvent.press(screen.getByTestId("shade-book-clear"));
-    await waitFor(() => expect(screen.getAllByText("Pale beige with deep indigo blue").length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getByTestId("shade-book-page-s1")).toBeTruthy());
     expect(screen.getByLabelText("Purple, 0 combinations")).toBeDisabled();
 
     fireEvent.press(screen.getByLabelText("Blue, 40 combinations"));
-    await waitFor(() => expect(screen.queryByText(SECOND.title)).toBeNull());
-    expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(/Pale beige with deep indigo blue/);
+    await waitFor(() => expect(screen.queryByTestId("shade-book-page-p2")).toBeNull());
+    expect(card(MODERN_SAMPLE)).toBeTruthy();
     expect(screen.getByText("39 more like these")).toBeTruthy();
   });
 
-  it("shows the rooms unpainted, and says so, while the book has no room's combination", async () => {
+  it("says so while the book has no room's combination, and offers the rooms to paint them on", async () => {
     signedIn();
     mockBook.get.mockResolvedValue(opened());
     renderRouter("./app", { initialUrl: "/shade-book" });
-    await waitFor(() => expect(screen.getByTestId("shade-book-chosen")).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId("shade-book-page-s1")).toBeTruthy());
 
     fireEvent.press(screen.getByRole("tab", { name: "Interior" }));
 
     await waitFor(() => expect(screen.getByText("No combinations like these in the book yet.")).toBeTruthy());
-    expect(screen.queryByTestId("shade-book-chosen")).toBeNull();
-    for (const id of ["interior-2", "interior-3"]) expect(screen.getByTestId(`shade-book-photo-${id}`)).toBeTruthy();
-    expect(screen.queryByTestId("shade-book-photo-exterior-3")).toBeNull();
-  });
+    for (const id of ["interior-2", "interior-3"]) expect(screen.getByTestId(`shade-book-on-${id}`)).toBeTruthy();
+    expect(screen.queryByTestId("shade-book-on-exterior-3")).toBeNull();
 
-  it("paints the combination chosen, and keeps it on another photo with as many parts", async () => {
-    signedIn();
-    mockBook.get.mockResolvedValue(opened());
-    renderRouter("./app", { initialUrl: "/shade-book" });
-    await waitFor(() => expect(screen.getByTestId("shade-book-chosen")).toBeTruthy());
-
-    fireEvent.press(screen.getByLabelText("Cream with charcoal, HV0400, HV0500, HV0600"));
-    await waitFor(() => expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(/Cream with charcoal/));
-    fireEvent.press(screen.getByTestId("shade-book-photo-interior-3"));
-
-    await waitFor(() => expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(/Sitting room/));
-    expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(/Cream with charcoal/);
-    expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(/Feature wall/);
-  });
-
-  it("says under the photo, which stays above the list, what is painted on it as another combination is chosen", async () => {
-    signedIn();
-    mockBook.get.mockResolvedValue(opened());
-    renderRouter("./app", { initialUrl: "/shade-book" });
-    await waitFor(() =>
-      expect(screen.getByTestId("shade-book-caption", { includeHiddenElements: true })).toHaveTextContent("Pale beige with deep indigo blue · HV0348 · HV1102 · HV2210"),
-    );
-
-    fireEvent.press(screen.getByLabelText("Cream with charcoal, HV0400, HV0500, HV0600"));
-
-    await waitFor(() =>
-      expect(screen.getByTestId("shade-book-caption", { includeHiddenElements: true })).toHaveTextContent("Cream with charcoal · HV0400 · HV0500 · HV0600"),
-    );
-  });
-
-  it("saves the chosen combination's picture on the chosen photo while the pass runs", async () => {
-    signedIn();
-    mockBook.get.mockResolvedValue(opened());
-    renderRouter("./app", { initialUrl: "/shade-book" });
-    await waitFor(() => expect(screen.getByText("Save to photos")).toBeTruthy());
-    fireEvent.press(screen.getByLabelText("Off-white with sage green, HV0101, HV0202"));
-    await waitFor(() => expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(/Off-white with sage green/));
-
-    fireEvent.press(screen.getByText("Save to photos"));
-
-    await waitFor(() => expect(mockPictures.savePictureToPhotos).toHaveBeenCalled());
-    expect(mockPictures.pictureFile).toHaveBeenCalledWith(expect.objectContaining({ id: "p2" }), expect.objectContaining({ id: "exterior-2" }));
+    fireEvent.press(screen.getByText("Show the whole book"));
+    await waitFor(() => expect(screen.getByTestId("shade-book-page-p3")).toBeTruthy());
   });
 
   it("buys the pass on the website and opens the book once the server confirms it", async () => {
@@ -331,7 +293,7 @@ describe("C34 · Shade Book", () => {
     const [url] = mockBrowser.openAuthSessionAsync.mock.calls[0] as [string];
     expect(url).toContain("amount=4900");
     expect(mockBook.passVerify).toHaveBeenCalledWith({ orderId: "order_SHADE12345", paymentId: "pay_SHADE6789", signature: "e".repeat(64) });
-    await waitFor(() => expect(screen.getAllByText(THIRD.title).length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getByTestId("shade-book-page-p3")).toBeTruthy());
     expect(screen.queryByText("Free")).toBeNull();
   });
 
@@ -339,8 +301,91 @@ describe("C34 · Shade Book", () => {
     signedIn();
     mockBook.get.mockResolvedValue({ ...shut(), access: { ...shut().access, purchasable: false } });
     renderRouter("./app", { initialUrl: "/shade-book" });
-    await waitFor(() => expect(screen.getByTestId("shade-book-chosen")).toHaveTextContent(new RegExp(SAMPLE.title)));
+    await waitFor(() => expect(screen.getByTestId("shade-book-page-s1")).toBeTruthy());
     expect(screen.queryByTestId("shade-book-buy")).toBeNull();
     expect(screen.getAllByText("The pass can't be bought in this app right now.").length).toBeGreaterThan(0);
+  });
+});
+
+describe("C37 · A Shade Book picture, opened large", () => {
+  it("opens with each part's Vista code and every house it fits, and steps through the grid", async () => {
+    signedIn();
+    mockBook.get.mockResolvedValue(opened());
+    renderRouter("./app", { initialUrl: "/shade-book" });
+    await waitFor(() => expect(screen.getByTestId("shade-book-page-p3")).toBeTruthy());
+
+    fireEvent.press(screen.getByTestId("shade-book-page-p3"));
+
+    await waitFor(() => expect(screen).toHavePathname("/shade-book/p3"));
+    await waitFor(() => expect(screen.getByTestId("shade-book-position")).toHaveTextContent("3 of 3"));
+    expect(screen.getByRole("header", { name: "Cream with charcoal" })).toBeTruthy();
+    expect(screen.getByText("Modern house · House · 3 colours")).toBeTruthy();
+    for (const part of ["Main walls, HV0400", "Frame & borders, HV0500", "Top band & column, HV0600"]) expect(screen.getByLabelText(part)).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "1, Modern house, House, 3 colours", checked: true })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "2, Corner bungalow, House, 3 colours" })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "3, Sitting room, Room, 3 colours" })).toBeTruthy();
+
+    // Round to the first.
+    fireEvent.press(screen.getByTestId("shade-book-next"));
+    await waitFor(() => expect(screen).toHavePathname("/shade-book/s1"));
+    expect(screen.getByTestId("shade-book-position")).toHaveTextContent("1 of 3");
+    expect(screen.getByRole("header", { name: "Pale beige with deep indigo blue" })).toBeTruthy();
+  });
+
+  it("opens on the house the grid is painted on, and steps through that grid alone", async () => {
+    signedIn();
+    mockBook.get.mockResolvedValue(opened());
+    renderRouter("./app", { initialUrl: "/shade-book" });
+    await waitFor(() => expect(screen.getByTestId("shade-book-page-s1")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("shade-book-on-house-k3x9q2mf"));
+    await waitFor(() => expect(screen.queryByTestId("shade-book-page-p2")).toBeNull());
+
+    fireEvent.press(screen.getByTestId("shade-book-page-s1"));
+
+    await waitFor(() => expect(screen.getByTestId("shade-book-position")).toHaveTextContent("1 of 2"));
+    expect(screen.getByText("Corner bungalow · House · 3 colours")).toBeTruthy();
+    expect(screen.getByLabelText("Pillars, HV2210")).toBeTruthy();
+    fireEvent.press(screen.getByTestId("shade-book-next"));
+    await waitFor(() => expect(screen.getByTestId("shade-book-position")).toHaveTextContent("2 of 2"));
+    expect(screen.getByRole("header", { name: "Cream with charcoal" })).toBeTruthy();
+    expect(screen.getByText("Corner bungalow · House · 3 colours")).toBeTruthy();
+  });
+
+  it("paints it on another house there, and saves that picture while the pass runs", async () => {
+    signedIn();
+    mockBook.get.mockResolvedValue(opened());
+    renderRouter("./app", { initialUrl: "/shade-book" });
+    await waitFor(() => expect(screen.getByTestId("shade-book-page-p2")).toBeTruthy());
+    fireEvent.press(screen.getByTestId("shade-book-page-p2"));
+    await waitFor(() => expect(screen.getByText("Town house · House · 2 colours")).toBeTruthy());
+
+    fireEvent.press(screen.getByTestId("shade-book-photo-interior-2"));
+
+    // The lighter colour goes up on the ceiling.
+    await waitFor(() => expect(screen.getByText("Living room · Room · 2 colours")).toBeTruthy());
+    expect(screen.getByLabelText("Walls, HV0202")).toBeTruthy();
+    expect(screen.getByLabelText("Ceiling, HV0101")).toBeTruthy();
+    fireEvent.press(screen.getByText("Save to photos"));
+
+    await waitFor(() => expect(mockPictures.savePictureToPhotos).toHaveBeenCalled());
+    expect(mockPictures.pictureFile).toHaveBeenCalledWith(expect.objectContaining({ id: "p2" }), expect.objectContaining({ id: "interior-2" }));
+  });
+
+  it("offers the pass instead of saving while the book is shut", async () => {
+    signedIn();
+    mockBook.get.mockResolvedValue(shut());
+    renderRouter("./app", { initialUrl: "/shade-book/s1" });
+    await waitFor(() => expect(screen.getByText("Open the book to save this picture with its Vista codes.")).toBeTruthy());
+    expect(screen.queryByText("Save to photos")).toBeNull();
+    expect(screen.getAllByTestId("shade-book-buy").length).toBeGreaterThan(0);
+    // Opened from a link with no grid: it steps through what the book sends.
+    expect(screen.getByTestId("shade-book-position")).toHaveTextContent("1 of 2");
+  });
+
+  it("says so when the combination isn't in the book this reader can open", async () => {
+    signedIn();
+    mockBook.get.mockResolvedValue(shut());
+    renderRouter("./app", { initialUrl: "/shade-book/gone" });
+    await waitFor(() => expect(screen.getByText("This combination isn't in the book you can open.")).toBeTruthy());
   });
 });
