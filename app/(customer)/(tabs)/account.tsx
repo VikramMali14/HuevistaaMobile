@@ -105,7 +105,7 @@ export default function Account() {
 
       <ListGroup title={t("account.help")}>
         <ListRow icon="life-buoy" title={t("account.helpSupport")} onPress={() => router.push("/help")} />
-        <ListRow icon="message-circle" title={t("account.questions")} onPress={() => router.push("/questions")} />
+        <ListRow icon="message-circle" title={t("account.reviewsQuestions")} onPress={() => router.push("/questions")} />
       </ListGroup>
 
       {linked ? (
@@ -139,7 +139,7 @@ export default function Account() {
         </ListGroup>
       )}
 
-      <ListGroup title={t("account.more")}>
+      <ListGroup title={t("account.settingsGroup")}>
         {canBecomePainter ? <ListRow icon="tool" title={t("account.painter")} onPress={() => router.push("/become-painter")} /> : null}
         <ListRow icon="settings" title={t("account.settings")} onPress={() => router.push("/settings")} />
         <ListRow icon="log-out" title={t("common.signOut")} tone="danger" onPress={() => setConfirmSignOut(true)} testID="account-sign-out" />

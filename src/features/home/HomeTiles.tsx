@@ -17,9 +17,7 @@ type TileHref =
   | "/nearby"
   | "/shops"
   | "/add-shop-code"
-  | "/balance"
-  | "/my-products"
-  | "/help";
+  | "/my-products";
 
 export interface HomeTile {
   key: string;
@@ -36,7 +34,8 @@ export interface HomeTile {
  * as they are two places.
  *
  * "Paint my room" is not here: it is the big button on the next-step card above, which
- * already knows whether there is a room to paint, a shop to ask or a room to buy. "My
+ * already knows whether there is a room to paint, a shop to ask or a room to buy. Nor are
+ * the balance or help: they live in Account, beside the account's settings. "My
  * products" is offered only with a shop behind the account — for anybody else it can only
  * answer that no shop unlocked anything — by the same rule as the website's.
  */
@@ -51,11 +50,9 @@ export function homeTiles({ hasShop }: { hasShop: boolean }): HomeTile[] {
     ...(SHOW_SHOP_CODES
       ? [{ key: "code", href: "/add-shop-code", icon: "tag", label: "home.tiles.code", hint: "home.tiles.codeHint" } as HomeTile]
       : []),
-    { key: "balance", href: "/balance", icon: "credit-card", label: "home.tiles.balance", hint: "home.tiles.balanceHint" },
     ...(hasShop
       ? [{ key: "products", href: "/my-products", icon: "package", label: "home.tiles.products", hint: "home.tiles.productsHint" } as HomeTile]
       : []),
-    { key: "help", href: "/help", icon: "help-circle", label: "home.tiles.help", hint: "home.tiles.helpHint" },
   ];
 }
 

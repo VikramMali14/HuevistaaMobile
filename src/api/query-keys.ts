@@ -20,6 +20,8 @@ export const keys = {
   assignedProducts: ["me", "assigned-products"] as const,
   shopCombos: ["me", "shop-combos"] as const,
   library: ["library"] as const,
+  /** Other makers' new products (C1). Public, the same for every account. */
+  launches: ["launches"] as const,
   libraryRoom: (slug: string) => ["library", slug] as const,
   catalogue: ["shades", "mine"] as const,
   catalogueCache: ["shades", "mine", "cache"] as const,

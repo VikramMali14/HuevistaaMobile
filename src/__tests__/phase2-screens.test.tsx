@@ -66,6 +66,9 @@ jest.mock("@/api/endpoints/shades", () => ({ shadesApi: mockShades }));
 const mockLibrary = { list: jest.fn<Promise<FreeProject[]>, []>(), get: jest.fn(), start: jest.fn() };
 jest.mock("@/api/endpoints/library", () => ({ libraryApi: mockLibrary }));
 
+const mockLaunches = { list: jest.fn() };
+jest.mock("@/api/endpoints/launches", () => ({ launchesApi: mockLaunches }));
+
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
 function person(extra: Partial<UserProfile> = {}): UserProfile {
@@ -140,7 +143,7 @@ const type = (label: string | RegExp, value: string) => fireEvent.changeText(scr
 
 beforeEach(async () => {
   for (const key of Object.keys(mockSecure)) delete mockSecure[key];
-  for (const group of [mockAuth, mockMe, mockShades, mockLibrary]) {
+  for (const group of [mockAuth, mockMe, mockShades, mockLibrary, mockLaunches]) {
     for (const fn of Object.values(group)) (fn as jest.Mock).mockReset();
   }
   mockAuth.logout.mockResolvedValue(undefined);
@@ -150,6 +153,7 @@ beforeEach(async () => {
   mockMe.projects.mockResolvedValue([]);
   mockMe.renders.mockResolvedValue([]);
   mockLibrary.list.mockResolvedValue([]);
+  mockLaunches.list.mockResolvedValue([]);
   mockShades.mine.mockResolvedValue(SHADES);
   mockShades.myBrands.mockResolvedValue(BRANDS);
   mockShades.scheme.mockResolvedValue({ showBrands: false, showRealCodes: false });
@@ -289,8 +293,6 @@ describe("C1 · Home in pictures and plain words", () => {
       "Colour finder. Find our colour from your photo",
       "Find a painter. Painters near you. Call them",
       "Find a paint shop. Paint shops near you, with directions",
-      "My balance. Rooms you have left. Buy more",
-      "Help. Ask us anything",
     ]) {
       expect(screen.getByLabelText(label)).toBeTruthy();
     }
@@ -298,8 +300,59 @@ describe("C1 · Home in pictures and plain words", () => {
     expect(screen.queryByTestId("home-tile-products")).toBeNull();
     // The shop-code tile only while shop codes are on (src/config/hidden-features.ts).
     expect(screen.queryByTestId("home-tile-code") !== null).toBe(SHOW_SHOP_CODES);
-    fireEvent.press(screen.getByTestId("home-tile-balance"));
-    await waitFor(() => expect(screen).toHavePathname("/balance"));
+    // The balance and help moved to Account, beside the account's settings.
+    expect(screen.queryByTestId("home-tile-balance")).toBeNull();
+    expect(screen.queryByTestId("home-tile-help")).toBeNull();
+    fireEvent.press(screen.getByTestId("home-tile-colours"));
+    await waitFor(() => expect(screen).toHavePathname("/catalogue"));
+  });
+
+  it("opens on New launches, and opens a launch on the website", async () => {
+    signedInAs(person());
+    mockLaunches.list.mockResolvedValue([
+      {
+        slug: "flexi-shield",
+        name: "FlexiShield",
+        tagline: "Stretches over hairline cracks",
+        packshot: "https://api.example.com/api/launches/images/x",
+        company: { name: "Baxter Coatings" },
+      },
+    ]);
+    renderRouter("./app", { initialUrl: "/home" });
+    await waitFor(() => expect(screen.getByTestId("home-launches")).toBeTruthy());
+    expect(screen.getByText("New launches")).toBeTruthy();
+    expect(screen.getByText("FlexiShield")).toBeTruthy();
+    expect(screen.getByText("by Baxter Coatings")).toBeTruthy();
+    fireEvent.press(screen.getByTestId("launch-flexi-shield"));
+    const { openBrowserAsync } = jest.requireMock("expo-web-browser") as { openBrowserAsync: jest.Mock };
+    await waitFor(() =>
+      expect(openBrowserAsync).toHaveBeenCalledWith(expect.stringMatching(/\/launches\/flexi-shield$/), expect.anything()),
+    );
+  });
+
+  it("shows no launches section when none is on", async () => {
+    signedInAs(person());
+    renderRouter("./app", { initialUrl: "/home" });
+    await waitFor(() => expect(screen.getByText("What would you like to do?")).toBeTruthy());
+    expect(screen.queryByTestId("home-launches")).toBeNull();
+  });
+
+  it("puts My rooms, Vista images and Ready rooms behind one switch on the Paint tab", async () => {
+    signedInAs(person());
+    mockLibrary.list.mockResolvedValue([libraryRoom]);
+    mockMe.renders.mockResolvedValue([
+      { id: "r1", projectId: "p1", projectName: "Living room", status: "READY", imageUrl: "https://cdn.example.com/r1.jpg" },
+    ]);
+    renderRouter("./app", { initialUrl: "/studio" });
+    await waitFor(() => expect(screen.getByText("Vista images")).toBeTruthy());
+    press("Vista images");
+    await waitFor(() => expect(screen).toHavePathname("/vista-images"));
+    await waitFor(() => expect(screen.getByTestId("vista-image-r1")).toBeTruthy());
+    press("Ready rooms");
+    await waitFor(() => expect(screen).toHavePathname("/ready-rooms"));
+    await waitFor(() => expect(screen.getByText("Sunlit lounge")).toBeTruthy());
+    press("My rooms");
+    await waitFor(() => expect(screen).toHavePathname("/studio"));
   });
 
   it("offers My products to a customer a shop's code is behind", async () => {

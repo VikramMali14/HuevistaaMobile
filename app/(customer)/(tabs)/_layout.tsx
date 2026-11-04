@@ -12,6 +12,7 @@ type IconName = ComponentProps<typeof Feather>["name"];
 // Labels are read as the tab bar draws (not when this file loads), so they follow the language.
 const tabs: { name: string; label: MessageKey; icon: IconName }[] = [
   { name: "home", label: "tabs.home", icon: "home" },
+  // Paint: your rooms, their Vista images and our ready-made rooms, a switch at the top.
   { name: "studio", label: "tabs.studio", icon: "camera" },
   { name: "catalogue", label: "tabs.catalogue", icon: "droplet" },
   { name: "boards", label: "tabs.boards", icon: "layers" },
@@ -23,24 +24,26 @@ const tabs: { name: string; label: MessageKey; icon: IconName }[] = [
 ];
 
 /**
- * Customer tabs: Home · Rooms · Colours · Boards · Painters · Account (docs/01-product.md). The
- * studio's tab says "Rooms" and the catalogue's "Colours" — everyday words for what they hold,
+ * Customer tabs: Home · Paint · Colours · Boards · Painters · Account (docs/01-product.md). The
+ * studio's tab says "Paint" and the catalogue's "Colours" — everyday words for what they hold,
  * for a customer who may read slowly; the routes keep their names.
  *
  * The Shade Book (C34) and the Colour finder (C35) live in the Catalogue tab, beside the
  * shades — a switch at the top of all three screens — rather than as tabs of their own: seven
  * leave about 45 dp a label on a 360–390 dp phone, and "Shade Book" needs 63. Their routes have
- * no button of their own, and the Catalogue tab stays lit while either shows.
+ * no button of their own, and the Catalogue tab stays lit while either shows. The Paint tab is
+ * built the same way: your rooms, Vista images and ready-made rooms behind one switch.
  */
 export default function CustomerTabs() {
   const options = useTabBarOptions();
   const { colors } = useTheme();
   const pathname = usePathname();
   const inCatalogue = pathname === "/shade-book" || pathname === "/colour-finder";
+  const inPaint = pathname === "/vista-images" || pathname === "/ready-rooms";
   return (
     <Tabs screenOptions={options}>
       {tabs.map((tab) => {
-        const lit = tab.name === "catalogue" && inCatalogue;
+        const lit = (tab.name === "catalogue" && inCatalogue) || (tab.name === "studio" && inPaint);
         return (
           <Tabs.Screen
             key={tab.name}
@@ -56,6 +59,8 @@ export default function CustomerTabs() {
       })}
       <Tabs.Screen name="shade-book" options={{ href: null, title: t("shadeBook.title") }} />
       <Tabs.Screen name="colour-finder" options={{ href: null, title: t("colourFinder.title") }} />
+      <Tabs.Screen name="vista-images" options={{ href: null, title: t("paintTab.images") }} />
+      <Tabs.Screen name="ready-rooms" options={{ href: null, title: t("paintTab.ready") }} />
     </Tabs>
   );
 }

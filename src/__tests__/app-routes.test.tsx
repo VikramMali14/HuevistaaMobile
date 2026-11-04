@@ -69,8 +69,8 @@ describe("start-up (A1)", () => {
     signedInAs({ role: "CUSTOMER" });
     renderRouter("./app", { initialUrl: "/" });
     await waitFor(() => expect(screen).toHavePathname("/home"));
-    // Everyday words: "Rooms" for the rooms list, "Colours" for the catalogue.
-    for (const tab of ["Home", "Rooms", "Colours", "Boards", "Account"]) {
+    // Everyday words: "Paint" for your rooms, Vista images and ready rooms, "Colours" for the catalogue.
+    for (const tab of ["Home", "Paint", "Colours", "Boards", "Account"]) {
       expect(screen.getAllByText(tab).length).toBeGreaterThan(0);
     }
   });

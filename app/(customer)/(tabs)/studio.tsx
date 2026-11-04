@@ -23,6 +23,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { forgetBoard } from "@/features/boards/made-boards";
+import { PaintSwitch } from "@/features/studio/PaintSwitch";
 import { useLibrary } from "@/features/library/use-library";
 import { forgetRoom } from "@/features/studio/paint-store";
 import { forgetTray } from "@/features/studio/tray-store";
@@ -164,7 +165,8 @@ export default function StudioScreen() {
       contentStyle={{ gap: space.lg, paddingBottom: space.xl }}
       footer={all.length ? <Button label={t("studio.newRoom")} icon="camera" onPress={() => router.push("/room/new")} /> : undefined}
     >
-      <Text variant="title1" accessibilityRole="header" style={{ marginTop: space.md }}>
+      <PaintSwitch value="rooms" />
+      <Text variant="title1" accessibilityRole="header">
         {t("studio.title")}
       </Text>
       {all.length ? (
