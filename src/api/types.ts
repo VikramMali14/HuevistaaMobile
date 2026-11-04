@@ -796,7 +796,7 @@ export interface ShadeBookPart {
   shade: ShadeBookShade;
 }
 
-/** A colour-test photo the pages are painted on. */
+/** A photo the pages are painted on: one of the colour test's four, or a house the team added ("house-…"). */
 export interface ShadeBookPhoto {
   id: string;
   kind: "INTERIOR" | "EXTERIOR";
@@ -818,6 +818,16 @@ export interface ShadeBookPage {
   /** One of the first few pages, open without the pass. */
   sample: boolean;
   shades: ShadeBookPart[];
+  /** The colour families of its shades — ["white", "blue"] — the main colour's first. Absent from an older server. */
+  families?: string[];
+}
+
+/** So many pages of one kind and number of colours whose shades fall in exactly these families. */
+export interface ShadeBookFacet {
+  scope: "INTERIOR" | "EXTERIOR";
+  colours: number;
+  families: string[];
+  count: number;
 }
 
 /** GET /api/shade-book — every page with a running pass, the free samples without one. */
@@ -828,8 +838,15 @@ export interface ShadeBook {
   totals?: Record<string, number>;
   /** How many of the first pages of each number of colours are open without a pass. */
   freeSamples: number;
-  /** Every colour-test photo: a page can be painted on any with as many parts as it has colours. */
+  /** The colour test's four photos alone — what app builds before the team's houses read. */
   photos: ShadeBookPhoto[];
+  /**
+   * Every photo the book is painted on: the colour test's four, then the houses and rooms the
+   * team added. A page can be painted on any with as many parts as it has colours.
+   */
+  houses?: ShadeBookPhoto[];
+  /** Every page, open or not, counted by kind, colours and families: what a filter would show with the pass. */
+  facets?: ShadeBookFacet[];
   combinations: ShadeBookPage[];
 }
 

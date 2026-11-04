@@ -1,11 +1,27 @@
 /**
- * The Shade Book's rules that need no phone: which photo it opens on, which combinations a
- * photo can take, what the pass would open, which colour goes on which part of another photo,
- * when the pass ends (India's clock), and a saved picture's name.
+ * The Shade Book's rules that need no phone: what a filter keeps, which houses a combination is
+ * shown on, what the pass would open, which colour goes on which part of another photo, when the
+ * pass ends (India's clock), and a saved picture's name.
  */
 import type { ShadeBook, ShadeBookPage, ShadeBookPhoto } from "@/api/types";
+import { shadeBookPhotoPath, shadeBookPicturePath } from "@/api/endpoints/shade-book";
 
-import { combinationsFor, firstPhoto, istInstant, lockedFor, msUntilEnd, partsOn, passEnds, pictureFileName, searchShadeBook } from "../book";
+import {
+  NO_FILTER,
+  SHADE_FAMILIES,
+  bookHouses,
+  familyCounts,
+  filterShadeBook,
+  housesFor,
+  housesWhere,
+  istInstant,
+  lockedFor,
+  msUntilEnd,
+  partsOn,
+  passEnds,
+  pictureFileName,
+  searchShadeBook,
+} from "../book";
 
 const photo = (id: string, kind: "INTERIOR" | "EXTERIOR", surfaces: string[]): ShadeBookPhoto => ({
   id,
@@ -20,8 +36,12 @@ const LIVING = photo("interior-2", "INTERIOR", ["walls", "ceiling"]);
 const SITTING = photo("interior-3", "INTERIOR", ["main-walls", "feature-wall", "ceiling"]);
 const TOWN = photo("exterior-2", "EXTERIOR", ["main-walls", "highlight-walls"]);
 const MODERN = photo("exterior-3", "EXTERIOR", ["main-walls", "frame", "band"]);
+/** Houses the team added: a three-part bungalow and a two-part bedroom. */
+const BUNGALOW = photo("house-k3x9q2mf", "EXTERIOR", ["main-walls", "highlight-walls", "frame"]);
+const BEDROOM = photo("house-a1b2c3d4", "INTERIOR", ["main-walls", "feature-wall"]);
+const HOUSES = [LIVING, SITTING, TOWN, MODERN, BUNGALOW, BEDROOM];
 
-function page(id: string, on: ShadeBookPhoto, hexes: string[], codes: string[], title = "A combination"): ShadeBookPage {
+function page(id: string, on: ShadeBookPhoto, hexes: string[], codes: string[], title = "A combination", families: string[] = []): ShadeBookPage {
   return {
     id,
     photoId: on.id,
@@ -30,41 +50,87 @@ function page(id: string, on: ShadeBookPhoto, hexes: string[], codes: string[], 
     title,
     sample: false,
     shades: hexes.map((hex, i) => ({ surfaceId: on.surfaces[i]!.id, surfaceLabel: on.surfaces[i]!.label, shade: { hvCode: codes[i], hexCode: hex } })),
+    families,
   };
 }
 
-const HOUSE3 = page("p1", MODERN, ["#E8DCC8", "#4F4D5A", "#F4F2EC"], ["HV0348", "HV1102", "HV2210"], "Pale beige with deep indigo blue");
-const HOUSE2 = page("p2", TOWN, ["#F4F2EC", "#4F4D5A"], ["HV0101", "HV0202"], "Off-white with sage green");
-const ROOM3 = page("p3", SITTING, ["#E8DCC8", "#8C5F3B", "#F4F2EC"], ["HV0400", "HV0500", "HV0600"], "Cream with teak");
+const HOUSE3 = page("p1", MODERN, ["#E8DCC8", "#4F4D5A", "#F4F2EC"], ["HV0348", "HV1102", "HV2210"], "Pale beige with deep indigo blue", ["beige", "blue", "white"]);
+const HOUSE2 = page("p2", TOWN, ["#F4F2EC", "#4F4D5A"], ["HV0101", "HV0202"], "Off-white with sage green", ["white", "blue"]);
+const ROOM3 = page("p3", SITTING, ["#E8DCC8", "#8C5F3B", "#F4F2EC"], ["HV0400", "HV0500", "HV0600"], "Cream with teak", ["beige", "brown", "white"]);
+const GREY2 = page("p4", TOWN, ["#B7B5B0", "#6A6E6B"], ["HV0700", "HV0800"], "Light grey with grey", ["grey"]);
+const ids = (items: { id: string }[]) => items.map((i) => i.id);
 
-describe("choosing what to paint", () => {
-  it("opens on the photo the book's first page was made for", () => {
-    expect(firstPhoto({ photos: [LIVING, SITTING, TOWN, MODERN], combinations: [HOUSE3] })?.id).toBe("exterior-3");
-    expect(firstPhoto({ photos: [LIVING, SITTING, TOWN, MODERN], combinations: [] })?.id).toBe("interior-2");
+describe("choosing what to look at", () => {
+  const ALL = [HOUSE3, HOUSE2, ROOM3, GREY2];
+
+  it("reads every house the team added, or the colour test's four from an older server", () => {
+    expect(bookHouses({ photos: [LIVING, SITTING, TOWN, MODERN], houses: HOUSES })).toHaveLength(6);
+    expect(ids(bookHouses({ photos: [LIVING, SITTING, TOWN, MODERN] }))).toEqual(["interior-2", "interior-3", "exterior-2", "exterior-3"]);
   });
 
-  it("offers a photo every combination with as many colours as it has parts, its own kind first", () => {
-    expect(combinationsFor([HOUSE3, HOUSE2, ROOM3], SITTING).map((p) => p.id)).toEqual(["p3", "p1"]);
-    expect(combinationsFor([HOUSE3, HOUSE2, ROOM3], LIVING).map((p) => p.id)).toEqual(["p2"]);
+  it("narrows the book to exterior or interior, two colours or three, and the colour families chosen", () => {
+    expect(ids(filterShadeBook(ALL, NO_FILTER))).toEqual(["p1", "p2", "p3", "p4"]);
+    expect(ids(filterShadeBook(ALL, { ...NO_FILTER, kind: "INTERIOR" }))).toEqual(["p3"]);
+    expect(ids(filterShadeBook(ALL, { ...NO_FILTER, kind: "EXTERIOR", colours: 2 }))).toEqual(["p2", "p4"]);
+    expect(ids(filterShadeBook(ALL, { ...NO_FILTER, families: ["blue"] }))).toEqual(["p1", "p2"]);
+    expect(ids(filterShadeBook(ALL, { ...NO_FILTER, families: ["blue", "beige"] }))).toEqual(["p1"]);
+    expect(ids(filterShadeBook([{ ...GREY2, families: undefined }], { ...NO_FILTER, families: ["grey"] }))).toEqual([]);
   });
 
   it("finds a combination by a Vista code or a word of its colours", () => {
-    expect(searchShadeBook([HOUSE3, ROOM3], "hv0500").map((p) => p.id)).toEqual(["p3"]);
-    expect(searchShadeBook([HOUSE3, ROOM3], "Indigo").map((p) => p.id)).toEqual(["p1"]);
+    expect(ids(searchShadeBook([HOUSE3, ROOM3], "hv0500"))).toEqual(["p3"]);
+    expect(ids(searchShadeBook([HOUSE3, ROOM3], "Indigo"))).toEqual(["p1"]);
+    expect(ids(filterShadeBook([HOUSE3, ROOM3], { ...NO_FILTER, kind: "EXTERIOR", query: "hv0500" }))).toEqual([]);
+  });
+
+  it("shows a combination on every house with as many parts — its own first, then its kind, then the rest", () => {
+    expect(ids(housesFor(HOUSE3, HOUSES))).toEqual(["exterior-3", "house-k3x9q2mf", "interior-3"]);
+    expect(ids(housesFor(HOUSE2, HOUSES))).toEqual(["exterior-2", "interior-2", "house-a1b2c3d4"]);
+    expect(ids(housesFor(HOUSE2, HOUSES, "INTERIOR"))).toEqual(["interior-2", "house-a1b2c3d4"]);
+    expect(ids(housesWhere(HOUSES, { kind: "EXTERIOR", colours: 3 }))).toEqual(["exterior-3", "house-k3x9q2mf"]);
+  });
+
+  it("paints a page small on each house, and shows the colour test's four by their own address", () => {
+    expect(shadeBookPicturePath(HOUSE3, BUNGALOW, "mini")).toBe("/api/shade-book/p1/image?size=mini&photo=house-k3x9q2mf&v=1");
+    expect(shadeBookPhotoPath(LIVING)).toBe("/api/colour-test/interior-2/photo?v=1");
+    expect(shadeBookPhotoPath(BEDROOM)).toBe("/api/shade-book/houses/house-a1b2c3d4/photo?v=1");
   });
 });
 
 describe("what the pass would open", () => {
-  const book: Pick<ShadeBook, "access" | "totals" | "combinations"> = {
+  const book: Pick<ShadeBook, "access" | "total" | "totals" | "facets" | "combinations"> = {
     access: { open: false, reason: "NONE", pricePaise: 4900, currency: "INR", hours: 24, purchasable: true },
+    total: 239,
     totals: { "2": 12, "3": 227 },
+    facets: [
+      { scope: "EXTERIOR", colours: 3, families: ["white", "beige", "blue"], count: 40 },
+      { scope: "EXTERIOR", colours: 3, families: ["grey"], count: 187 },
+      { scope: "EXTERIOR", colours: 2, families: ["white", "blue"], count: 12 },
+    ],
     combinations: [HOUSE3, HOUSE2],
   };
 
-  it("counts, for each number of colours, what a reader without the pass isn't sent — and none once it runs", () => {
-    expect(lockedFor(book, 3)).toBe(226);
-    expect(lockedFor(book, 2)).toBe(11);
-    expect(lockedFor({ ...book, access: { ...book.access, open: true } }, 3)).toBe(0);
+  it("counts what fits the filter that a reader without the pass isn't sent — and none once it runs", () => {
+    expect(lockedFor(book, NO_FILTER)).toBe(237);
+    expect(lockedFor(book, { ...NO_FILTER, colours: 3 })).toBe(226);
+    expect(lockedFor(book, { ...NO_FILTER, colours: 2 })).toBe(11);
+    expect(lockedFor(book, { ...NO_FILTER, families: ["blue"] })).toBe(50);
+    expect(lockedFor(book, { ...NO_FILTER, kind: "INTERIOR" })).toBe(0);
+    expect(lockedFor({ ...book, access: { ...book.access, open: true } }, NO_FILTER)).toBe(0);
+  });
+
+  it("counts by colours alone from an older server", () => {
+    expect(lockedFor({ ...book, facets: undefined }, { ...NO_FILTER, colours: 3 })).toBe(226);
+    expect(lockedFor({ ...book, facets: undefined }, { ...NO_FILTER, families: ["blue"] })).toBe(0);
+  });
+
+  it("puts on each family's chip how many in the whole book it would show", () => {
+    const counts = familyCounts(book, NO_FILTER);
+    expect(counts.blue).toBe(52);
+    expect(counts.grey).toBe(187);
+    expect(counts.green).toBe(0);
+    expect(familyCounts(book, { ...NO_FILTER, families: ["blue"], colours: 2 }).beige).toBe(0);
+    expect(Object.keys(counts)).toEqual(SHADE_FAMILIES.map((f) => f.id));
   });
 });
 

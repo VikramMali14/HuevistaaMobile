@@ -1057,36 +1057,50 @@ a lost answer is safe: the server's call is idempotent.
 
 **Route** `(tabs)/shade-book.tsx`, in the **Catalogue** tab beside the shades: a **Shades · Shade Book** switch heads both screens, and the Catalogue tab stays lit (seven tabs would leave "Shade Book" about 45 dp on a 360–390 dp phone; it needs 63) · **Phase** 8 · **Web reference** `app/shade-book/page.tsx`, `components/shade-book/shade-book-view.tsx`, `lib/shade-book.ts`
 
-Photo first. The colour test's four photos — the living room and the sitting room, the town
-house and the modern house; two parts to paint or three — and every combination of our
-shades with as many colours as the chosen photo has parts. The team adds and removes
-combinations on the website (Admin → Shade Book); the pictures are painted by the server, so
-the app, the website and a saved picture show the same colours.
+Every house. Combinations of our shades — two colours or three, for a house's outside or a
+room — each shown on every photo with as many parts as it has colours: the colour test's
+four (the living room and the sitting room, the town house and the modern house) and every
+house and room the team adds on the website (Admin → Shade Book → Houses: a photo, its parts
+drawn with the studio's mask tools, and what each part is). The team adds and removes
+combinations there too (Admin → Shade Book); the pictures are painted by the server, so the
+app, the website and a saved picture show the same colours. Older builds read `photos`, the
+colour test's four, and never see the team's houses.
 
 **Layout:** held at the top, so a combination is always chosen with the photo in sight —
-the switch · the four photos small in a row, each with its number on it and "3 colours" under
-it (a whole photo name won't fit a quarter of a phone; it is read out, and on the card), the
-chosen one outlined · the chosen photo with the chosen combination painted on it, as tall as
-it is at the screen's width up to 30% of the screen's height · one line with the
-combination's name and Vista codes. Scrolling under them: where the reader stands (**open
-until 31 Oct, 4:05 pm** with a running pass, or "6 free of 231" and **Open all 231 · ₹49 for
-24 hours** without one) · a card with the combination's name, the photo, each part with its
-Vista code, and with the pass **Save to photos** and **Share** (without it: "Open the book to
-save this picture with its Vista codes") · **Combinations** for that number of colours,
-searchable by Vista code or colour, those made for the photo's kind first, each row's colours
-and codes in the order of the photo's parts, "Free" on the free ones · without the pass, a
-card counting the rest of that number of colours with the Buy button · the shade disclaimer.
+the switch · every house the chosen combination fits, small in a row that scrolls sideways,
+each painted with it, its number on it and its name under it, the one in sight outlined ·
+that house with the combination painted on it, as tall as it is at the screen's width up to
+28% of the screen's height · one line with the combination's name and Vista codes.
+Scrolling under them: where the reader stands (**open until 31 Oct, 4:05 pm** with a running
+pass, or "6 free of 323" and **Open all 323 · ₹49 for 24 hours** without one) · a card with
+the combination's name, the house, each part with its Vista code, and with the pass **Save
+to photos** and **Share** (without it: "Open the book to save this picture with its Vista
+codes") · the filters: **All / Exterior / Interior**, **Any / 2 colours / 3 colours**, and a
+row of colour families that scrolls sideways — White, Beige, Grey, Brown, Red, Pink, Orange,
+Yellow, Green, Blue, Purple — each with its dot and how many in the whole book it would show
+(the server's `facets`, open or not), a family that would show none greyed; choosing several
+keeps the combinations with every one (blue *and* grey), and **Clear filters** undoes them ·
+**Combinations** that fit, searchable by Vista code or colour, each row's colours and codes in
+the order of the house in sight's parts when it fits it, "Free" on the free ones · without the
+pass, a card counting the rest that fit ("21 more like these", or "321 more combinations"
+unfiltered) with the Buy button · the shade disclaimer.
 
-**Choosing:** a photo opens on its first combination; a combination stays chosen on another
-photo with as many parts. Pressing a combination paints it on the photo above, and the list
-stays where it is; a photo with another number of colours starts its list from the top.
-On another photo, parts both share keep their colour (the main walls); a ceiling the
-combination wasn't made for takes the lightest of the rest; the others follow in order — the
-server's rule (`ShadeBookService.partsOn`), which the codes on the card and in the list
-follow too.
+**Choosing:** the book opens on its first combination. Pressing a combination paints it on
+every house in the row and the one in sight; the house in sight stays while it fits, else
+the combination's own photo comes first, then the others of its kind, then the rest. A new
+filter starts its list from the top. A filter nothing fits says so ("No combinations like
+these in the book yet", or "None of these are among the free ones" when the pass would show
+some) and shows the houses of that kind unpainted. On another house, parts both share keep
+their colour (the main walls); a ceiling the combination wasn't made for takes the lightest of
+the rest; the others follow in order — the server's rule (`ShadeBookService.partsOn`), which
+the codes on the card and in the list follow too.
 
-**Free samples:** the first three combinations of each number of colours, so every photo has
-some to try.
+**Colour families:** each shade's family is the server's (`ColourWords.family`, the same
+bands that name a page — "Light grey with deep indigo blue" is found under grey and blue): a
+page's `families`, the main colour's first.
+
+**Free samples:** the first three combinations of each kind and number of colours, so every
+house and room has some to try.
 
 **Buying the pass:** in the Android store build a Google Play purchase of the pass's own
 product (`access.playProductId`), at Google's price, settled like the packs (C28/C29 in
@@ -1104,9 +1118,11 @@ Settings**) and **Share** (the share sheet, where WhatsApp is) hand over the ser
 to keep — the chosen photo in the combination's colours over every part's Vista code
 (`GET /api/shade-book/{id}/download?photo=`), named `huevistaa-shade-book-HV….jpg`.
 
-**API:** `GET /api/shade-book` · `GET /api/shade-book/{id}/image?size=full&photo=&v=` ·
-`GET /api/colour-test/{id}/photo?v=` · `GET /api/shade-book/{id}/download?photo=` ·
-`POST /api/shade-book/pass/order` · `POST /api/shade-book/pass/verify`.
+**API:** `GET /api/shade-book` · `GET /api/shade-book/{id}/image?size=mini|full&photo=&v=` ·
+`GET /api/colour-test/{id}/photo?v=` (the colour test's four) · `GET
+/api/shade-book/houses/{id}/photo?v=` (a house the team added, `house-…`) · `GET
+/api/shade-book/{id}/download?photo=` · `POST /api/shade-book/pass/order` · `POST
+/api/shade-book/pass/verify`.
 
 **As built:** the book is read again after a purchase (it is in `paymentChanges`) and the
 moment a running pass ends. Customers read Vista codes and colours only — the server sends
