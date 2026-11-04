@@ -9,6 +9,8 @@ export interface SegmentedProps<T extends string> {
   value: T;
   onChange: (value: T) => void;
   accessibilityLabel: string;
+  /** Tighter options, for three longer labels that must fit a 360 dp phone across. */
+  compact?: boolean;
 }
 
 /**
@@ -16,7 +18,7 @@ export interface SegmentedProps<T extends string> {
  * capsule with a strong hairline on the surface, and the chosen option inverted (ink
  * capsule, paper text).
  */
-export function Segmented<T extends string>({ options, value, onChange, accessibilityLabel }: SegmentedProps<T>) {
+export function Segmented<T extends string>({ options, value, onChange, accessibilityLabel, compact = false }: SegmentedProps<T>) {
   const { colors, radius } = useTheme();
   return (
     <View
@@ -24,6 +26,7 @@ export function Segmented<T extends string>({ options, value, onChange, accessib
       accessibilityLabel={accessibilityLabel}
       style={[
         styles.wrap,
+        compact && styles.wrapCompact,
         { borderColor: colors.ruleStrong, borderRadius: radius.pill, backgroundColor: colors.surface },
       ]}
     >
@@ -36,9 +39,15 @@ export function Segmented<T extends string>({ options, value, onChange, accessib
             accessibilityRole="tab"
             accessibilityState={{ selected: on }}
             accessibilityLabel={option.label}
-            style={[styles.item, { borderRadius: radius.pill, backgroundColor: on ? colors.fg : "transparent" }]}
+            style={[
+              styles.item,
+              compact && styles.itemCompact,
+              { borderRadius: radius.pill, backgroundColor: on ? colors.fg : "transparent" },
+            ]}
           >
-            <Text style={[styles.label, { color: on ? colors.bg : colors.fgSoft }]}>{option.label}</Text>
+            <Text style={[styles.label, compact && styles.labelCompact, { color: on ? colors.bg : colors.fgSoft }]}>
+              {option.label}
+            </Text>
           </Pressable>
         );
       })}
@@ -49,5 +58,10 @@ export function Segmented<T extends string>({ options, value, onChange, accessib
 const styles = StyleSheet.create({
   wrap: { flexDirection: "row", alignSelf: "flex-start", padding: 4, gap: 4, borderWidth: hairline },
   item: { minHeight: minTouch - 8, paddingHorizontal: 18, justifyContent: "center" },
+  // Compact: the whole width, shared evenly, so three longer labels never spill past the
+  // capsule on a narrow phone; a label too long for its share wraps rather than overflows.
+  wrapCompact: { alignSelf: "stretch" },
+  itemCompact: { flex: 1, paddingHorizontal: 6, alignItems: "center" },
+  labelCompact: { textAlign: "center" },
   label: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 18 },
 });

@@ -20,6 +20,7 @@ export function PaintSwitch({ value }: { value: Place }) {
   return (
     <Segmented
       accessibilityLabel={t("paintTab.switchLabel")}
+      compact
       options={[
         { value: "rooms" as const, label: t("paintTab.rooms") },
         { value: "images" as const, label: t("paintTab.images") },
