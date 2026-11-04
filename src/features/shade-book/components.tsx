@@ -1,16 +1,16 @@
 import { useState } from "react";
-import { Linking, Pressable, StyleSheet, View } from "react-native";
+import { Linking, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
-import { shadeBookPhotoPath } from "@/api/endpoints/shade-book";
+import { shadeBookPhotoPath, shadeBookPicturePath } from "@/api/endpoints/shade-book";
 import { keys } from "@/api/query-keys";
 import { queryClient } from "@/api/query-client";
 import type { ShadeBook, ShadeBookPage, ShadeBookPart, ShadeBookPhoto } from "@/api/types";
-import { Banner, Button, Pill, RemoteImage, Text, useToast } from "@/components/ui";
+import { Banner, Button, Pill, RemoteImage, Segmented, Text, useToast } from "@/components/ui";
 import { t } from "@/i18n";
 import { useSubmit } from "@/lib/use-submit";
-import { useTheme } from "@/theme";
+import { fonts, hairline, useTheme } from "@/theme";
 
-import { passEnds } from "./book";
+import { NO_FILTER, SHADE_FAMILIES, passEnds, type ShadeBookFilter, type ShadeBookKind } from "./book";
 import type { PassNotice } from "@/features/payments/day-pass";
 import { PictureNotFetched, pictureFile, savePictureToPhotos, sharePicture } from "./pictures";
 
@@ -40,34 +40,43 @@ export function Swatches({ parts }: { parts: ShadeBookPart[] }) {
 }
 
 /**
- * The four photos, small, in a row — the one chosen outlined — each with its number on it and
- * how many colours it takes under it. Its name is read out; a quarter of a phone has no room
- * to print it.
+ * Every house the chosen combination fits, small, in a row that scrolls sideways — each painted
+ * with it (`page`), or as it is while nothing is chosen — the one in sight outlined, its number
+ * on it and its name under it.
  */
-export function PhotoStrip({
-  photos,
+export function HouseStrip({
+  houses,
   chosen,
+  page,
   onChoose,
 }: {
-  photos: ShadeBookPhoto[];
-  chosen: string;
-  onChoose: (photo: ShadeBookPhoto) => void;
+  houses: ShadeBookPhoto[];
+  chosen: string | null;
+  page: ShadeBookPage | null;
+  onChoose: (house: ShadeBookPhoto) => void;
 }) {
   const { colors, radius, space } = useTheme();
   return (
-    <View style={[styles.strip, { gap: space.xs }]} accessibilityRole="radiogroup" accessibilityLabel={t("shadeBook.choosePhoto")}>
-      {photos.map((photo, i) => {
-        const on = photo.id === chosen;
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      accessibilityRole="radiogroup"
+      accessibilityLabel={t("shadeBook.chooseHouse")}
+      contentContainerStyle={{ gap: space.xs }}
+      testID="shade-book-houses"
+    >
+      {houses.map((house, i) => {
+        const on = house.id === chosen;
         return (
           <Pressable
-            key={photo.id}
-            onPress={() => onChoose(photo)}
+            key={house.id}
+            onPress={() => onChoose(house)}
             accessibilityRole="radio"
             accessibilityState={{ checked: on }}
-            accessibilityLabel={t("shadeBook.photoLabel", { n: i + 1, title: photo.title, colours: photo.surfaces.length })}
-            testID={`shade-book-photo-${photo.id}`}
+            accessibilityLabel={t("shadeBook.houseLabel", { n: i + 1, title: house.title, kind: kindOf(house), colours: house.surfaces.length })}
+            testID={`shade-book-photo-${house.id}`}
             style={[
-              styles.photo,
+              styles.house,
               {
                 borderRadius: radius.sm,
                 borderColor: on ? colors.fg : colors.rule,
@@ -77,7 +86,10 @@ export function PhotoStrip({
             ]}
           >
             <View>
-              <RemoteImage url={shadeBookPhotoPath(photo)} style={[styles.photoImage, { borderRadius: 4 }]} />
+              <RemoteImage
+                url={page ? shadeBookPicturePath(page, house, "mini") : shadeBookPhotoPath(house)}
+                style={[styles.houseImage, { borderRadius: 4 }]}
+              />
               <View style={styles.number}>
                 <Text variant="caption" style={[styles.numberText, { color: colors.ivory }]}>
                   {i + 1}
@@ -85,12 +97,126 @@ export function PhotoStrip({
               </View>
             </View>
             <Text variant="caption" tone={on ? "default" : "mute"} numberOfLines={1}>
-              {t("shadeBook.colours", { n: photo.surfaces.length })}
+              {house.title}
             </Text>
           </Pressable>
         );
       })}
+    </ScrollView>
+  );
+}
+
+/**
+ * What to look at: exterior or interior, two colours or three, and the colour families a
+ * combination must have every one of — each chip saying how many in the whole book it would
+ * show, a family that would show none greyed.
+ */
+export function Filters({
+  filter,
+  counts,
+  onChange,
+}: {
+  filter: ShadeBookFilter;
+  counts: Record<string, number>;
+  onChange: (next: ShadeBookFilter) => void;
+}) {
+  const { space } = useTheme();
+  const filtered = filter.kind !== "ALL" || filter.colours !== 0 || filter.families.length > 0;
+  const toggle = (id: string) =>
+    onChange({ ...filter, families: filter.families.includes(id) ? filter.families.filter((f) => f !== id) : [...filter.families, id] });
+  return (
+    <View style={{ gap: space.sm }} testID="shade-book-filters">
+      <Segmented<ShadeBookKind>
+        accessibilityLabel={t("shadeBook.where")}
+        value={filter.kind}
+        onChange={(kind) => onChange({ ...filter, kind })}
+        options={[
+          { value: "ALL", label: t("shadeBook.all") },
+          { value: "EXTERIOR", label: t("shadeBook.exterior") },
+          { value: "INTERIOR", label: t("shadeBook.interior") },
+        ]}
+      />
+      <Segmented<"0" | "2" | "3">
+        accessibilityLabel={t("shadeBook.coloursFilter")}
+        value={String(filter.colours) as "0" | "2" | "3"}
+        onChange={(v) => onChange({ ...filter, colours: Number(v) as ShadeBookFilter["colours"] })}
+        options={[
+          { value: "0", label: t("shadeBook.anyColours") },
+          { value: "2", label: t("shadeBook.twoColours") },
+          { value: "3", label: t("shadeBook.threeColours") },
+        ]}
+      />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        accessibilityLabel={t("shadeBook.shades")}
+        contentContainerStyle={{ gap: space.xs, alignItems: "center" }}
+      >
+        {SHADE_FAMILIES.map((family) => (
+          <FamilyChip
+            key={family.id}
+            label={t(`shadeBook.family.${family.id}`)}
+            swatch={family.swatch}
+            count={counts[family.id] ?? 0}
+            selected={filter.families.includes(family.id)}
+            onPress={() => toggle(family.id)}
+          />
+        ))}
+        {filtered ? (
+          <Button
+            variant="ghost"
+            block={false}
+            label={t("shadeBook.clearFilters")}
+            onPress={() => onChange({ ...NO_FILTER, query: filter.query })}
+            testID="shade-book-clear"
+          />
+        ) : null}
+      </ScrollView>
     </View>
+  );
+}
+
+/** One colour family: its dot, its name and how many it would show; chosen is inverted, as the Chip is. */
+function FamilyChip({
+  label,
+  swatch,
+  count,
+  selected,
+  onPress,
+}: {
+  label: string;
+  swatch: string;
+  count: number;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const { colors, radius } = useTheme();
+  const disabled = !selected && count === 0;
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityState={{ selected, disabled }}
+      accessibilityLabel={t("shadeBook.familyLabel", { family: label, n: count })}
+      hitSlop={{ top: 6, bottom: 6 }}
+      style={({ pressed }) => [
+        styles.family,
+        {
+          borderRadius: radius.pill,
+          backgroundColor: selected ? colors.fg : pressed ? colors.surfaceSoft : colors.surface,
+          borderColor: selected ? colors.fg : colors.ruleStrong,
+          opacity: disabled ? 0.45 : 1,
+        },
+      ]}
+    >
+      <View style={[styles.familyDot, { backgroundColor: swatch, borderColor: colors.ruleStrong }]} />
+      <Text style={[styles.familyLabel, { color: selected ? colors.bg : colors.fgSoft }]} numberOfLines={1}>
+        {label}
+      </Text>
+      <Text style={[styles.familyCount, { color: selected ? colors.bg : colors.fgMute }]}>{count}</Text>
+    </Pressable>
   );
 }
 
@@ -259,9 +385,12 @@ const styles = StyleSheet.create({
   swatch: { flexDirection: "row", alignItems: "center", gap: 10 },
   dot: { width: 22, height: 22, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth },
   part: { flex: 1 },
-  strip: { flexDirection: "row" },
-  photo: { flex: 1, padding: 3, gap: 2, overflow: "hidden" },
-  photoImage: { width: "100%", height: 40 },
+  house: { width: 84, padding: 3, gap: 2, overflow: "hidden" },
+  houseImage: { width: "100%", height: 48 },
+  family: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 36, paddingLeft: 8, paddingRight: 12, borderWidth: hairline },
+  familyDot: { width: 14, height: 14, borderRadius: 7, borderWidth: StyleSheet.hairlineWidth },
+  familyLabel: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 18 },
+  familyCount: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 16 },
   // Dark under the number whatever the photo or the theme, as the website's "Painting…" pill.
   number: { position: "absolute", top: 3, left: 3, minWidth: 18, height: 18, paddingHorizontal: 5, borderRadius: 9, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,.62)" },
   numberText: { fontWeight: "700", lineHeight: 16 },
