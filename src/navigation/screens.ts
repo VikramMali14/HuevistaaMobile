@@ -140,7 +140,9 @@ export const screens = {
   C36: { title: "Find a paint shop", area: "customer", href: "/shops", phase: 7, spec: CUSTOMER,
     status: "built", summary: "Listed paint shops near you, nearest first, with directions and a call." },
   C34: { title: "Shade Book", area: "customer", href: "/shade-book", phase: 8, spec: CUSTOMER, status: "built",
-    summary: "Combinations of our shades tried on four photos: a few free, the rest — and saving them — for 24 hours." },
+    summary: "Combinations of our shades in a grid of pictures, each on its house or all on one: a few free, the rest for 24 hours.", next: ["C37"] },
+  C37: { title: "Shade Book picture", area: "customer", href: "/shade-book/demo", phase: 8, spec: CUSTOMER, status: "built",
+    summary: "One combination large, on every house it fits, with its Vista codes; saved or sent with the pass." },
 
   // ── Painter ───────────────────────────────────────────────────────────────
   P1: { title: "Home", area: "painter", href: "/painter", phase: 6, spec: PAINTER, status: "built",

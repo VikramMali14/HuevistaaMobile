@@ -1070,34 +1070,34 @@ combinations there too (Admin → Shade Book); the pictures are painted by the s
 app, the website and a saved picture show the same colours. Older builds read `photos`, the
 colour test's four, and never see the team's houses.
 
-**Layout:** held at the top, so a combination is always chosen with the photo in sight —
-the switch · every house the chosen combination fits, small in a row that scrolls sideways,
-each painted with it, its number on it and its name under it, the one in sight outlined ·
-that house with the combination painted on it, as tall as it is at the screen's width up to
-28% of the screen's height · one line with the combination's name and Vista codes.
-Scrolling under them: where the reader stands (**open until 31 Oct, 4:05 pm** with a running
-pass, or "6 free of 323" and **Open all 323 · ₹49 for 24 hours** without one) · a card with
-the combination's name, the house, each part with its Vista code, and with the pass **Save
-to photos** and **Share** (without it: "Open the book to save this picture with its Vista
-codes") · the filters: **All / Exterior / Interior**, **Any / 2 colours / 3 colours**, and a
-row of colour families that scrolls sideways — White, Beige, Grey, Brown, Red, Pink, Orange,
-Yellow, Green, Blue, Purple — each with its dot and how many in the whole book it would show
-(the server's `facets`, open or not), a family that would show none greyed; choosing several
-keeps the combinations with every one (blue *and* grey), and **Clear filters** undoes them ·
-**Combinations** that fit, searchable by Vista code or colour, each row's colours and codes in
-the order of the house in sight's parts when it fits it, "Free" on the free ones · without the
-pass, a card counting the rest that fit ("21 more like these", or "321 more combinations"
-unfiltered) with the Buy button · the shade disclaimer.
+**Layout:** held at the top, the switch. Under it, scrolling: where the reader stands
+(**open until 31 Oct, 4:05 pm** with a running pass, or "6 free of 323" and **Open all 323 ·
+₹49 for 24 hours** without one) · the filters: **All / Exterior / Interior**, **Any / 2 colours
+/ 3 colours**, and a row of colour families that scrolls sideways — White, Beige, Grey, Brown,
+Red, Pink, Orange, Yellow, Green, Blue, Purple — each with its dot and how many in the whole
+book it would show (the server's `facets`, open or not), a family that would show none greyed;
+choosing several keeps the combinations with every one (blue *and* grey), and **Clear
+filters** undoes them · **Show them on**: **Every house** (each combination on its own) or one
+of the houses the filter keeps, each shown as it is with its name, in a row that scrolls
+sideways · the search (Vista code or colour) and how many there are ("6 of 323
+combinations", "4 found") · the **grid**: two pictures a row (three on a tablet), each a
+combination painted on its house — all on the one house chosen, the same photo again and
+again — with "Free" on the free ones, then its name, the house and each part's Vista code by
+its colour, in the order of that house's parts · without the pass, a card counting the rest
+that fit ("21 more like these", or "321 more combinations" unfiltered) with the Buy button ·
+the shade disclaimer. Pressing a picture opens it large (C37).
 
-**Choosing:** the book opens on its first combination. Pressing a combination paints it on
-every house in the row and the one in sight; the house in sight stays while it fits, else
-the combination's own photo comes first, then the others of its kind, then the rest. A new
-filter starts its list from the top. A filter nothing fits says so ("No combinations like
-these in the book yet", or "None of these are among the free ones" when the pass would show
-some) and shows the houses of that kind unpainted. On another house, parts both share keep
-their colour (the main walls); a ceiling the combination wasn't made for takes the lightest of
-the rest; the others follow in order — the server's rule (`ShadeBookService.partsOn`), which
-the codes on the card and in the list follow too.
+**Choosing:** on **Every house** each combination is on its own photo; on a house chosen, the
+grid holds every combination with as many colours as it has parts — those made on it first,
+then those made for its kind, then the rest — and a room takes only those whose colour for its
+ceiling is light enough for one. The pictures keep the house's own shape while every one is on
+one house, else each sits whole in a 4:3 frame. A filter that no longer keeps the house chosen
+goes back to Every house. A new filter or house starts the grid from the top. A filter nothing
+fits says so ("No combinations like these in the book yet", or "None of these are among the
+free ones" when the pass would show some). On another house, parts both share keep their
+colour (the main walls); a ceiling the combination wasn't made for takes the lightest of the
+rest; the others follow in order — the server's rule (`ShadeBookService.partsOn`), which the
+codes under each picture follow too.
 
 **Colour families:** each shade's family is the server's (`ColourWords.family`, the same
 bands that name a page — "Light grey with deep indigo blue" is found under grey and blue): a
@@ -1117,12 +1117,9 @@ cold start D3 recognises the pass's order (kept on the phone while its checkout 
 and confirms it the same way. No product or no Razorpay → "The pass can't be bought in
 this app right now".
 
-**Saving:** **Save to photos** (asks for the photos permission then; refused → **Open
-Settings**) and **Share** (the share sheet, where WhatsApp is) hand over the server's picture
-to keep — the chosen photo in the combination's colours over every part's Vista code
-(`GET /api/shade-book/{id}/download?photo=`), named `huevistaa-shade-book-HV….jpg`.
+**Saving:** on the picture opened large (C37).
 
-**API:** `GET /api/shade-book` · `GET /api/shade-book/{id}/image?size=mini|full&photo=&v=` ·
+**API:** `GET /api/shade-book` · `GET /api/shade-book/{id}/image?size=mini|thumb|full&photo=&v=` ·
 `GET /api/colour-test/{id}/photo?v=` (the colour test's four) · `GET
 /api/shade-book/houses/{id}/photo?v=` (a house the team added, `house-…`) · `GET
 /api/shade-book/{id}/download?photo=` · `POST /api/shade-book/pass/order` · `POST
@@ -1131,6 +1128,30 @@ to keep — the chosen photo in the combination's colours over every part's Vist
 **As built:** the book is read again after a purchase (it is in `paymentChanges`) and the
 moment a running pass ends. Customers read Vista codes and colours only — the server sends
 no company, maker's code or maker's name.
+
+### C37 · A Shade Book picture
+
+**Route** `shade-book/[id].tsx`, pushed over the tabs from the Shade Book's grid · **Phase** 8 ·
+**Web reference** the large view in `components/shade-book/shade-book-view.tsx`
+
+One combination large: the picture, as wide as the screen and up to 62% of its height, painted
+on the house the grid showed it on · "3 of 12" · its name · the house, house or room, and how
+many colours · each part with its colour and Vista code · with the pass **Save to photos**
+(asks for the photos permission then; refused → **Open Settings**) and **Share** (the share
+sheet, where WhatsApp is), which hand over the server's picture to keep — that house in the
+combination's colours over every part's Vista code (`GET /api/shade-book/{id}/download?photo=`),
+named `huevistaa-shade-book-HV….jpg`; without it "Open the book to save this picture with its
+Vista codes" and the Buy button · **On every house with 3 parts**: the combination painted small
+on every house it fits, its number on it and its name under it, the one in view outlined —
+pressing one paints it there large · the note to check each code on the shade card ·
+**Previous** and **Next**, round the grid it was opened from.
+
+The grid comes with it in the route's params — the house it was on (`on`) and the filter
+(`kind`, `colours`, `families`, `q`) — so Previous and Next step through what the reader was
+looking at; a house chosen here (`view`) stays while the next one fits it. Opened from a link
+with none, it steps through every combination the book sends. A combination that isn't in the
+book this reader may open (taken out, or one the pass opened that has ended) says "This
+combination isn't in the book you can open" with **Back**.
 
 ### C35 · Colour finder
 

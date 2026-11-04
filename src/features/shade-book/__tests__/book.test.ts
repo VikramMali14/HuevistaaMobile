@@ -11,12 +11,17 @@ import {
   SHADE_FAMILIES,
   bookHouses,
   familyCounts,
+  filterFromParams,
   filterShadeBook,
+  gridPages,
+  gridParams,
   housesFor,
   housesWhere,
   istInstant,
   lockedFor,
   msUntilEnd,
+  ownHouse,
+  pagesOn,
   partsOn,
   passEnds,
   pictureFileName,
@@ -101,6 +106,38 @@ describe("choosing what to look at", () => {
     // An exterior scheme whose frame and band are deep stays off the sitting room's ceiling.
     const deep = page("d1", MODERN, ["#B7B5B0", "#6A6E6B", "#4F4D5A"], ["HV4001", "HV4002", "HV4003"]);
     expect(ids(housesFor(deep, HOUSES))).toEqual(["exterior-3", "house-k3x9q2mf"]);
+  });
+
+  it("shows a combination on its own photo until a house is chosen — or the first it fits, should that one have gone", () => {
+    expect(ownHouse(HOUSE3, HOUSES)?.id).toBe("exterior-3");
+    expect(ownHouse(HOUSE3, [SITTING, BUNGALOW])?.id).toBe("house-k3x9q2mf");
+    expect(ownHouse(HOUSE2, [SITTING, MODERN])).toBeUndefined();
+  });
+
+  it("paints on the house chosen every combination it fits — those made on it first, then its kind, then the rest", () => {
+    expect(ids(pagesOn(ALL, BUNGALOW))).toEqual(["p1", "p3"]);
+    expect(ids(pagesOn(ALL, SITTING))).toEqual(["p3", "p1"]);
+    // A room's ceiling takes a light colour: a grey pair would put its lighter grey up there.
+    expect(ids(pagesOn(ALL, LIVING))).toEqual(["p2"]);
+    const deep = page("d1", MODERN, ["#B7B5B0", "#6A6E6B", "#4F4D5A"], ["HV4001", "HV4002", "HV4003"]);
+    expect(ids(pagesOn([deep, HOUSE3], SITTING))).toEqual(["p1"]);
+  });
+
+  it("reads the grid alike on the screen and on a picture opened from it, its filter and house in the route", () => {
+    const book = { photos: [LIVING, SITTING, TOWN, MODERN], houses: HOUSES, combinations: ALL };
+    const twoColours = { ...NO_FILTER, colours: 2 as const };
+    expect(gridPages(book, twoColours, "interior-2")).toEqual({ house: LIVING, pages: [HOUSE2] });
+    // A house the filter no longer keeps: each on its own again.
+    expect(ids(gridPages(book, twoColours, "exterior-3").pages)).toEqual(["p2", "p4"]);
+    expect(gridPages(book, twoColours, "exterior-3").house).toBeNull();
+
+    const filter = { kind: "EXTERIOR" as const, colours: 3 as const, families: ["blue", "beige"], query: " hv03 " };
+    const params = gridParams(filter, "house-k3x9q2mf");
+    expect(params).toEqual({ on: "house-k3x9q2mf", kind: "EXTERIOR", colours: "3", families: "blue,beige", q: "hv03" });
+    expect(filterFromParams(params)).toEqual({ ...filter, query: "hv03" });
+    expect(gridParams(NO_FILTER, null)).toEqual({});
+    // Whatever a link carries that isn't a filter is left as the whole book's.
+    expect(filterFromParams({ kind: "ROOF", colours: "4", families: "blue,teal", q: ["x", "y"] })).toEqual({ ...NO_FILTER, families: ["blue"], query: "x" });
   });
 
   it("paints a page small on each house, and shows the colour test's four by their own address", () => {

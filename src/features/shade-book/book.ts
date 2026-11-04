@@ -3,10 +3,11 @@ import { hexToRgb, luminance } from "@/lib/color";
 
 /**
  * The Shade Book's rules that need no phone. The reader narrows the book — exterior or interior,
- * two colours or three, the colour families a combination must have — picks a combination, and
- * sees it painted on every house with as many parts: the colour test's four photos and the
- * houses and rooms the team adds. The website keeps the same rules (lib/shade-book.ts), so the
- * two read alike.
+ * two colours or three, the colour families a combination must have — and sees every combination
+ * that fits painted on a house, in a grid: each on its own, or all on the one house chosen (the
+ * colour test's four photos and the houses and rooms the team adds). One opens large, on every
+ * house with as many parts. The website keeps the same rules (lib/shade-book.ts), so the two
+ * read alike.
  */
 
 /** Every photo the book paints on; an older server sends the colour test's four alone, as `photos`. */
@@ -98,9 +99,79 @@ export function housesFor(
   ];
 }
 
-/** The houses that fit the filter's kind and number of colours: what is shown while no combination is. */
+/** The houses that fit the filter's kind and number of colours: the ones the grid may be painted on. */
 export function housesWhere(houses: readonly ShadeBookPhoto[], filter: Pick<ShadeBookFilter, "kind" | "colours">): ShadeBookPhoto[] {
   return houses.filter((h) => (filter.kind === "ALL" || h.kind === filter.kind) && (!filter.colours || h.surfaces.length === filter.colours));
+}
+
+/**
+ * The house a page is shown on while the reader hasn't chosen one: its own photo — or, should
+ * that one have gone, the first other it fits.
+ */
+export function ownHouse(
+  page: Pick<ShadeBookPage, "photoId" | "scope" | "colours" | "shades">,
+  houses: readonly ShadeBookPhoto[],
+): ShadeBookPhoto | undefined {
+  return houses.find((h) => h.id === page.photoId) ?? housesFor(page, houses)[0];
+}
+
+/**
+ * The pages to paint on the one house the reader chose, the same photo for each: every one with
+ * as many colours as it has parts, whose colours sit right on it (housesFor's rule: a ceiling
+ * gets a light one) — those made on it first, then those made for its kind, then the rest, each
+ * in the book's order.
+ */
+export function pagesOn<P extends Pick<ShadeBookPage, "photoId" | "scope" | "colours" | "shades">>(pages: readonly P[], house: ShadeBookPhoto): P[] {
+  const fit = pages.filter((p) => p.colours === house.surfaces.length && ceilingSuits(p, house));
+  return [
+    ...fit.filter((p) => p.photoId === house.id),
+    ...fit.filter((p) => p.photoId !== house.id && p.scope === house.kind),
+    ...fit.filter((p) => p.photoId !== house.id && p.scope !== house.kind),
+  ];
+}
+
+/**
+ * The grid: the pages that fit the filter, on the house chosen for it — while the filter keeps
+ * that house — or each on its own. The Shade Book's screen and a picture opened from it read it
+ * alike, so Previous and Next step through what the reader was looking at.
+ */
+export function gridPages(
+  book: Pick<ShadeBook, "combinations" | "photos" | "houses">,
+  filter: ShadeBookFilter,
+  on: string | null | undefined,
+): { house: ShadeBookPhoto | null; pages: ShadeBookPage[] } {
+  const house = (on ? housesWhere(bookHouses(book), filter).find((h) => h.id === on) : undefined) ?? null;
+  const list = filterShadeBook(book.combinations, filter);
+  return { house, pages: house ? pagesOn(list, house) : list };
+}
+
+/** What the grid shows, as a picture's route params: the house it is on, and what differs from the whole book. */
+export function gridParams(filter: ShadeBookFilter, on: string | null): Record<string, string> {
+  const params: Record<string, string> = {};
+  if (on) params.on = on;
+  if (filter.kind !== "ALL") params.kind = filter.kind;
+  if (filter.colours) params.colours = String(filter.colours);
+  if (filter.families.length > 0) params.families = filter.families.join(",");
+  if (filter.query.trim()) params.q = filter.query.trim();
+  return params;
+}
+
+type Param = string | string[] | undefined;
+
+/** The filter a picture's route params carry; anything it can't read is left as the whole book's. */
+export function filterFromParams(params: { kind?: Param; colours?: Param; families?: Param; q?: Param }): ShadeBookFilter {
+  const one = (value: Param) => (Array.isArray(value) ? value[0] : value) ?? "";
+  const kind = one(params.kind);
+  const colours = Number(one(params.colours));
+  const known = new Set<string>(SHADE_FAMILIES.map((f) => f.id));
+  return {
+    kind: kind === "EXTERIOR" || kind === "INTERIOR" ? kind : "ALL",
+    colours: colours === 2 || colours === 3 ? colours : 0,
+    families: one(params.families)
+      .split(",")
+      .filter((f) => known.has(f)),
+    query: one(params.q),
+  };
 }
 
 /**
