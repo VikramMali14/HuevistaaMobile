@@ -101,7 +101,7 @@ const BUNGALOW: ShadeBook["photos"][number] = {
 };
 const HOUSES = [...PHOTOS, BUNGALOW];
 
-function page(id: string, photoId: string, title: string, codes: string[], families: string[], sample = false): ShadeBookPage {
+function page(id: string, photoId: string, title: string, codes: string[], hexes: string[], families: string[], sample = false): ShadeBookPage {
   const photo = PHOTOS.find((p) => p.id === photoId)!;
   return {
     id,
@@ -113,15 +113,15 @@ function page(id: string, photoId: string, title: string, codes: string[], famil
     shades: codes.map((code, i) => ({
       surfaceId: photo.surfaces[i]!.id,
       surfaceLabel: photo.surfaces[i]!.label,
-      shade: { hvCode: code, shadeCode: code, hexCode: "#C9B79C" },
+      shade: { hvCode: code, shadeCode: code, hexCode: hexes[i]! },
     })),
     families,
   };
 }
 
-const SAMPLE = page("s1", "exterior-3", "Pale beige with deep indigo blue", ["HV0348", "HV1102", "HV2210"], ["beige", "blue", "white"], true);
-const SECOND = page("p2", "exterior-2", "Off-white with sage green", ["HV0101", "HV0202"], ["white", "green"], true);
-const THIRD = page("p3", "exterior-3", "Cream with charcoal", ["HV0400", "HV0500", "HV0600"], ["beige", "grey", "orange"]);
+const SAMPLE = page("s1", "exterior-3", "Pale beige with deep indigo blue", ["HV0348", "HV1102", "HV2210"], ["#E8DCC8", "#4F4D5A", "#F4F2EC"], ["beige", "blue", "white"], true);
+const SECOND = page("p2", "exterior-2", "Off-white with sage green", ["HV0101", "HV0202"], ["#F4F2EC", "#7A8479"], ["white", "green"], true);
+const THIRD = page("p3", "exterior-3", "Cream with charcoal", ["HV0400", "HV0500", "HV0600"], ["#EFE6D2", "#3B3B3B", "#F3F1EB"], ["beige", "grey", "white"]);
 /** Every page of the book, open or not, by kind, colours and families: 239 in all. */
 const FACETS: ShadeBook["facets"] = [
   { scope: "EXTERIOR", colours: 3, families: ["white", "beige", "blue"], count: 40 },

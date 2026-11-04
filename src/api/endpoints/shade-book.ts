@@ -35,14 +35,18 @@ export function shadeBookPicturePath(
   return `/api/shade-book/${encodeURIComponent(page.id)}/image?size=${size}${on}`;
 }
 
+/** The colour test's four photos, which every server answers on their own address. */
+const COLOUR_TEST_PHOTOS = new Set(["interior-2", "interior-3", "exterior-2", "exterior-3"]);
+
 /**
  * A photo as it is, unpainted (public): the colour test's four by their own address, which every
- * server answers; a house the team added (its id always starts "house-") by the book's.
+ * server answers; the book's others — the sitting room's two walls, the houses the team added —
+ * by the book's.
  */
 export function shadeBookPhotoPath(photo: { id: string; version: string }): string {
   const id = encodeURIComponent(photo.id);
   const v = encodeURIComponent(photo.version);
-  return photo.id.startsWith("house-") ? `/api/shade-book/houses/${id}/photo?v=${v}` : `/api/colour-test/${id}/photo?v=${v}`;
+  return COLOUR_TEST_PHOTOS.has(photo.id) ? `/api/colour-test/${id}/photo?v=${v}` : `/api/shade-book/houses/${id}/photo?v=${v}`;
 }
 
 /** The picture to keep: the photo over every part's colour and Vista code. Needs the pass. */

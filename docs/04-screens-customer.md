@@ -1059,9 +1059,13 @@ a lost answer is safe: the server's call is idempotent.
 
 Every house. Combinations of our shades — two colours or three, for a house's outside or a
 room — each shown on every photo with as many parts as it has colours: the colour test's
-four (the living room and the sitting room, the town house and the modern house) and every
-house and room the team adds on the website (Admin → Shade Book → Houses: a photo, its parts
-drawn with the studio's mask tools, and what each part is). The team adds and removes
+four (the living room and the sitting room, the town house and the modern house), the sitting
+room with its two walls alone (`interior-2w`, its ceiling left as photographed — a room's two
+wall colours), and every house and room the team adds on the website (Admin → Shade Book →
+Houses: a photo with its parts drawn in the studio's mask tools, or one of the team's own rooms,
+cleaned and with its walls found the way any room is). A combination goes on a room whose
+ceiling it wasn't made for only when the colour that would go up there is light enough for a
+ceiling (LRV 60 or more). The team adds and removes
 combinations there too (Admin → Shade Book); the pictures are painted by the server, so the
 app, the website and a saved picture show the same colours. Older builds read `photos`, the
 colour test's four, and never see the team's houses.

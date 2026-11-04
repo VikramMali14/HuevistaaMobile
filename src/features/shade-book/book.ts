@@ -63,16 +63,34 @@ export function filterShadeBook(pages: readonly ShadeBookPage[], filter: ShadeBo
   );
 }
 
+/** The least a colour may reflect to go on a ceiling the combination wasn't made for (LRV 60): ceilings are light. */
+const CEILING_LIGHT = 0.6;
+
+/**
+ * Whether a page looks right on a photo with a ceiling: its own photo always does, and so does
+ * one it was made with a ceiling for; otherwise the colour that would go up there — the lightest
+ * left (partsOn) — must be light enough for a ceiling, or a room's accent wall would end up
+ * overhead.
+ */
+function ceilingSuits(page: Pick<ShadeBookPage, "photoId" | "shades">, house: Pick<ShadeBookPhoto, "id" | "surfaces">): boolean {
+  if (page.photoId === house.id) return true;
+  const at = house.surfaces.findIndex((s) => s.id === "ceiling");
+  if (at < 0 || page.shades.some((p) => p.surfaceId === "ceiling")) return true;
+  const hex = partsOn(page, house)?.[at]?.shade?.hexCode;
+  return !hex || luminance(hexToRgb(hex)) >= CEILING_LIGHT;
+}
+
 /**
  * The houses a page is shown on: every one with as many parts as it has colours — of the kind
- * asked for, when one is — its own photo first, then the others of its kind, then the rest.
+ * asked for, when one is, and where its colours sit right (a ceiling gets a light one) — its own
+ * photo first, then the others of its kind, then the rest.
  */
 export function housesFor(
-  page: Pick<ShadeBookPage, "photoId" | "scope" | "colours">,
+  page: Pick<ShadeBookPage, "photoId" | "scope" | "colours" | "shades">,
   houses: readonly ShadeBookPhoto[],
   kind: ShadeBookKind = "ALL",
 ): ShadeBookPhoto[] {
-  const fit = houses.filter((h) => h.surfaces.length === page.colours && (kind === "ALL" || h.kind === kind));
+  const fit = houses.filter((h) => h.surfaces.length === page.colours && (kind === "ALL" || h.kind === kind) && ceilingSuits(page, h));
   return [
     ...fit.filter((h) => h.id === page.photoId),
     ...fit.filter((h) => h.id !== page.photoId && h.kind === page.scope),

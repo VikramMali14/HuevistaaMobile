@@ -39,6 +39,8 @@ const MODERN = photo("exterior-3", "EXTERIOR", ["main-walls", "frame", "band"]);
 /** Houses the team added: a three-part bungalow and a two-part bedroom. */
 const BUNGALOW = photo("house-k3x9q2mf", "EXTERIOR", ["main-walls", "highlight-walls", "frame"]);
 const BEDROOM = photo("house-a1b2c3d4", "INTERIOR", ["main-walls", "feature-wall"]);
+/** The book's own: the sitting room with its two walls alone. */
+const TWO_WALLS = photo("interior-2w", "INTERIOR", ["main-walls", "feature-wall"]);
 const HOUSES = [LIVING, SITTING, TOWN, MODERN, BUNGALOW, BEDROOM];
 
 function page(id: string, on: ShadeBookPhoto, hexes: string[], codes: string[], title = "A combination", families: string[] = []): ShadeBookPage {
@@ -90,10 +92,22 @@ describe("choosing what to look at", () => {
     expect(ids(housesWhere(HOUSES, { kind: "EXTERIOR", colours: 3 }))).toEqual(["exterior-3", "house-k3x9q2mf"]);
   });
 
+  it("puts a room's two wall colours on a ceiling only when the lighter is light enough for one", () => {
+    const rooms = [LIVING, SITTING, TWO_WALLS, BEDROOM];
+    const greyBlue = page("w1", TWO_WALLS, ["#A7A3A5", "#3C5370"], ["HV3001", "HV3002"]);
+    expect(ids(housesFor(greyBlue, rooms))).toEqual(["interior-2w", "house-a1b2c3d4"]);
+    const whiteBlue = page("w2", TWO_WALLS, ["#F3F2EC", "#3C5370"], ["HV3003", "HV3002"]);
+    expect(ids(housesFor(whiteBlue, rooms))).toEqual(["interior-2w", "interior-2", "house-a1b2c3d4"]);
+    // An exterior scheme whose frame and band are deep stays off the sitting room's ceiling.
+    const deep = page("d1", MODERN, ["#B7B5B0", "#6A6E6B", "#4F4D5A"], ["HV4001", "HV4002", "HV4003"]);
+    expect(ids(housesFor(deep, HOUSES))).toEqual(["exterior-3", "house-k3x9q2mf"]);
+  });
+
   it("paints a page small on each house, and shows the colour test's four by their own address", () => {
     expect(shadeBookPicturePath(HOUSE3, BUNGALOW, "mini")).toBe("/api/shade-book/p1/image?size=mini&photo=house-k3x9q2mf&v=1");
     expect(shadeBookPhotoPath(LIVING)).toBe("/api/colour-test/interior-2/photo?v=1");
     expect(shadeBookPhotoPath(BEDROOM)).toBe("/api/shade-book/houses/house-a1b2c3d4/photo?v=1");
+    expect(shadeBookPhotoPath(TWO_WALLS)).toBe("/api/shade-book/houses/interior-2w/photo?v=1");
   });
 });
 
