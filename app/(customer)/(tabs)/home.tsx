@@ -17,6 +17,7 @@ import { givenName } from "@/features/account/display-name";
 import { useBalance } from "@/features/account/use-balance";
 import { HomeTiles } from "@/features/home/HomeTiles";
 import { HowItWorks } from "@/features/home/HowItWorks";
+import { NewLaunches } from "@/features/launches/NewLaunches";
 import { NextStepCard } from "@/features/home/NextStepCard";
 import { LibraryCard } from "@/features/library/LibraryCard";
 import { useLibrary } from "@/features/library/use-library";
@@ -38,7 +39,7 @@ function greeting(name: string | null): string {
 /**
  * C1 · Home. Spec: docs/04-screens-customer.md — C1.
  *
- * What this person holds and the one thing to do next, how the app works in three
+ * New launches from the makers first, then what this person holds and the one thing to do next, how the app works in three
  * pictures, their rooms, a picture tile for every other place they can go, then their
  * latest Vista image and the ready-made rooms. Laid out for somebody who may read slowly
  * or read little English: pictures, a few plain words, one big button. A first visit
@@ -74,6 +75,9 @@ export default function Home() {
           <Avatar name={givenName(profile)} />
         </Pressable>
       </View>
+
+      {/* Other makers' new products, first thing under the greeting; nothing when none is on. */}
+      <NewLaunches />
 
       {balance.loading ? (
         <View style={styles.chips}>

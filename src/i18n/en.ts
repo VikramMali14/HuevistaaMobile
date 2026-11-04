@@ -1142,6 +1142,8 @@ export const en = {
     help: "Help",
     helpSupport: "Help and support",
     questions: "Questions and answers",
+    reviewsQuestions: "Reviews & questions",
+    settingsGroup: "Settings",
     signIn: "Sign-in details",
     name: "Name",
     email: "Email",
@@ -1908,9 +1910,28 @@ export const en = {
     available: "Update available",
   },
   // Everyday words: "Rooms" is what the tab lists, "Colours" what the catalogue holds.
+  // The Paint tab's switch (C2): your rooms, their Vista images, our ready-made rooms.
+  paintTab: {
+    switchLabel: "Your rooms, Vista images or ready-made rooms",
+    rooms: "My rooms",
+    images: "Vista images",
+    ready: "Ready rooms",
+    imagesTitle: "Your Vista images",
+    imagesLead: "Real-looking photos of your rooms",
+    imagesEmpty: "No Vista images yet",
+    imagesEmptyBody: "Open a finished room and make a real-looking photo of it in your colours.",
+    imagesEmptyAction: "Go to my rooms",
+  },
+  // New launches on Home (C1): other makers' new products.
+  launches: {
+    title: "New launches",
+    note: "Partner promotions",
+    new: "New",
+    by: "by {maker}",
+  },
   tabs: {
     home: "Home",
-    studio: "Rooms",
+    studio: "Paint",
     catalogue: "Colours",
     boards: "Boards",
     account: "Account",
