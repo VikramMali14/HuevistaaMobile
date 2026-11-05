@@ -25,7 +25,7 @@ import {
   type WallColour,
 } from "@/features/studio/paint-store";
 import { shadeColour } from "@/features/studio/shade-colour";
-import { useDockSuggestions } from "@/features/studio/suggested-swatches";
+import { scopeOf, useDockSuggestions } from "@/features/studio/suggested-swatches";
 import { saveCombo, useTray } from "@/features/studio/tray-store";
 import { useColourReader } from "@/features/studio/use-colour-reader";
 import { markPainted, useRoom, wallsWithMasks } from "@/features/studio/use-room";
@@ -66,7 +66,7 @@ export default function Paint() {
   const wallIds = useMemo(() => walls.map((w) => String(w.id)), [walls]);
   const editable = Boolean(data && !data.readOnly && !data.closedAt);
   const recentCodes = useMemo(() => recent.map((r) => r.code), [recent]);
-  const suggested = useDockSuggestions(id, editable, recentCodes);
+  const suggested = useDockSuggestions(scopeOf(data?.imageType), editable, recentCodes);
 
   useEffect(() => {
     if (data) initRoom(id, data, wallIds, readColour);
