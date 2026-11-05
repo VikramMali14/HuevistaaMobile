@@ -1,17 +1,17 @@
 import Feather from "@expo/vector-icons/Feather";
 import { useEffect, useRef, useState } from "react";
-import { Keyboard, Linking, StyleSheet, View } from "react-native";
+import { Keyboard, Pressable, StyleSheet, View } from "react-native";
 
-import { nearbyApi, type NearbyPlace } from "@/api/endpoints/nearby";
+import { nearbyApi, type NearbyPlace, type WorkAreaState } from "@/api/endpoints/nearby";
 import { messageFor } from "@/api/errors";
-import { BackButton, Banner, Button, Card, Chip, ErrorState, Screen, Skeleton, Text, TextField } from "@/components/ui";
-import { alreadyAllowed, locate, type Located } from "@/features/nearby/locate";
-import { MAX_RESULTS, SEARCH_RADIUS_KM, placeLabel, searchPoint, type SearchPoint } from "@/features/nearby/nearby";
+import { BackButton, Banner, Button, Card, Chip, ErrorState, ListGroup, ListRow, Screen, Sheet, Skeleton, Text, TextField } from "@/components/ui";
+import { MAX_RESULTS, SEARCH_RADIUS_KM, inState, placeLabel, searchPoint, type SearchPoint } from "@/features/nearby/nearby";
 import { PainterCard, ShopCard } from "@/features/nearby/NearbyCards";
-import { useNearbyPainters, useNearbyShops, useWhere } from "@/features/nearby/use-nearby";
+import { useNearbyPainters, useNearbyShops, useWorkAreas } from "@/features/nearby/use-nearby";
+import { placeName } from "@/features/nearby/work-areas";
 import { t } from "@/i18n";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
-import { useTheme } from "@/theme";
+import { hairline, minTouch, useTheme } from "@/theme";
 
 export type NearbyKind = "painters" | "shops";
 
@@ -26,103 +26,132 @@ export type NearbyKind = "painters" | "shops";
  * "Find a shop near you".
  *
  * Who is listed within 50 km, nearest first — no distance to pick, as on the website: the
- * closest is at the top however far it is. Where the phone is gets asked only on a press —
- * or straight away when the customer already said yes — and is used for the search alone:
- * it lives in this screen and the in-memory cache, never written down, and leaves the phone
- * rounded to about 100 m. Only this screen's list is read for each point, and kept five
- * minutes: the lists share a small hourly allowance. A painter's number is asked for only
- * when Call is pressed, and each card says where the painter can go for a job. Painters
- * further off who said they work in the place the search is from come after, marked
- * "Works in your area"; the phone's own point is named ("Near …", GET /api/nearby/where,
- * asked to about a kilometre) as a typed place is.
+ * closest is at the top however far it is. Only this screen's list is read for each point, and
+ * kept five minutes: the lists share a small hourly allowance. A painter's number is asked for
+ * only when Call is pressed, and each card says where the painter can go for a job. Painters
+ * further off who said they work in the place the search is from come after, marked "Works in
+ * your area".
  *
- * Or a city, area or PIN code typed instead (GET /api/nearby/places) — for someone who
- * won't share where the phone is, or is finding a painter for a house they aren't in. The
- * likeliest place is searched at once and any others of that name are offered beside it.
+ * Asked the way a paint company's dealer locator asks it, as on the website: the state first,
+ * from a list (the work-areas catalogue, GET /api/nearby/work-areas), then the city, area or
+ * PIN code in it (GET /api/nearby/places, asked as "place, State"). The phone's location is not
+ * asked for. Only places in the chosen state are searched; a name found only in another state is
+ * offered, and choosing it moves the state to match. The likeliest place in the state is
+ * searched at once and any others of that name there are offered beside it. Should the list of
+ * states not load, the place box works on its own.
  *
  * `back`: the shops screen is pushed over the tabs, so it has a way back; the Painters tab
  * has none.
  */
 export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: boolean }) {
-  const { space, colors } = useTheme();
+  const { space, colors, radius } = useTheme();
   const tab = kind;
   const [point, setPoint] = useState<SearchPoint | null>(null);
-  const [locating, setLocating] = useState(false);
-  const [problem, setProblem] = useState<Exclude<Located, { kind: "fix" }> | null>(null);
+  /** The chosen state's work-areas code; null until one is chosen. */
+  const [stateCode, setStateCode] = useState<string | null>(null);
+  const [choosingState, setChoosingState] = useState(false);
   const [query, setQuery] = useState("");
   const [finding, setFinding] = useState(false);
   const [placeProblem, setPlaceProblem] = useState<string | null>(null);
-  /** The typed place being searched near — null when the point is the phone's own. */
+  /** The typed place being searched near. */
   const [place, setPlace] = useState<NearbyPlace | null>(null);
-  /** Every place the last typed name could mean, `place` among them. */
+  /** Every place in the state the last typed name could mean, `place` among them. */
   const [places, setPlaces] = useState<NearbyPlace[]>([]);
+  /** Places of that name found only in other states: offered, never searched on their own. */
+  const [elsewhere, setElsewhere] = useState<NearbyPlace[]>([]);
   const live = useRef(true);
-  // Set once a typed place is searched, so the fix the screen goes for by itself on arrival
-  // — which can land seconds later — neither replaces it nor reports its failure.
-  const placeChosen = useRef(false);
+  const workAreas = useWorkAreas();
+  const states: WorkAreaState[] = workAreas.data?.states ?? [];
+  const state = states.find((s) => s.code === stateCode) ?? null;
+  // Without the list (it failed to load) the box works on its own, as a search of all India.
+  const needsState = !(workAreas.isError && !workAreas.data);
   // Only this screen's list is asked for.
   const painters = useNearbyPainters(kind === "painters" ? point : null, SEARCH_RADIUS_KM);
   const shops = useNearbyShops(kind === "shops" ? point : null, SEARCH_RADIUS_KM);
-  // The phone's own point, named as a typed place is: "Near Kaiser Ganj Ajmer, Ajmer, Rajasthan".
-  const here = useWhere(point && !place ? point : null);
   const pull = usePullToRefresh(async () => {
     if (point) await (kind === "painters" ? painters.refetch() : shops.refetch());
   });
 
-  /** `onArrival`: the search the screen starts by itself, which gives way to a place typed meanwhile. */
-  const find = async (onArrival = false) => {
-    setLocating(true);
-    setProblem(null);
-    const where = await locate();
-    if (!live.current) return;
-    setLocating(false);
-    if (onArrival && placeChosen.current) return;
-    if (where.kind === "fix") {
-      setPoint(where.point);
-      setPlace(null);
-      setPlaces([]);
-    } else setProblem(where);
-  };
-
   const searchNear = (chosen: NearbyPlace) => {
     const at = searchPoint(chosen.latitude, chosen.longitude);
     if (!at) return;
-    placeChosen.current = true;
     setPoint(at);
     setPlace(chosen);
-    setProblem(null);
+  };
+
+  const chooseState = (code: string) => {
+    setChoosingState(false);
+    if (code === stateCode) return;
+    setStateCode(code);
+    // A new state is a new search: what was found in the last one no longer answers it.
+    setPoint(null);
+    setPlace(null);
+    setPlaces([]);
+    setElsewhere([]);
+    setPlaceProblem(null);
+  };
+
+  /** A place offered from another state: choosing it moves the state to it as well. */
+  const goElsewhere = (chosen: NearbyPlace) => {
+    const its = states.find((s) => inState(chosen, s));
+    if (its) setStateCode(its.code);
+    setPlaces([chosen]);
+    setElsewhere([]);
+    setPlaceProblem(null);
+    searchNear(chosen);
   };
 
   const findPlace = async () => {
     const typed = query.trim();
     Keyboard.dismiss();
-    if (!typed) {
-      setPlaceProblem(t("nearby.placeEmpty"));
+    if (needsState && !state) {
+      setPlaceProblem(t("nearby.stateFirst"));
       return;
     }
+    if (!typed) {
+      setPlaceProblem(state ? t("nearby.placeEmptyIn", { state: placeName(state) }) : t("nearby.placeEmpty"));
+      return;
+    }
+    const isPin = /^[\d\s\u0966-\u096F]+$/.test(typed);
     setFinding(true);
     setPlaceProblem(null);
     try {
-      const found = await nearbyApi.places(typed);
+      // "Kothrud, Maharashtra": the server narrows a name by what follows the comma. A PIN is
+      // already one place, and is asked for alone.
+      const found = await nearbyApi.places(state && !isPin && !typed.includes(",") ? `${typed}, ${state.name}` : typed);
       if (!live.current) return;
-      setPlaces(found);
-      if (found.length > 0) searchNear(found[0]!);
-      else setPlaceProblem(/^[\d\s\u0966-\u096F]+$/.test(typed) ? t("nearby.pinNotFound", { pin: typed }) : t("nearby.placeNotFound", { place: typed }));
+      const ours = state ? found.filter((p) => inState(p, state)) : found;
+      setPlaces(ours);
+      setElsewhere(state ? found.filter((p) => !inState(p, state)) : []);
+      if (ours.length > 0) searchNear(ours[0]!);
+      else {
+        setPoint(null);
+        setPlace(null);
+        const where = state ? placeName(state) : "";
+        setPlaceProblem(
+          found.length > 0 && state
+            ? isPin
+              ? t("nearby.pinElsewhere", { pin: typed, state: where })
+              : t("nearby.placeNotIn", { place: typed, state: where })
+            : isPin
+              ? t("nearby.pinNotFound", { pin: typed })
+              : state
+                ? t("nearby.placeNotIn", { place: typed, state: where })
+                : t("nearby.placeNotFound", { place: typed }),
+        );
+      }
     } catch (err) {
       if (!live.current) return;
       setPlaces([]);
+      setElsewhere([]);
       setPlaceProblem(messageFor(err, t("nearby.placeFailed")));
     } finally {
       if (live.current) setFinding(false);
     }
   };
 
-  // A customer who already let HueVistaa use the location needn't be asked to press for it.
   useEffect(() => {
     live.current = true;
-    void alreadyAllowed().then((yes) => {
-      if (yes && live.current) void find(true);
-    });
     return () => {
       live.current = false;
     };
@@ -140,18 +169,8 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
           <Feather name={kind === "painters" ? "map-pin" : "shopping-bag"} size={26} color={colors.accentText} />
           <Text variant="title3">{tab === "painters" ? t("nearby.findPainter") : t("nearby.findShop")}</Text>
           <Text variant="body" tone="soft">
-            {t("nearby.why")}
+            {needsState ? t("nearby.why") : t("nearby.whyPlaceOnly")}
           </Text>
-          {problem ? (
-            <Banner tone="warning" message={problemMessage(problem)} testID="nearby-problem">
-              {problem.kind === "denied" && problem.settings ? (
-                <Button variant="ghost" block={false} label={t("nearby.openSettings")} onPress={() => void Linking.openSettings()} />
-              ) : null}
-            </Banner>
-          ) : null}
-          {problem?.kind === "denied" && problem.settings ? null : (
-            <Button icon="crosshair" label={locating ? t("nearby.finding") : t("nearby.useLocation")} loading={locating} onPress={() => void find()} testID="nearby-locate" />
-          )}
         </View>
       </Card>
     );
@@ -213,11 +232,38 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
       </View>
 
       <View style={{ gap: space.sm }}>
+        {needsState ? (
+          <View style={{ gap: 8 }}>
+            <Text variant="fieldLabel">{t("nearby.stateField")}</Text>
+            <Pressable
+              onPress={() => setChoosingState(true)}
+              disabled={!workAreas.data}
+              accessibilityRole="button"
+              accessibilityLabel={`${t("nearby.stateField")}: ${state ? placeName(state) : t("nearby.stateChoose")}`}
+              style={({ pressed }) => [
+                styles.select,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.ruleStrong,
+                  borderRadius: radius.md,
+                  opacity: workAreas.data ? (pressed ? 0.8 : 1) : 0.55,
+                },
+              ]}
+              testID="nearby-state"
+            >
+              <Text variant="body" tone={state ? undefined : "mute"} style={styles.fill}>
+                {state ? placeName(state) : workAreas.data ? t("nearby.stateChoose") : t("nearby.stateLoading")}
+              </Text>
+              <Feather name="chevron-down" size={20} color={colors.fgMute} />
+            </Pressable>
+          </View>
+        ) : null}
         <View style={[styles.row, styles.bottom, { gap: space.sm }]}>
           <View style={styles.fill}>
             <TextField
               label={t("nearby.placeField")}
-              placeholder={t("nearby.placePlaceholder")}
+              placeholder={state ? t("nearby.placePlaceholderIn", { state: placeName(state) }) : needsState ? t("nearby.stateFirst") : t("nearby.placePlaceholder")}
+              editable={!needsState || state !== null}
               value={query}
               onChangeText={(next) => {
                 setQuery(next);
@@ -231,13 +277,26 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
               testID="nearby-place"
             />
           </View>
-          <Button variant="secondary" block={false} label={t("nearby.placeSearch")} loading={finding} onPress={() => void findPlace()} testID="nearby-place-search" />
+          <Button
+            variant="secondary"
+            block={false}
+            label={t("nearby.placeSearch")}
+            loading={finding}
+            disabled={needsState && !state}
+            onPress={() => void findPlace()}
+            testID="nearby-place-search"
+          />
         </View>
         {placeProblem ? <Banner tone="warning" message={placeProblem} testID="nearby-place-problem" /> : null}
-        {!place && point && here.data?.name ? (
-          <Text variant="body" tone="soft" accessibilityLiveRegion="polite" testID="nearby-here">
-            {t("nearby.near", { place: here.data.name })}
-          </Text>
+        {!place && elsewhere.length > 0 ? (
+          <View style={[styles.row, styles.wrap, { gap: space.xs }]} testID="nearby-elsewhere">
+            <Text variant="small" tone="mute">
+              {t("nearby.otherState")}
+            </Text>
+            {elsewhere.map((p, i) => (
+              <Chip key={`${p.name}|${p.region}|${p.latitude},${p.longitude}`} label={placeLabel(p)} selected={false} onPress={() => goElsewhere(p)} testID={`nearby-elsewhere-${i}`} />
+            ))}
+          </View>
         ) : null}
         {place ? (
           <View style={{ gap: space.xs }} accessibilityLiveRegion="polite" testID="nearby-near">
@@ -258,25 +317,9 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
         ) : null}
       </View>
 
-      <View style={{ gap: space.xs }}>
-        <View style={[styles.row, { gap: space.sm }]}>
-          <Text variant="fieldLabel" style={styles.fill} testID="nearby-within">
-            {t("nearby.withinFixed", { km: SEARCH_RADIUS_KM })}
-          </Text>
-          {point ? (
-            <Button
-              variant="ghost"
-              block={false}
-              icon="crosshair"
-              label={locating ? t("nearby.finding") : place ? t("nearby.useLocation") : t("nearby.updateLocation")}
-              loading={locating}
-              onPress={() => void find()}
-              testID="nearby-relocate"
-            />
-          ) : null}
-        </View>
-        {point && problem ? <Banner tone="warning" message={problemMessage(problem)} testID="nearby-problem" /> : null}
-      </View>
+      <Text variant="fieldLabel" testID="nearby-within">
+        {t("nearby.withinFixed", { km: SEARCH_RADIUS_KM })}
+      </Text>
 
       {body}
 
@@ -287,19 +330,22 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
           {t("nearby.placeCredit")}
         </Text>
       ) : null}
+
+      <Sheet visible={choosingState} onClose={() => setChoosingState(false)} title={t("nearby.stateSheet")} testID="nearby-state-sheet">
+        <ListGroup>
+          {states.map((s) => (
+            <ListRow
+              key={s.code}
+              title={placeName(s)}
+              value={s.code === stateCode ? t("nearby.stateChosen") : undefined}
+              onPress={() => chooseState(s.code)}
+              testID={`nearby-state-${s.code}`}
+            />
+          ))}
+        </ListGroup>
+      </Sheet>
     </Screen>
   );
-}
-
-function problemMessage(problem: Exclude<Located, { kind: "fix" }>): string {
-  switch (problem.kind) {
-    case "denied":
-      return problem.settings ? t("nearby.deniedSettings") : t("nearby.denied");
-    case "off":
-      return t("nearby.off");
-    default:
-      return t("nearby.failed");
-  }
 }
 
 const styles = StyleSheet.create({
@@ -308,4 +354,6 @@ const styles = StyleSheet.create({
   bottom: { alignItems: "flex-end" },
   wrap: { flexWrap: "wrap" },
   fill: { flex: 1 },
+  // A box like TextField's, that opens the list of states.
+  select: { minHeight: 52, minWidth: minTouch, flexDirection: "row", alignItems: "center", gap: 8, borderWidth: hairline, paddingHorizontal: 14 },
 });

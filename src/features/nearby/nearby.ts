@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 
-import type { NearbyPlace, NearbyShop } from "@/api/endpoints/nearby";
+import type { NearbyPlace, NearbyShop, WorkAreaState } from "@/api/endpoints/nearby";
 import { t } from "@/i18n";
 
 /**
@@ -90,6 +90,18 @@ export function directionsHref(latitude: number, longitude: number, os: string =
  * Maharashtra · 411038", or "PIN 411038 · Pune, Maharashtra" — enough to see it is the
  * place meant, and not the other one of that name. As the website's placeLabel.
  */
+/**
+ * Whether a place the server found is in this state. A place's region ends with its state —
+ * "Pune, Maharashtra" for a locality, "Maharashtra" for a town — spelt as the work-areas
+ * catalogue spells it. Compared without case or spacing. The website's lib/nearby.ts inState.
+ */
+export function inState(place: Pick<NearbyPlace, "region">, state: Pick<WorkAreaState, "name">): boolean {
+  const region = place.region ?? "";
+  const last = region.slice(region.lastIndexOf(",") + 1);
+  const norm = (v: string) => v.toLowerCase().replace(/[^a-z]/g, "");
+  return norm(last) !== "" && norm(last) === norm(state.name);
+}
+
 export function placeLabel(place: Pick<NearbyPlace, "name" | "region" | "pincode">): string {
   const region = place.region?.trim();
   if (place.pincode && place.name === place.pincode) {

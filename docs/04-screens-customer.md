@@ -967,7 +967,7 @@ Shown only to shop customers.
 **Routes** `(tabs)/nearby.tsx` (C32, the **Painters** tab) and `shops.tsx` (C36, pushed over
 the tabs, with a way back — from its tile on Home, from Account, and a shade's **Find a shop
 near you**) · both `features/nearby/NearbySearch.tsx` · **Phase** 7 · **Web reference**
-`components/app/nearby-finder.tsx` (its `only` mode), `lib/geolocation.ts`, `lib/nearby.ts`
+`components/app/nearby-finder.tsx` (its `only` mode), `lib/nearby.ts`
 
 Who will paint it and where to buy the paint are two different jobs, so they are two places,
 each with one list — never both behind a switch. An old `/nearby?tab=shops` link lands on C36.
@@ -976,9 +976,7 @@ each with one list — never both behind a switch. An old `/nearby?tab=shops` li
 further off who said they work in the place the search is from (its division, its state, or
 anywhere in India) come after the nearby ones, marked **Works in your area**
 (`worksInYourArea`) — and shops the same way, those further off that serve the place marked
-**Serves your area** (`servesYourArea`). A search from the phone's own location names it, as a typed place is
-("Near Belagavi Camp, Belagavi, Karnataka" — `GET /api/nearby/where`, asked to about a
-kilometre).
+**Serves your area** (`servesYourArea`).
 - **Painter row:** the painter's card — photo (`photoUrl`, public while they're listed),
   name and address — where they can go for a job ("Works in Ajmer, Jaipur (Rajasthan) ·
   Gujarat", or "Works anywhere in India"; the codes in `workAreas`, named by
@@ -991,22 +989,20 @@ kilometre).
   Gujarat" — `serviceAreas`, chosen on the website, named like a painter's), and **Serves your
   area** when that takes in the customer's place · **Call** · **Directions** (opens Maps).
 
-**Location:** ask with a reason first ("To find painters and shops near you"). Denied →
-"Turn on location to search near you" + **Open settings** — and the place search below
-still works without it.
-
-**Or type a place:** a **City, area or PIN code** field with **Search**, for someone who won't share the location or is looking for a house they
-aren't in. `GET /api/nearby/places?q=` turns it into the point the searches take.
+**State, then place** — the way a paint company's dealer locator asks: a **State** box first,
+which opens the list of states (`GET /api/nearby/work-areas`, the list painters and shops chose
+their areas from), then a **City, area or PIN code** field with **Search**, which waits for a
+state. The phone's location is not asked for. If the list of states can't be read, the place
+field works on its own.
 
 **API:** `GET /api/nearby/painters?lat&lon&radiusKm=50` · `GET /api/nearby/shops?lat&lon&radiusKm=50` ·
-`GET /api/nearby/places?q` · `GET /api/nearby/work-areas` (the names of the places painters
-work in, read once a day at most) · `GET /api/nearby/where?lat&lon` (the place a point is in).
+`GET /api/nearby/places?q` · `GET /api/nearby/work-areas` (the states, and the names of the
+places painters work in, read once a day at most).
 
-**As built:** location is asked for only on **Use my location** (a card that says why,
-and that it's used for this search only); when it was allowed before, the search starts
-by itself. The position is rounded to about 100 m before it leaves the phone. A recent
-fix is used first, then a fresh one with a 15 s limit. Refused for good → **Open
-settings**; location off or no fix → said, and **Use my location** tries again.
+**As built:** nothing is searched until a state is chosen and a place typed in it. The place is
+asked for as "place, State" (`/api/nearby/places` narrows by what follows the comma; a PIN is
+asked for alone), and only places in the chosen state are searched. The point is rounded to
+about 100 m before it leaves the phone. Choosing another state clears the list.
 
 - **Painters:** the district and state they're based in under the name (`place`), never a
   distance or a record of jobs and reviews. **Call** asks for the number once (each one counts against 20 a day), dials it,
@@ -1024,12 +1020,12 @@ settings**; location off or no fix → said, and **Use my location** tries again
 - The painter's P5 preview shows their own card as customers see it.
 - **A typed place:** a PIN (Hindi digits too), a city by any of its names — Bangalore,
   Belgaum, or पुणे / मुंबई in Devanagari for most big cities — or an area (Kothrud). The
-  likeliest is searched at once and "Near Kothrud, Pune, Maharashtra · 411038" says
-  where; others of the same name are offered as chips under **Did you mean**. Nothing
-  found → said under the field, and nothing is searched. The phone's own location is
-  then one press away (**Use my location** beside "Within 50 km"), and a fix the screen went
-  for by itself on arrival never replaces a place typed meanwhile. India Post and
-  GeoNames are credited under the list, as their licences ask.
+  likeliest in the state is searched at once and "Near Kothrud, Pune, Maharashtra · 411038"
+  says where; others of the same name in the state are offered as chips under **Did you
+  mean**. Found only in another state → said ("The PIN code 590001 is not in Maharashtra"),
+  nothing is searched, and the place is offered under **Found in another state** — choosing
+  it moves the State box to match. Nothing found → said under the field, and nothing is
+  searched. India Post and GeoNames are credited under the list, as their licences ask.
 
 ### C33 · Work as a painter
 
