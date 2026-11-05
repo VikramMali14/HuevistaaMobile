@@ -2,7 +2,7 @@ import Feather from "@expo/vector-icons/Feather";
 import { useEffect, useRef, useState } from "react";
 import { Keyboard, Pressable, StyleSheet, View } from "react-native";
 
-import { nearbyApi, type NearbyPlace, type WorkAreaState } from "@/api/endpoints/nearby";
+import { nearbyApi, type NearbyPlace, type NearbySearch as Scope, type WorkAreaState } from "@/api/endpoints/nearby";
 import { messageFor } from "@/api/errors";
 import { BackButton, Banner, Button, Card, Chip, ErrorState, ListGroup, ListRow, Pill, Screen, Sheet, Skeleton, Text, TextField } from "@/components/ui";
 import { MAX_RESULTS, SEARCH_RADIUS_KM, inState, placeLabel, searchPoint, type SearchPoint } from "@/features/nearby/nearby";
@@ -33,8 +33,9 @@ export type NearbyKind = "painters" | "shops";
  * your area".
  *
  * Asked the way a paint company's dealer locator asks it, as on the website: the state first,
- * from a list (the work-areas catalogue, GET /api/nearby/work-areas), then the city, area or
- * PIN code in it (GET /api/nearby/places, asked as "place, State"). The phone's location is not
+ * from a list (the work-areas catalogue, GET /api/nearby/work-areas) — searched at once, all of
+ * it, with no distance limit (`?state=`) — then, if wanted, the city, area or PIN code in it,
+ * which narrows the list to that city (GET /api/nearby/places, asked as "place, State"). The phone's location is not
  * asked for. Only places in the chosen state are searched; a name found only in another state is
  * offered, and choosing it moves the state to match. The likeliest place in the state is
  * searched at once and any others of that name there are offered beside it. Should the list of
@@ -65,11 +66,18 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
   const state = states.find((s) => s.code === stateCode) ?? null;
   // Without the list (it failed to load) the box works on its own, as a search of all India.
   const needsState = !(workAreas.isError && !workAreas.data);
+  // A state chosen is searched at once, all of it, with no distance limit; a city typed in it
+  // narrows it to that city. Without the list of states, a place by distance as before.
+  const scope: Scope | null = state
+    ? { state: state.code, ...(point ? { lat: point.lat, lon: point.lon } : {}) }
+    : point
+      ? { lat: point.lat, lon: point.lon, radiusKm: SEARCH_RADIUS_KM }
+      : null;
   // Only this screen's list is asked for.
-  const painters = useNearbyPainters(kind === "painters" ? point : null, SEARCH_RADIUS_KM);
-  const shops = useNearbyShops(kind === "shops" ? point : null, SEARCH_RADIUS_KM);
+  const painters = useNearbyPainters(kind === "painters" ? scope : null);
+  const shops = useNearbyShops(kind === "shops" ? scope : null);
   const pull = usePullToRefresh(async () => {
-    if (point) await (kind === "painters" ? painters.refetch() : shops.refetch());
+    if (scope) await (kind === "painters" ? painters.refetch() : shops.refetch());
   });
 
   const searchNear = (chosen: NearbyPlace) => {
@@ -109,7 +117,14 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
       return;
     }
     if (!typed) {
-      setPlaceProblem(state ? t("nearby.placeEmptyIn", { state: placeName(state) }) : t("nearby.placeEmpty"));
+      // No city: the whole state.
+      if (state) {
+        setPoint(null);
+        setPlace(null);
+        setPlaces([]);
+        setElsewhere([]);
+        setPlaceProblem(null);
+      } else setPlaceProblem(t("nearby.placeEmpty"));
       return;
     }
     const isPin = /^[\d\s\u0966-\u096F]+$/.test(typed);
@@ -159,11 +174,17 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
 
   const list = tab === "painters" ? painters : shops;
   /** The place as a short name for a sentence: a PIN's town ("Belagavi"), or the place typed ("Kothrud"). */
-  const where = place ? (place.pincode && place.name === place.pincode ? place.region?.split(",")[0]?.trim() || place.name : place.name) : null;
+  const where = place
+    ? place.pincode && place.name === place.pincode
+      ? place.region?.split(",")[0]?.trim() || place.name
+      : place.name
+    : state
+      ? placeName(state)
+      : null;
   const otherPlaces = place ? places.filter((p) => p !== place) : [];
 
   let body: React.ReactNode;
-  if (!point) {
+  if (!scope) {
     body = (
       <Card>
         <View style={{ gap: space.sm }} testID="nearby-ask">
@@ -212,7 +233,7 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
         {tab === "painters"
           ? painters.data?.map((p) => <PainterCard key={p.id} painter={p} />)
           : shops.data?.map((s) => <ShopCard key={s.id} shop={s} />)}
-        {list.data.length >= MAX_RESULTS ? (
+        {point && list.data.length >= MAX_RESULTS ? (
           <Text variant="small" tone="mute">
             {t("nearby.nearest50")}
           </Text>
@@ -225,7 +246,7 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
     <Screen
       scroll
       edges={back ? undefined : ["top"]}
-      onRefresh={point ? pull.onRefresh : undefined}
+      onRefresh={scope ? pull.onRefresh : undefined}
       refreshing={pull.refreshing}
       contentStyle={{ gap: space.lg, paddingBottom: space.xl }}
     >
@@ -270,7 +291,7 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
         <View style={[styles.row, styles.bottom, { gap: space.sm }]}>
           <View style={styles.fill}>
             <TextField
-              label={t("nearby.placeField")}
+              label={needsState ? t("nearby.placeFieldOptional") : t("nearby.placeField")}
               placeholder={state ? t("nearby.placePlaceholderIn", { state: placeName(state) }) : needsState ? t("nearby.stateFirst") : t("nearby.placePlaceholder")}
               editable={!needsState || state !== null}
               value={query}
@@ -307,10 +328,15 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
             ))}
           </View>
         ) : null}
+        {state && !place ? (
+          <Text variant="body" tone="soft" accessibilityLiveRegion="polite" testID="nearby-all-of">
+            {t("nearby.allOf", { state: placeName(state) })}
+          </Text>
+        ) : null}
         {place ? (
           <View style={{ gap: space.xs }} accessibilityLiveRegion="polite" testID="nearby-near">
             <Text variant="body" tone="soft">
-              {t("nearby.near", { place: placeLabel(place) })}
+              {t(state ? "nearby.in" : "nearby.near", { place: placeLabel(place) })}
             </Text>
             {otherPlaces.length > 0 ? (
               <View style={[styles.row, styles.wrap, { gap: space.xs }]}>

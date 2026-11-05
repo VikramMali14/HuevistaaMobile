@@ -37,7 +37,8 @@ export interface NearbyPainter {
   /** HueVistaa Certified — only certified painters are listed, so true on every result. */
   certified?: boolean;
   /** To the painter's position as stored — what the list is ordered by. No longer shown: the card says `place`. */
-  distanceKm: number;
+  /** Null for a search across a whole state, which is from no point. */
+  distanceKm: number | null;
   /**
    * Where the painter is based, to the district: "Jaipur, Rajasthan", "South Delhi" — or the state
    * alone. Shown instead of a distance. Null when the server can't tell; absent from older servers.
@@ -74,7 +75,8 @@ export interface NearbyShop {
   /** The shop's own pin, given for directions. */
   latitude: number;
   longitude: number;
-  distanceKm: number;
+  /** Null for a search across a whole state, which is from no point. */
+  distanceKm: number | null;
   /**
    * Where the shop is, to the district, from its pin: "Belagavi, Karnataka", "South Delhi" — or the
    * state alone. Null when the server can't tell; absent from older servers.
@@ -162,19 +164,28 @@ export interface WorkAreas {
   states: WorkAreaState[];
 }
 
+/**
+ * Where a search looks: a state (a work-areas code, "MH") — all of it, with no distance limit, or
+ * with a city's point, that city — or, should the list of states not load, a point and a radius.
+ */
 export interface NearbySearch {
-  lat: number;
-  lon: number;
-  radiusKm: number;
+  state?: string;
+  lat?: number;
+  lon?: number;
+  radiusKm?: number;
 }
 
 export const nearbyApi = {
-  /** 400 for a point that can't be right (or 0,0) and a radius outside 1–50 km (left out, 50). */
-  painters: ({ lat, lon, radiusKm }: NearbySearch) =>
-    api.request<NearbyPainter[]>("api/nearby/painters", { query: { lat, lon, radiusKm } }),
+  /**
+   * With a state: all of it, or the city at lat/lon in it, with no distance limit. Without, a
+   * point and a radius. 400 for a state not on the list, a point that can't be right, or a radius
+   * outside 1–50 km.
+   */
+  painters: ({ state, lat, lon, radiusKm }: NearbySearch) =>
+    api.request<NearbyPainter[]>("api/nearby/painters", { query: { state, lat, lon, radiusKm } }),
 
-  shops: ({ lat, lon, radiusKm }: NearbySearch) =>
-    api.request<NearbyShop[]>("api/nearby/shops", { query: { lat, lon, radiusKm } }),
+  shops: ({ state, lat, lon, radiusKm }: NearbySearch) =>
+    api.request<NearbyShop[]>("api/nearby/shops", { query: { state, lat, lon, radiusKm } }),
 
   /**
    * One painter's number, only when the customer asks for it, so the list can't be walked

@@ -39,8 +39,8 @@ export function searchPoint(latitude: number, longitude: number): SearchPoint | 
  * "2.4 km away", "18 km away", "400 m away" — how far a shop is, from its exact pin. A painter's
  * card says the district and state they're based in instead (`place`).
  */
-export function distanceLabel(km: number): string {
-  if (!Number.isFinite(km) || km < 0) return "";
+export function distanceLabel(km: number | null | undefined): string {
+  if (km === null || km === undefined || !Number.isFinite(km) || km < 0) return "";
   if (km < 1) return t("nearby.metresAway", { m: Math.max(100, Math.round(km * 10) * 100) });
   if (km < 10) return t("nearby.kmAway", { km: km.toFixed(1) });
   return t("nearby.kmAway", { km: Math.round(km).toLocaleString("en-IN") });

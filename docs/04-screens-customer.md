@@ -991,11 +991,16 @@ anywhere in India) come after the nearby ones, marked **Works in your area**
 
 **State, then place** — the way a paint company's dealer locator asks: a **State** box first,
 which opens the list of states (`GET /api/nearby/work-areas`, the list painters and shops chose
-their areas from), then a **City, area or PIN code** field with **Search**, which waits for a
-state. The phone's location is not asked for. If the list of states can't be read, the place
+their areas from). Choosing one searches all of it at once, with no distance limit ("In all of
+Maharashtra" — `GET /api/nearby/painters?state=MH`, every painter based in the state in order
+of district, then those from further off who work in it). Then, if wanted, a **City, area or
+PIN code (optional)** field with **Search** narrows it to that city ("In Kothrud, Pune,
+Maharashtra" — `?state=MH&lat&lon`, those based in its district, nearest first); Search with the
+field empty is the whole state again. The phone's location is not asked for. If the list of states can't be read, the place
 field works on its own.
 
-**API:** `GET /api/nearby/painters?lat&lon&radiusKm=50` · `GET /api/nearby/shops?lat&lon&radiusKm=50` ·
+**API:** `GET /api/nearby/painters?state[&lat&lon]` · `GET /api/nearby/shops?state[&lat&lon]` (by
+distance, `?lat&lon&radiusKm=50`, only when the list of states can't be read) ·
 `GET /api/nearby/places?q` · `GET /api/nearby/work-areas` (the states, and the names of the
 places painters work in, read once a day at most).
 
