@@ -61,8 +61,10 @@ export const keys = {
   sharedBrands: (token: string) => ["share", token, "brands"] as const,
   sharedShades: (token: string, brandSlug: string) => ["share", token, "shades", brandSlug] as const,
   /** C32: a search, by its point and distance (memory only — nothing here is written down). */
-  nearbyPainters: (lat: number, lon: number, radiusKm: number) => ["nearby", "painters", lat, lon, radiusKm] as const,
-  nearbyShops: (lat: number, lon: number, radiusKm: number) => ["nearby", "shops", lat, lon, radiusKm] as const,
+  nearbyPainters: (s: { state?: string; lat?: number; lon?: number; radiusKm?: number }) =>
+    ["nearby", "painters", s.state ?? null, s.lat ?? null, s.lon ?? null, s.radiusKm ?? null] as const,
+  nearbyShops: (s: { state?: string; lat?: number; lon?: number; radiusKm?: number }) =>
+    ["nearby", "shops", s.state ?? null, s.lat ?? null, s.lon ?? null, s.radiusKm ?? null] as const,
   /** C32: a painter's number once asked for — kept for the session so it's never asked twice. */
   nearbyPhone: (painterId: string) => ["nearby", "phone", painterId] as const,
   /** The names of the places painters say they work in — the same for everybody. */

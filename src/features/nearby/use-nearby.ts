@@ -1,10 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { isApiError } from "@/api/errors";
-import { nearbyApi } from "@/api/endpoints/nearby";
+import { nearbyApi, type NearbySearch } from "@/api/endpoints/nearby";
 import { keys } from "@/api/query-keys";
-
-import type { SearchPoint } from "./nearby";
 
 /**
  * The searches spend a small shared allowance (60 an hour for both lists together), so
@@ -19,20 +17,20 @@ const SEARCH = {
   retry: (failures: number, err: unknown) => failures < 1 && isApiError(err) && err.kind !== "http",
 } as const;
 
-export function useNearbyPainters(point: SearchPoint | null, radiusKm: number) {
+export function useNearbyPainters(search: NearbySearch | null) {
   return useQuery({
-    queryKey: keys.nearbyPainters(point?.lat ?? 0, point?.lon ?? 0, radiusKm),
-    queryFn: () => nearbyApi.painters({ lat: point!.lat, lon: point!.lon, radiusKm }),
-    enabled: point !== null,
+    queryKey: keys.nearbyPainters(search ?? {}),
+    queryFn: () => nearbyApi.painters(search!),
+    enabled: search !== null,
     ...SEARCH,
   });
 }
 
-export function useNearbyShops(point: SearchPoint | null, radiusKm: number) {
+export function useNearbyShops(search: NearbySearch | null) {
   return useQuery({
-    queryKey: keys.nearbyShops(point?.lat ?? 0, point?.lon ?? 0, radiusKm),
-    queryFn: () => nearbyApi.shops({ lat: point!.lat, lon: point!.lon, radiusKm }),
-    enabled: point !== null,
+    queryKey: keys.nearbyShops(search ?? {}),
+    queryFn: () => nearbyApi.shops(search!),
+    enabled: search !== null,
     ...SEARCH,
   });
 }
