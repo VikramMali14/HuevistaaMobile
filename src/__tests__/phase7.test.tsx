@@ -450,19 +450,29 @@ describe("C32 · Find a painter, and C36 · Find a paint shop", () => {
     }
   });
 
-  // No distance to pick, as on the website: always 50 km, nearest first — nothing wider to offer.
-  it("searches the whole 50 km with no distance to pick", async () => {
+  // No distance to pick or shown, as on the website — and nobody listed there yet is "Coming soon".
+  it("names no distance, and says painters are coming soon to the place when none is listed", async () => {
     signedInAs("CUSTOMER");
     mockNearby.painters.mockResolvedValue([]);
     mockNearby.shops.mockResolvedValue([]);
     renderRouter("./app", { initialUrl: "/nearby" });
-    await waitFor(() => expect(screen.getByTestId("nearby-within")).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId("nearby-state")).toBeTruthy());
     expect(screen.queryByTestId("radius-10")).toBeNull();
+    expect(screen.queryByTestId("nearby-within")).toBeNull();
     await searchBelagavi();
-    await waitFor(() => expect(screen.getByText("No painters listed within 50 km yet.")).toBeTruthy());
-    expect(screen.getByTestId("nearby-within")).toHaveTextContent("Within 50 km, nearest first");
-    expect(screen.queryByTestId("nearby-further")).toBeNull();
+    await waitFor(() => expect(screen.getByTestId("nearby-coming-soon")).toHaveTextContent("Coming soon"));
+    expect(screen.getByText("Painters in Belagavi are coming soon.")).toBeTruthy();
+    expect(screen.queryByText(/\bkm\b/)).toBeNull();
     expect(mockNearby.painters).toHaveBeenCalledTimes(1);
+  });
+
+  it("says paint shops are coming soon to a typed town", async () => {
+    signedInAs("CUSTOMER");
+    mockNearby.places.mockResolvedValue([AURANGABAD_BR]);
+    mockNearby.shops.mockResolvedValue([]);
+    renderRouter("./app", { initialUrl: "/shops" });
+    await searchFor("Aurangabad", "BR");
+    await waitFor(() => expect(screen.getByText("Paint shops in Aurangabad are coming soon.")).toBeTruthy());
   });
 
   // Where each painter can go for a job, named by the server's catalogue; nothing when they haven't said.

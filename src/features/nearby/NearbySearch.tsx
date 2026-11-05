@@ -4,7 +4,7 @@ import { Keyboard, Pressable, StyleSheet, View } from "react-native";
 
 import { nearbyApi, type NearbyPlace, type WorkAreaState } from "@/api/endpoints/nearby";
 import { messageFor } from "@/api/errors";
-import { BackButton, Banner, Button, Card, Chip, ErrorState, ListGroup, ListRow, Screen, Sheet, Skeleton, Text, TextField } from "@/components/ui";
+import { BackButton, Banner, Button, Card, Chip, ErrorState, ListGroup, ListRow, Pill, Screen, Sheet, Skeleton, Text, TextField } from "@/components/ui";
 import { MAX_RESULTS, SEARCH_RADIUS_KM, inState, placeLabel, searchPoint, type SearchPoint } from "@/features/nearby/nearby";
 import { PainterCard, ShopCard } from "@/features/nearby/NearbyCards";
 import { useNearbyPainters, useNearbyShops, useWorkAreas } from "@/features/nearby/use-nearby";
@@ -25,8 +25,8 @@ export type NearbyKind = "painters" | "shops";
  * screen of its own, opened from its tile on Home, from Account, and from a shade's
  * "Find a shop near you".
  *
- * Who is listed within 50 km, nearest first — no distance to pick, as on the website: the
- * closest is at the top however far it is. Only this screen's list is read for each point, and
+ * Who is listed, nearest first — no distance to pick or shown, as on the website: the closest is
+ * at the top however far it is, and nobody listed there yet is "Coming soon". Only this screen's list is read for each point, and
  * kept five minutes: the lists share a small hourly allowance. A painter's number is asked for
  * only when Call is pressed, and each card says where the painter can go for a job. Painters
  * further off who said they work in the place the search is from come after, marked "Works in
@@ -158,6 +158,8 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
   }, []);
 
   const list = tab === "painters" ? painters : shops;
+  /** The place as a short name for a sentence: a PIN's town ("Belagavi"), or the place typed ("Kothrud"). */
+  const where = place ? (place.pincode && place.name === place.pincode ? place.region?.split(",")[0]?.trim() || place.name : place.name) : null;
   const otherPlaces = place ? places.filter((p) => p !== place) : [];
 
   let body: React.ReactNode;
@@ -178,7 +180,7 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
     body = (
       <View style={{ gap: space.sm }} testID="nearby-loading" accessibilityLiveRegion="polite">
         <Text variant="small" tone="mute">
-          {t("nearby.looking", { km: SEARCH_RADIUS_KM })}
+          {t("nearby.looking")}
         </Text>
         <Skeleton height={150} radius={16} />
         <Skeleton height={150} radius={16} />
@@ -188,14 +190,21 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
     body = <ErrorState message={messageFor(list.error, t("nearby.loadFailed"))} onRetry={() => void list.refetch()} />;
   } else if (!list.data?.length) {
     body = (
-      <View style={{ gap: space.sm, paddingVertical: space.md }} testID="nearby-empty">
-        <Text variant="title3">
-          {tab === "painters" ? t("nearby.noPainters", { km: SEARCH_RADIUS_KM }) : t("nearby.noShops", { km: SEARCH_RADIUS_KM })}
-        </Text>
-        <Text variant="body" tone="soft">
-          {tab === "painters" ? t("nearby.noPaintersBody") : t("nearby.noShopsBody")}
-        </Text>
-      </View>
+      // Nobody listed there yet: news on its way, not a search that failed.
+      <Card>
+        <View style={{ gap: space.sm, alignItems: "flex-start" }} testID="nearby-empty">
+          <Feather name={kind === "painters" ? "map-pin" : "shopping-bag"} size={26} color={colors.accentText} />
+          <Pill label={t("nearby.comingSoon")} tone="accent" testID="nearby-coming-soon" />
+          <Text variant="title3">
+            {where
+              ? t(tab === "painters" ? "nearby.paintersSoonIn" : "nearby.shopsSoonIn", { place: where })
+              : t(tab === "painters" ? "nearby.paintersSoon" : "nearby.shopsSoon")}
+          </Text>
+          <Text variant="body" tone="soft">
+            {tab === "painters" ? t("nearby.noPaintersBody") : t("nearby.noShopsBody")}
+          </Text>
+        </View>
+      </Card>
     );
   } else {
     body = (
@@ -316,10 +325,6 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
           </View>
         ) : null}
       </View>
-
-      <Text variant="fieldLabel" testID="nearby-within">
-        {t("nearby.withinFixed", { km: SEARCH_RADIUS_KM })}
-      </Text>
 
       {body}
 

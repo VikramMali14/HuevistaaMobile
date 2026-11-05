@@ -972,7 +972,7 @@ near you**) · both `features/nearby/NearbySearch.tsx` · **Phase** 7 · **Web r
 Who will paint it and where to buy the paint are two different jobs, so they are two places,
 each with one list — never both behind a switch. An old `/nearby?tab=shops` link lands on C36.
 
-**Layout:** "Within 50 km, nearest first" · the one list, nearest first. No distance to pick, as on the website: the search always reaches 50 km — and painters
+**Layout:** the one list, nearest first. No distance to pick or shown, as on the website: the search always reaches as far as the server goes — and painters
 further off who said they work in the place the search is from (its division, its state, or
 anywhere in India) come after the nearby ones, marked **Works in your area**
 (`worksInYourArea`) — and shops the same way, those further off that serve the place marked
@@ -1013,7 +1013,7 @@ about 100 m before it leaves the phone. Choosing another state clears the list.
   the shop typed only when the district doesn't already say it (`shopAddress`) — hours, where
   it serves (`serviceAreasText`, in the app's language), **Serves your area**, **Directions**
   (Apple Maps on iOS, Google Maps elsewhere), and **Call** when the number can be dialled.
-- Always 50 km, nearest first; an empty list says nobody is listed within 50 km yet. The 50
+- Always nearest first; an empty list is a **Coming soon** card naming the place ("Painters in Kothrud are coming soon"), with a line to check back or try a nearby town. The 50
   nearest are shown, and the list says so. Searches share 60 an hour per account, so a
   refusal is shown in the server's words and never retried by itself; nothing reloads on
   focus or reconnect.
