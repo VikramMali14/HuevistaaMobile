@@ -1,22 +1,25 @@
-import type { WorkAreaState, WorkAreas } from "@/api/endpoints/nearby";
+import type { WorkAreaDivision, WorkAreaState, WorkAreas } from "@/api/endpoints/nearby";
 import { getLanguage, t } from "@/i18n";
 
 /**
  * Where a painter can go for a job, as the codes the server keeps (WorkAreas): a division of a
- * state ("RJ-AJMER"), a whole state ("GJ"), or anywhere in India ("IN"). The names come from the
- * catalogue the server serves (nearbyApi.workAreas) in English and Hindi, so the app keeps no
- * list of places — a state given divisions there is drawn with them here, in a build already
- * installed. Ported from the painter website's lib/work-areas.ts.
+ * state ("RJ-AJMER") or a whole state ("RJ"). The places come from the catalogue the server serves
+ * (nearbyApi.workAreas) — the states HueVistaa is open in, Rajasthan at launch — in English and
+ * Hindi, so the app keeps no list of places, and a state opened there is drawn here in a build
+ * already installed. Ported from the painter website's lib/work-areas.ts.
  *
  * What is chosen is kept the way the server keeps it (`normalise`, the mirror of
- * WorkAreas#normalise): each code once, in the catalogue's order, a whole state rather than all
- * of its divisions, and anywhere in India on its own.
+ * ActiveStates#normalise): each code once, in the catalogue's order, and a whole state rather than
+ * all of its divisions. Anywhere in India is no longer offered: kept from before, it is every state
+ * in the catalogue, as the server now reads it; and a place in a state that isn't in the catalogue
+ * is dropped, as the server drops it on save.
  */
 
-/** Each code once, in the catalogue's order; a whole state for all its divisions; anywhere alone. */
+/** Each code once, in the catalogue's order; a whole state for all its divisions; nothing outside it. */
 export function normalise(codes: readonly string[], catalogue: WorkAreas): string[] {
   const chosen = new Set(codes);
-  if (chosen.has(catalogue.anywhere)) return [catalogue.anywhere];
+  // Anywhere in India, kept from before: every state there is now.
+  if (chosen.has(catalogue.anywhere)) catalogue.states.forEach((state) => chosen.add(state.code));
   const order: string[] = [];
   for (const state of catalogue.states) {
     const divisions = state.divisions.map((d) => d.code);
@@ -24,9 +27,7 @@ export function normalise(codes: readonly string[], catalogue: WorkAreas): strin
     if (chosen.has(state.code)) order.push(state.code);
     else order.push(...divisions.filter((d) => chosen.has(d)));
   }
-  // A code this catalogue doesn't know (a place added since it was loaded) is kept, not lost.
-  const known = new Set(catalogue.states.flatMap((s) => [s.code, ...s.divisions.map((d) => d.code)]));
-  return [...order, ...[...chosen].filter((c) => !known.has(c))];
+  return order;
 }
 
 /** Whether a division is chosen — itself, or with the whole of its state. */
@@ -62,10 +63,36 @@ export function placeName(place: { name: string; nameHi: string }): string {
   return getLanguage() === "hi" ? place.nameHi : place.name;
 }
 
+/** The big towns in a division, in the language the app is in; null for a division that is one town. */
+export function divisionTowns(division: Pick<WorkAreaDivision, "hint" | "hintHi">): string | null {
+  const towns = (getLanguage() === "hi" ? division.hintHi : division.hint)?.trim();
+  return towns ? towns : null;
+}
+
+/** More open states than a sentence can name: most of India, where saying which would say nothing. */
+const NAMED_STATES = 5;
+
 /**
- * The places as a card names them, in the app's language — "Ajmer, Jaipur (Rajasthan) · Gujarat" —
- * or null when none is chosen. A code the catalogue doesn't know is left out rather than shown as
- * a code. Anywhere in India is said by the caller, in its own words.
+ * The states HueVistaa is open in, for a sentence in the app's language — "Rajasthan", "Gujarat and
+ * Rajasthan", "राजस्थान" — or null when there are more than a sentence can name (the whole of India,
+ * as the server can be set to).
+ */
+export function openStates(catalogue: WorkAreas): string | null {
+  const names = catalogue.states.map(placeName);
+  if (names.length === 0 || names.length > NAMED_STATES) return null;
+  if (names.length === 1) return names[0]!;
+  return `${names.slice(0, -1).join(", ")} ${getLanguage() === "hi" ? "और" : "and"} ${names[names.length - 1]}`;
+}
+
+/** Whether a state — by its code, as nearbyApi.where gives it — is one HueVistaa is open in. */
+export function isOpen(stateCode: string | null | undefined, catalogue: WorkAreas): boolean {
+  return Boolean(stateCode) && catalogue.states.some((state) => state.code === stateCode);
+}
+
+/**
+ * The places as a card names them, in the app's language — "Ajmer, Jaipur (Rajasthan)",
+ * "Rajasthan" — or null when none is chosen. A code the catalogue doesn't know is left out rather
+ * than shown as a code.
  */
 export function placesText(codes: readonly string[], catalogue: WorkAreas): string | null {
   const parts: string[] = [];
@@ -81,8 +108,9 @@ export function placesText(codes: readonly string[], catalogue: WorkAreas): stri
 }
 
 /**
- * Where a painter works, as their card says it: "Works in Ajmer, Jaipur (Rajasthan) · Gujarat",
- * or "Works anywhere in India". Null when they haven't said, or before the names have loaded.
+ * Where a painter works, as their card says it: "Works in Ajmer, Jaipur (Rajasthan)", or "Works in
+ * Rajasthan" ("Works anywhere in India" only where the whole of India is open). Null when they
+ * haven't said, or before the names have loaded.
  */
 export function workAreasText(codes: readonly string[] | null | undefined, catalogue: WorkAreas | null | undefined): string | null {
   if (!codes?.length || !catalogue) return null;
@@ -93,8 +121,8 @@ export function workAreasText(codes: readonly string[] | null | undefined, catal
 
 /**
  * Where a shop serves, as its card says it — the same places, named the same way: "Serves Ajmer
- * (Rajasthan) · Gujarat", or "Serves anywhere in India". Null when the shop hasn't said, or before
- * the names have loaded. Shops choose them on the website, in their settings.
+ * (Rajasthan)", or "Serves Rajasthan". Null when the shop hasn't said, or before the names have
+ * loaded. Shops choose them on the website, in their settings.
  */
 export function serviceAreasText(codes: readonly string[] | null | undefined, catalogue: WorkAreas | null | undefined): string | null {
   if (!codes?.length || !catalogue) return null;

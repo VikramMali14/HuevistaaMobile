@@ -11,11 +11,20 @@ import { useTheme } from "@/theme";
 
 /**
  * A town, an area or a PIN code typed, to take the pin map there (P5). The server finds the place
- * in its own directory (GET /api/nearby/places); the painter taps theirs, its middle becomes the
- * pin, and they move the map from there onto their own street before saving it with everything
- * else. As the painter website's place-search.tsx.
+ * in its own directory (GET /api/nearby/places) — in the states HueVistaa is open in, and nowhere
+ * else; the painter taps theirs, its middle becomes the pin, and they move the map from there onto
+ * their own street before saving it with everything else. As the painter website's place-search.tsx.
  */
-export function PlaceSearch({ disabled, onPick }: { disabled?: boolean; onPick: (place: NearbyPlace, label: string) => void }) {
+export function PlaceSearch({
+  disabled,
+  within = null,
+  onPick,
+}: {
+  disabled?: boolean;
+  /** The states searched, in the app's language, for saying where a town wasn't found: "Rajasthan". */
+  within?: string | null;
+  onPick: (place: NearbyPlace, label: string) => void;
+}) {
   const { space } = useTheme();
   const alive = useAlive();
   const [query, setQuery] = useState("");
@@ -37,8 +46,16 @@ export function PlaceSearch({ disabled, onPick }: { disabled?: boolean; onPick: 
       const places = await nearbyApi.places(typed);
       if (!alive.current) return;
       if (places.length === 0) {
+        // Only places in the open states come back: one elsewhere is not found, and says why.
+        const isPin = /^[\d\s०-९]+$/.test(typed);
         setProblem(
-          /^[\d\s०-९]+$/.test(typed) ? t("painter.nearby.pinNotFound", { pin: typed }) : t("painter.nearby.placeNotFound", { place: typed }),
+          within
+            ? isPin
+              ? t("painter.nearby.pinNotFoundIn", { pin: typed, states: within })
+              : t("painter.nearby.placeNotFoundIn", { place: typed, states: within })
+            : isPin
+              ? t("painter.nearby.pinNotFound", { pin: typed })
+              : t("painter.nearby.placeNotFound", { place: typed }),
         );
       } else if (places.length === 1) {
         onPick(places[0]!, placeLabel(places[0]!));

@@ -2,8 +2,8 @@
 import type { WorkAreas } from "@/api/endpoints/nearby";
 import { setLanguage } from "@/i18n";
 
-import { SEARCH_RADIUS_KM, dialable, directionsHref, distanceLabel, placeLabel, searchPoint, shopAddress, shopHours, shopPlace, telHref, whatsappHref } from "../nearby";
-import { normalise, sameAreas, serviceAreasText, toggleDivision, toggleState, workAreasText } from "../work-areas";
+import { dialable, directionsHref, distanceLabel, placeLabel, shopAddress, shopHours, shopPlace, telHref, whatsappHref } from "../nearby";
+import { divisionTowns, isOpen, normalise, openStates, sameAreas, serviceAreasText, toggleDivision, toggleState, workAreasText } from "../work-areas";
 
 describe("distanceLabel", () => {
   it("speaks in metres under a kilometre, never below 100 m", () => {
@@ -89,13 +89,6 @@ describe("shopAddress", () => {
   });
 });
 
-describe("the search's reach", () => {
-  // No distance to pick, as on the website: always the server's widest, nearest first.
-  it("is the server's widest, 50 km", () => {
-    expect(SEARCH_RADIUS_KM).toBe(50);
-  });
-});
-
 describe("where a painter can work", () => {
   const division = (code: string, name: string, nameHi: string) => ({ code, name, nameHi, hint: null, hintHi: null });
   const catalogue: WorkAreas = {
@@ -115,13 +108,44 @@ describe("where a painter can work", () => {
 
   afterEach(() => setLanguage("en"));
 
-  // The server's own rules (WorkAreas#normalise), so the preview reads as the card will.
+  // The server's own rules (ActiveStates#normalise), so the preview reads as the card will.
   it("keeps each place once, in the catalogue's order, a whole state for all its divisions", () => {
     expect(normalise(["MP", "RJ-KOTA", "RJ-AJMER", "RJ-KOTA"], catalogue)).toEqual(["RJ-AJMER", "RJ-KOTA", "MP"]);
     expect(normalise(["RJ-AJMER", "RJ-JAIPUR", "RJ-KOTA"], catalogue)).toEqual(["RJ"]);
-    expect(normalise(["RJ", "IN"], catalogue)).toEqual(["IN"]);
-    // A place added on the server since this build is kept, not lost on save.
-    expect(normalise(["MP-BHOPAL", "RJ-KOTA"], catalogue)).toEqual(["RJ-KOTA", "MP-BHOPAL"]);
+  });
+
+  /** No longer offered: anywhere in India, kept from before, is every state open now. */
+  it("reads anywhere in India, kept from before, as every state in the catalogue", () => {
+    expect(normalise(["RJ-KOTA", "IN"], catalogue)).toEqual(["RJ", "GJ", "MP"]);
+    expect(normalise(["IN"], { ...catalogue, states: [rajasthan] })).toEqual(["RJ"]);
+  });
+
+  /** A place in a state HueVistaa isn't open in: the server drops it on save, so it isn't shown or sent. */
+  it("drops a place outside the catalogue", () => {
+    expect(normalise(["MH-PUNE", "RJ-KOTA", "KA"], catalogue)).toEqual(["RJ-KOTA"]);
+    expect(sameAreas(["MH-PUNE"], [], catalogue)).toBe(true);
+  });
+
+  /** The states HueVistaa is open in, said in a sentence in the app's language, and whether a pin's state is one. */
+  it("names the open states for a sentence, and knows them", () => {
+    expect(openStates({ ...catalogue, states: [rajasthan] })).toBe("Rajasthan");
+    expect(openStates({ ...catalogue, states: [gujarat, rajasthan] })).toBe("Gujarat and Rajasthan");
+    expect(openStates(catalogue)).toBe("Rajasthan, Gujarat and Madhya Pradesh");
+    const india = Array.from({ length: 36 }, (_, i) => ({ ...gujarat, code: `S${i}`, name: `State ${i}` }));
+    expect(openStates({ ...catalogue, states: india })).toBeNull();
+    setLanguage("hi");
+    expect(openStates({ ...catalogue, states: [gujarat, rajasthan] })).toBe("गुजरात और राजस्थान");
+    expect(isOpen("RJ", catalogue)).toBe(true);
+    expect(isOpen("KA", catalogue)).toBe(false);
+    expect(isOpen(null, catalogue)).toBe(false);
+  });
+
+  it("says a division's towns in the app's language", () => {
+    const ajmer = { hint: "Bhilwara, Nagaur", hintHi: "भीलवाड़ा, नागौर" };
+    expect(divisionTowns(ajmer)).toBe("Bhilwara, Nagaur");
+    expect(divisionTowns({ hint: null, hintHi: null })).toBeNull();
+    setLanguage("hi");
+    expect(divisionTowns(ajmer)).toBe("भीलवाड़ा, नागौर");
   });
 
   it("turns divisions and whole states on and off", () => {
@@ -156,19 +180,6 @@ describe("where a painter can work", () => {
     setLanguage("hi");
     expect(serviceAreasText(["RJ-AJMER", "MP"], catalogue)).toBe("अजमेर (राजस्थान) · मध्य प्रदेश में सेवा देते हैं");
     expect(serviceAreasText(["IN"], catalogue)).toBe("पूरे भारत में कहीं भी सेवा देते हैं");
-  });
-});
-
-describe("searchPoint", () => {
-  // Kilometres of search need no more than ~100 m of where the customer stands.
-  it("sends the fix to three places", () => {
-    expect(searchPoint(15.852347, 74.504981)).toEqual({ lat: 15.852, lon: 74.505 });
-  });
-
-  it("refuses a fix the server would refuse", () => {
-    expect(searchPoint(0, 0)).toBeNull();
-    expect(searchPoint(91, 10)).toBeNull();
-    expect(searchPoint(Number.NaN, 10)).toBeNull();
   });
 });
 

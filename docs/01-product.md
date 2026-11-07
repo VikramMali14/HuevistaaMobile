@@ -100,7 +100,7 @@ calls them. Their routes keep their names (`studio`, `catalogue`).
 | **Rooms** (`studio`) | Every room, and "New room" | C2 → C6 … C18 |
 | **Colours** (`catalogue`) | All shades, filters, shade detail, ready-made rooms — and, beside the shades (a switch at the top), the Shade Book: combinations of two colours or three, filtered by exterior or interior and colour family, in a grid of pictures, each on its own house or all on the one chosen, one opened large on every house and room the team adds, a few free, the rest with a 24-hour pass — and the Colour finder: a colour in a photo matched to HueVistaa shades by Vista code, opened by a ₹59 24-hour pass | C3, C19–C21, C34, C35, C37 |
 | **Boards** | Finished colour boards and AI images | C4, C22–C26 |
-| **Painters** | Painters near me, nearest first (paint shops are their own screen, C36, from Home and Account) | C32, C36 |
+| **Painters** | Painters by state, then division (paint shops are their own screen, C36, from Home and Account) | C32, C36 |
 | **Account** | Rooms & credits, shop code, my products, find a painter, find a paint shop, help, settings | C5, C27–C33, C36, S1–S9 |
 
 The tab bar **hides** inside the studio's canvas steps (C10, C11, C14), so the room

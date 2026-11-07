@@ -10,7 +10,7 @@ import { api } from "../instance";
  */
 
 /**
- * GET /api/nearby/painters (NearbyPainterResponse). Nearest first, at most 50. A painter's card:
+ * GET /api/nearby/painters (NearbyPainterResponse). Those based in the place first, at most 200. A painter's card:
  * name, photo and address — and the number when asked — with the badge, the distance and their
  * record. Nothing else a painter fills in is shown to customers.
  */
@@ -36,8 +36,7 @@ export interface NearbyPainter {
   jobsCompleted: number;
   /** HueVistaa Certified — only certified painters are listed, so true on every result. */
   certified?: boolean;
-  /** To the painter's position as stored — what the list is ordered by. No longer shown: the card says `place`. */
-  /** Null for a search across a whole state, which is from no point. */
+  /** Not shown: the card says `place`. Null for a search by state or division, which is from no point. */
   distanceKm: number | null;
   /**
    * Where the painter is based, to the district: "Jaipur, Rajasthan", "South Delhi" — or the state
@@ -45,21 +44,21 @@ export interface NearbyPainter {
    */
   place?: string | null;
   /**
-   * Where the painter can go for a job, as WorkAreas codes — divisions ("RJ-AJMER"), whole
-   * states ("GJ"), or "IN" for anywhere in India — named by `nearbyApi.workAreas`. Empty when
-   * the painter hasn't said; absent from older servers.
+   * Where the painter can go for a job, as WorkAreas codes — divisions ("RJ-AJMER") or whole states
+   * ("RJ") HueVistaa is open in — named by `nearbyApi.workAreas`. Empty when the painter hasn't
+   * said; absent from older servers.
    */
   workAreas?: string[];
   /**
-   * The painter said they work in the place the search is from — its division, its whole state,
-   * or anywhere in India — and is found however far off they live. Absent from older servers.
+   * The painter said they work in the place searched — the division, or the whole state — and is
+   * found however far off they live. Absent from older servers.
    */
   worksInYourArea?: boolean;
 }
 
 /**
- * GET /api/nearby/shops (NearbyShopResponse). Nearest first, at most 50: the shops within the
- * radius, then those further off that serve the customer's place (`servesYourArea`).
+ * GET /api/nearby/shops (NearbyShopResponse). The shops based in the place chosen, then those
+ * further off that serve it (`servesYourArea`).
  */
 export interface NearbyShop {
   id: string;
@@ -75,7 +74,7 @@ export interface NearbyShop {
   /** The shop's own pin, given for directions. */
   latitude: number;
   longitude: number;
-  /** Null for a search across a whole state, which is from no point. */
+  /** Null for a search by state or division, which is from no point. */
   distanceKm: number | null;
   /**
    * Where the shop is, to the district, from its pin: "Belagavi, Karnataka", "South Delhi" — or the
@@ -83,14 +82,14 @@ export interface NearbyShop {
    */
   place?: string | null;
   /**
-   * Where the shop serves, as WorkAreas codes — divisions ("RJ-AJMER"), whole states ("GJ"), or
-   * "IN" for anywhere in India — named by `nearbyApi.workAreas`. Empty when the shop hasn't said;
-   * absent from older servers.
+   * Where the shop serves, as WorkAreas codes — divisions ("RJ-AJMER") or whole states ("RJ")
+   * HueVistaa is open in — named by `nearbyApi.workAreas`. Empty when the shop hasn't said; absent
+   * from older servers.
    */
   serviceAreas?: string[];
   /**
-   * The shop said it serves the place the search is from — its division, its whole state, or
-   * anywhere in India — and is found however far off it is. Absent from older servers.
+   * The shop said it serves the place searched — the division, or the whole state — and is found
+   * however far off it is. Absent from older servers.
    */
   servesYourArea?: boolean;
 }
@@ -153,39 +152,41 @@ export interface WorkAreaState {
 }
 
 /**
- * GET /api/nearby/work-areas (WorkAreasResponse) — the places a painter can say they work in, and
- * a shop (on the website) that it serves: every state A to Z, each by division, and the code for
- * anywhere in India. Each named in English and Hindi. Public, and the same for everybody; P5 puts
- * the painter's own state first.
+ * GET /api/nearby/work-areas (WorkAreasResponse) — the states HueVistaa is open in (Rajasthan at
+ * launch), A to Z, each with its divisions: what a customer's search chooses from (the state, then a
+ * division), the places a painter says they work in and a shop (on the website) that it serves, and
+ * what their cards' codes are read by. Each named in English and Hindi. Public, and the same for
+ * everybody.
  */
 export interface WorkAreas {
-  /** "IN" */
+  /**
+   * "IN", anywhere in India: no longer offered, and never on a card the server sends any more.
+   * Kept from before, it means every state above (features/nearby/work-areas.ts).
+   */
   anywhere: string;
   states: WorkAreaState[];
 }
 
 /**
- * Where a search looks: a state (a work-areas code, "MH") — all of it, with no distance limit, or
- * with a city's point, that city — or, should the list of states not load, a point and a radius.
+ * Where a search looks: a state HueVistaa is open in (a work-areas code, "RJ") — all of it, or one
+ * of its divisions ("RJ-AJMER") — with no distance limit.
  */
 export interface NearbySearch {
-  state?: string;
-  lat?: number;
-  lon?: number;
-  radiusKm?: number;
+  state: string;
+  division?: string;
 }
 
 export const nearbyApi = {
   /**
-   * With a state: all of it, or the city at lat/lon in it, with no distance limit. Without, a
-   * point and a radius. 400 for a state not on the list, a point that can't be right, or a radius
-   * outside 1–50 km.
+   * All of a state, or one of its divisions, with no distance limit: those based there first, in
+   * order of district, then those further off who work there. 400 "Choose a state from the list."
+   * for a state HueVistaa isn't open in, and for a division not of the state.
    */
-  painters: ({ state, lat, lon, radiusKm }: NearbySearch) =>
-    api.request<NearbyPainter[]>("api/nearby/painters", { query: { state, lat, lon, radiusKm } }),
+  painters: ({ state, division }: NearbySearch) =>
+    api.request<NearbyPainter[]>("api/nearby/painters", { query: { state, division } }),
 
-  shops: ({ state, lat, lon, radiusKm }: NearbySearch) =>
-    api.request<NearbyShop[]>("api/nearby/shops", { query: { state, lat, lon, radiusKm } }),
+  shops: ({ state, division }: NearbySearch) =>
+    api.request<NearbyShop[]>("api/nearby/shops", { query: { state, division } }),
 
   /**
    * One painter's number, only when the customer asks for it, so the list can't be walked
@@ -195,13 +196,14 @@ export const nearbyApi = {
   painterPhone: (id: string) => api.request<PainterContact>(`api/nearby/painters/${encodeURIComponent(id)}/phone`),
 
   /**
-   * Up to 6 places the words could mean, the likeliest first; empty when none. Answered
-   * from a file on the server, so what is typed goes nowhere else. 400 with a sentence for
-   * an empty search or digits that aren't a PIN. Not counted against the searches' allowance.
+   * Up to 6 places the words could mean, the likeliest first — in the states HueVistaa is open in,
+   * and nowhere else; empty when none. For a painter putting their pin on the map. Answered from a
+   * file on the server, so what is typed goes nowhere else. 400 with a sentence for an empty search
+   * or digits that aren't a PIN. Not counted against the searches' allowance.
    */
   places: (q: string) => api.request<NearbyPlace[]>("api/nearby/places", { query: { q } }),
 
-  /** The places painters choose from, named in both languages. Not counted against any allowance. */
+  /** The states and divisions HueVistaa is open in, named in both languages. Not counted against any allowance. */
   workAreas: () => api.request<WorkAreas>("api/nearby/work-areas"),
 
   /**
