@@ -1,7 +1,28 @@
-import type { ShadeBookPage } from "@/api/types";
+import type { ColourCombo, ShadeBookPage } from "@/api/types";
 import type { PaintShade } from "@/lib/shade-types";
 
-import { dockSuggestions, pageColours, scopeOf } from "../suggested-swatches";
+import { comboColours, dockSuggestions, pageColours, scopeOf } from "../suggested-swatches";
+
+describe("comboColours (Vista AI)", () => {
+  const combo: ColourCombo = {
+    name: "Garden",
+    primaryHex: "#111111",
+    primaryShade: { shadeCode: "AP1", hvCode: "A", hexCode: "#111111" },
+    accentHex: "#222222",
+    accentShade: { shadeCode: "B", hvCode: "B", hexCode: "#222222" },
+    trimHex: "#333333",
+  };
+
+  it("gives main, accent and trim in that order, the catalogue's shade where it has one", () => {
+    const shade = { code: "AP1", hvCode: "A", hex: "#0a0b0c", lrv: 42, brandSlug: "asian-paints" } as PaintShade;
+    const [main, accent, trim] = comboColours(combo, [shade], {});
+    expect(main).toMatchObject({ hex: "#0a0b0c", lrv: 42, brandSlug: "asian-paints" });
+    // Not in the catalogue: the matched shade's own colour and Vista code.
+    expect(accent).toMatchObject({ hex: "#222222", code: "B", lrv: null });
+    // No matched shade at all: the bare colour, with no code to save.
+    expect(trim).toMatchObject({ hex: "#333333", code: null });
+  });
+});
 
 const page = (...codes: string[]): ShadeBookPage => ({
   id: codes.join("-"),

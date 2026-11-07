@@ -11,9 +11,10 @@ import { AppState } from "react-native";
 
 import { ApiError } from "@/api/errors";
 import { queryClient } from "@/api/query-client";
+import { keys } from "@/api/query-keys";
 import type { ProjectSummary, RoomDetail, RoomRegion, UserProfile } from "@/api/types";
 import { forgetRememberedRoute } from "@/auth/pending-route";
-import { applyColours, getRoomPaint, initRoom, pushRecent, resetPaintStore, resetRecentShades } from "@/features/studio/paint-store";
+import { applyColours, getRoomPaint, initRoom, pushRecent, resetPaintStore, resetRecentShades, selectWall } from "@/features/studio/paint-store";
 import { clearUpload } from "@/features/studio/photo-upload";
 import { resetTrays } from "@/features/studio/tray-store";
 import type { BackendShade } from "@/lib/shade-mapping";
@@ -121,7 +122,7 @@ jest.mock("@/api/endpoints/projects", () => ({
     return mockProjects;
   },
 }));
-const mockShadeBook = { get: jest.fn() };
+const mockShadeBook = { get: jest.fn(), passOrder: jest.fn(), passVerify: jest.fn() };
 jest.mock("@/api/endpoints/shade-book", () => ({
   get shadeBookApi() {
     return mockShadeBook;
@@ -178,6 +179,14 @@ const book = (combinations: ReturnType<typeof bookPage>[], extra: object = {}) =
   combinations,
   ...extra,
 });
+/** India's wall clock, as the server writes it, `fromNow` ms from now. */
+const ist = (fromNow: number) => new Date(Date.now() + fromNow + 5.5 * 3600_000).toISOString().slice(0, 19);
+/** A Shade Book shut to this account: the samples alone, and the pass at ₹49. */
+const shutBook = (combinations: ReturnType<typeof bookPage>[], over: object = {}) =>
+  book(combinations, {
+    access: { open: false, reason: "NONE", pricePaise: 4900, currency: "INR", hours: 24, purchasable: true, ...over },
+    total: 40,
+  });
 const GARDEN = bookPage("Garden morning", [
   ["HV0101", "#e8d5b0"],
   ["HV0118", "#7b8a72"],
@@ -213,7 +222,7 @@ const pressLast = (text: string | RegExp) => {
 
 beforeEach(async () => {
   for (const key of Object.keys(mockSecure)) delete mockSecure[key];
-  for (const group of [mockAuth, mockMe, mockShades, mockLibrary, mockProjects]) {
+  for (const group of [mockAuth, mockMe, mockShades, mockLibrary, mockProjects, mockShadeBook]) {
     for (const fn of Object.values(group)) if (jest.isMockFunction(fn)) fn.mockReset();
   }
   mockUpload.mockReset();
@@ -877,24 +886,215 @@ describe("C12 · Shade picker", () => {
     expect(screen.getByLabelText("Recent: HV0101")).toBeTruthy();
   });
 
-  it("offers no shop picks — combinations come from the Shade Book", async () => {
+  it("offers the shop's own picks", async () => {
     signedIn();
     mockMe.shopCombos.mockResolvedValue([{ id: "c1", name: "Warm", shades: [{ code: "HV0118", hex: "#7b8a72" }] }]);
     renderRouter("./app", { initialUrl: "/shade-picker?projectId=p1&regionId=11" });
-    await waitFor(() => expect(screen.getAllByTestId("shade-tile").length).toBeGreaterThan(0));
-    expect(screen.queryByLabelText(/Your shop's picks/)).toBeNull();
-    expect(mockMe.shopCombos).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByLabelText("Your shop's picks: HV0118")).toBeTruthy());
   });
 });
 
-describe("C13 · From the Shade Book", () => {
+describe("C13 · Colour combinations — Vista AI", () => {
+  const combo = {
+    name: "Garden morning",
+    rationale: "Soft greens against warm white.",
+    primaryHex: "#e8d5b0",
+    primaryShade: { shadeCode: "HV0101", hvCode: "HV0101", hexCode: "#e8d5b0" },
+    accentHex: "#7b8a72",
+    accentShade: { shadeCode: "HV0118", hvCode: "HV0118", hexCode: "#7b8a72" },
+    trimHex: "#3e4a52",
+    trimShade: { shadeCode: "HV0124", hvCode: "HV0124", hexCode: "#3e4a52" },
+  };
+
+  it("opens on Vista AI, with the Shade Book's combinations on the other tab", async () => {
+    signedIn();
+    mockProjects.suggestions.mockResolvedValue({ projectId: "p1", combinations: [combo] });
+    mockShadeBook.get.mockResolvedValue(book([bookPage("From the book", [["HV0101", "#e8d5b0"], ["HV0124", "#3e4a52"]])]));
+    renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
+    await waitFor(() => expect(screen.getByText("Garden morning")).toBeTruthy());
+    expect(screen.getByText("Colour combinations")).toBeTruthy();
+    expect(screen.getByText("Vista AI")).toBeTruthy();
+    expect(screen.getByText("Vista Shadebook")).toBeTruthy();
+    expect(screen.queryByText("From the book")).toBeNull();
+  });
+
+  it("puts each colour on the wall it is for, and saves", async () => {
+    signedIn();
+    mockProjects.suggestions.mockResolvedValue({ projectId: "p1", combinations: [combo] });
+    renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
+    await waitFor(() => expect(screen.getByText("Garden morning")).toBeTruthy());
+    expect(screen.getByText("Soft greens against warm white.")).toBeTruthy();
+    press("Try this");
+    await waitFor(
+      () =>
+        expect(mockProjects.saveColours).toHaveBeenCalledWith("p1", [
+          { regionId: 11, shadeCode: "HV0101", hexCode: "#e8d5b0" },
+          { regionId: 12, shadeCode: "HV0118", hexCode: "#7b8a72" },
+          { regionId: 13, shadeCode: "HV0124", hexCode: "#3e4a52" },
+        ]),
+      { timeout: 2000 },
+    );
+  });
+
+  it("asks for another set", async () => {
+    signedIn();
+    mockProjects.suggestions.mockResolvedValue({ projectId: "p1", combinations: [combo] });
+    renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
+    await waitFor(() => expect(screen.getByText("Suggest again")).toBeTruthy());
+    press("Suggest again");
+    await waitFor(() => expect(mockProjects.suggestions).toHaveBeenCalledWith("p1", 1));
+  });
+
+  it("says a closed room can't take suggestions", async () => {
+    signedIn();
+    mockProjects.suggestions.mockRejectedValue(new ApiError("http", 402, "Access window closed"));
+    renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
+    await waitFor(() => expect(screen.getByText(/This room has closed/)).toBeTruthy());
+  });
+
+  // Keep one, change the rest: a customer with three walls who likes one colour.
+  it("keeps a locked colour on its wall and asks for the rest around it", async () => {
+    signedIn();
+    mockProjects.suggestions.mockResolvedValue({ projectId: "p1", combinations: [combo] });
+    renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
+    await waitFor(() => expect(screen.getByText(/Tap its lock to keep it/)).toBeTruthy());
+
+    fireEvent.press(screen.getByLabelText("Keep HV0118 on Accent wall"));
+    const body = { primary: null, accent: { hex: "#7b8a72", code: "HV0118" }, trim: null };
+    await waitFor(() => expect(mockProjects.suggestions).toHaveBeenCalledWith("p1", 0, body));
+    await waitFor(() => expect(screen.getByText("Keeping 1 colour")).toBeTruthy());
+    expect(screen.getByText(/keeps it on Accent wall/)).toBeTruthy();
+    expect(screen.getByLabelText("Unlock HV0118 on Accent wall")).toBeTruthy();
+
+    // Suggest again keeps it, and moves on a round.
+    await waitFor(() => expect(screen.getByText("Suggest again")).toBeTruthy());
+    press("Suggest again");
+    await waitFor(() => expect(mockProjects.suggestions).toHaveBeenCalledWith("p1", 1, body));
+
+    await waitFor(() => expect(screen.getByText("Unlock all")).toBeTruthy());
+    press("Unlock all");
+    await waitFor(() => expect(screen.getByText(/Tap its lock to keep it/)).toBeTruthy());
+    expect(screen.queryByText("Keeping 1 colour")).toBeNull();
+  });
+
+  it("keeps a lock through a look at the Shade Book and back", async () => {
+    signedIn();
+    mockProjects.suggestions.mockResolvedValue({ projectId: "p1", combinations: [combo] });
+    renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
+    await waitFor(() => expect(screen.getByLabelText("Keep HV0118 on Accent wall")).toBeTruthy());
+    fireEvent.press(screen.getByLabelText("Keep HV0118 on Accent wall"));
+    await waitFor(() => expect(screen.getByText("Keeping 1 colour")).toBeTruthy());
+
+    press("Vista Shadebook");
+    await waitFor(() => expect(screen.queryByText("Keeping 1 colour")).toBeNull());
+    press("Vista AI");
+    await waitFor(() => expect(screen.getByText("Keeping 1 colour")).toBeTruthy());
+    expect(screen.getByLabelText("Unlock HV0118 on Accent wall")).toBeTruthy();
+  });
+
+  it("shows the kept colour on its wall even when the answer has another there", async () => {
+    signedIn();
+    mockProjects.suggestions.mockResolvedValue({ projectId: "p1", combinations: [combo] });
+    renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
+    await waitFor(() => expect(screen.getByLabelText("Keep HV0118 on Accent wall")).toBeTruthy());
+
+    // A server that predates locks answers with a different accent.
+    mockProjects.suggestions.mockResolvedValue({
+      projectId: "p1",
+      combinations: [{ ...combo, accentHex: "#3e4a52", accentShade: { shadeCode: "HV0124", hvCode: "HV0124", hexCode: "#3e4a52" } }],
+    });
+    fireEvent.press(screen.getByLabelText("Keep HV0118 on Accent wall"));
+    await waitFor(() => expect(mockProjects.suggestions).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByLabelText("Unlock HV0118 on Accent wall")).toBeTruthy());
+    // Try this waits for the set asked for with the lock, not the one before it.
+    await waitFor(() => expect(screen.getByTestId("try-0")).not.toBeDisabled());
+
+    press("Try this");
+    await waitFor(
+      () => expect(mockProjects.saveColours).toHaveBeenCalledWith("p1", expect.arrayContaining([{ regionId: 12, shadeCode: "HV0118", hexCode: "#7b8a72" }])),
+      { timeout: 2000 },
+    );
+  });
+
+  it("names the wall a lock keeps the colour on as the wall Try this paints", async () => {
+    signedIn();
+    // No main wall: the main colour goes to the wall selected in the studio.
+    mockProjects.get.mockResolvedValue(
+      room({ regions: [region(11, "OTHER_WALL", { label: "Left wall" }), region(12, "ACCENT_WALL"), region(13, "OTHER_WALL", { label: "Right wall" })] }),
+    );
+    selectWall("p1", "13");
+    mockProjects.suggestions.mockResolvedValue({ projectId: "p1", combinations: [combo] });
+    renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
+    await waitFor(() => expect(screen.getByLabelText("Keep HV0101 on Right wall")).toBeTruthy());
+    expect(screen.queryByLabelText("Keep HV0101 on Left wall")).toBeNull();
+    press("Try this");
+    await waitFor(
+      () => expect(mockProjects.saveColours).toHaveBeenCalledWith("p1", expect.arrayContaining([{ regionId: 13, shadeCode: "HV0101", hexCode: "#e8d5b0" }])),
+      { timeout: 2000 },
+    );
+  });
+
+  it("names a kept colour as it was kept, whatever the next palette had there", async () => {
+    signedIn();
+    mockShades.scheme.mockResolvedValue({ showBrands: false, showNames: true, showRealCodes: false });
+    const named = { ...combo, accentShade: { ...combo.accentShade, name: "Sage" } };
+    mockProjects.suggestions.mockResolvedValue({ projectId: "p1", combinations: [named] });
+    renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
+    await waitFor(() => expect(screen.getByLabelText("Keep Sage on Accent wall")).toBeTruthy());
+    mockProjects.suggestions.mockResolvedValue({
+      projectId: "p1",
+      combinations: [{ ...combo, name: "Garden evening", accentShade: { shadeCode: "HV0124", hvCode: "HV0124", hexCode: "#3e4a52", name: "Slate" } }],
+    });
+    fireEvent.press(screen.getByLabelText("Keep Sage on Accent wall"));
+    // The new set has landed, with a different shade in the accent's place.
+    await waitFor(() => expect(screen.getByText("Garden evening")).toBeTruthy());
+    expect(screen.getByLabelText("Unlock Sage on Accent wall")).toBeTruthy();
+    expect(screen.queryByText("Slate")).toBeNull();
+  });
+
+  it("does not offer the last set for Try this while the set built around a lock is on its way", async () => {
+    signedIn();
+    mockProjects.suggestions.mockResolvedValueOnce({ projectId: "p1", combinations: [combo] });
+    mockProjects.suggestions.mockReturnValue(new Promise(() => {}));
+    renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
+    await waitFor(() => expect(screen.getByLabelText("Keep HV0118 on Accent wall")).toBeTruthy());
+    expect(screen.getByTestId("try-0")).not.toBeDisabled();
+    fireEvent.press(screen.getByLabelText("Keep HV0118 on Accent wall"));
+    await waitFor(() => expect(screen.getByTestId("try-0")).toBeDisabled());
+  });
+
+  it("offers no locks in a one-wall room", async () => {
+    signedIn();
+    mockProjects.get.mockResolvedValue(room({ regions: [region(11, "MAIN_WALL")] }));
+    mockProjects.suggestions.mockResolvedValue({ projectId: "p1", combinations: [combo] });
+    renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
+    await waitFor(() => expect(screen.getByText("Garden morning")).toBeTruthy());
+    expect(screen.queryByLabelText(/^Keep /)).toBeNull();
+    expect(screen.queryByText(/Tap its lock to keep it/)).toBeNull();
+  });
+});
+
+describe("C13 · Colour combinations — Vista Shadebook", () => {
+  beforeEach(() => {
+    // Vista AI opens first and asks for its palettes; these tests are about the other tab.
+    mockProjects.suggestions.mockResolvedValue({ projectId: "p1", combinations: [] });
+  });
+
+  /** Open the screen and turn to the Shade Book's tab. */
+  const openBookTab = async () => {
+    renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
+    await waitFor(() => expect(screen.getByText("Vista Shadebook")).toBeTruthy());
+    press("Vista Shadebook");
+  };
+
   it("puts each colour on the walls being painted, in order, and saves", async () => {
     signedIn();
     mockShadeBook.get.mockResolvedValue(book([GARDEN]));
-    renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
+    await openBookTab();
     await waitFor(() => expect(screen.getByText("Garden morning")).toBeTruthy());
-    expect(mockProjects.suggestions).not.toHaveBeenCalled();
+    // No AI suggestions on this tab.
     expect(screen.queryByText("Suggest again")).toBeNull();
+    expect(screen.queryByText(/Tap its lock to keep it/)).toBeNull();
     press("Try this");
     await waitFor(
       () =>
@@ -916,7 +1116,7 @@ describe("C13 · From the Shade Book", () => {
         bookPage("Outside", [["HV0118", "#7b8a72"], ["HV0124", "#3e4a52"]], "EXTERIOR"),
       ]),
     );
-    renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
+    await openBookTab();
     await waitFor(() => expect(screen.getByText("Garden morning")).toBeTruthy());
     expect(screen.getByText("Two inside")).toBeTruthy();
     expect(screen.queryByText("Outside")).toBeNull();
@@ -931,20 +1131,82 @@ describe("C13 · From the Shade Book", () => {
     await waitFor(() => expect(screen.getByText("Outside")).toBeTruthy());
   });
 
-  it("says how many more the pass opens", async () => {
+  it("sells the Shade Book's pass right on the tab, at its price", async () => {
     signedIn();
-    mockShadeBook.get.mockResolvedValue(
-      book([GARDEN], { access: { open: false, reason: "NONE", pricePaise: 4900, currency: "INR", hours: 24, purchasable: true }, total: 40 }),
-    );
-    renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
-    await waitFor(() => expect(screen.getByText("39 more combinations are in the Shade Book with its pass.")).toBeTruthy());
+    mockShadeBook.get.mockResolvedValue(shutBook([GARDEN]));
+    await openBookTab();
+    await waitFor(() => expect(screen.getByText("Garden morning")).toBeTruthy());
+    expect(screen.getByText("1 free of 40")).toBeTruthy();
+    expect(screen.getByText("One pass opens every one of them for 24 hours — here, and in the Shade Book.")).toBeTruthy();
+    expect(screen.getByText("39 more combinations open with the pass — the same one the Shade Book sells.")).toBeTruthy();
+    // At the top and under the free ones: the same pass, at the same price.
+    expect(screen.getAllByText("Open all 40 · ₹49 for 24 hours")).toHaveLength(2);
     expect(screen.getByTestId("open-shade-book")).toBeTruthy();
+  });
+
+  it("buys the pass there, and every combination opens", async () => {
+    signedIn();
+    const OTHER = bookPage("Evening calm", [["HV0118", "#7b8a72"], ["HV0124", "#3e4a52"]]);
+    mockShadeBook.get.mockResolvedValueOnce(shutBook([GARDEN])).mockResolvedValue(book([GARDEN, OTHER], { access: { open: true, reason: "PASS", expiresAt: ist(24 * 3600_000), pricePaise: 4900, currency: "INR", hours: 24, purchasable: true }, total: 40 }));
+    mockShadeBook.passOrder.mockResolvedValue({
+      orderId: "order_SHADE12345",
+      kind: "SHADE_BOOK",
+      label: "Shade Book",
+      amount: 4900,
+      currency: "INR",
+      hours: 24,
+      razorpayKeyId: "rzp_test_123456",
+    });
+    mockShadeBook.passVerify.mockResolvedValue({ kind: "SHADE_BOOK", label: "Shade Book", startsAt: ist(0), expiresAt: ist(24 * 3600_000), amountPaise: 4900 });
+    jest.requireMock<{ openAuthSessionAsync: jest.Mock }>("expo-web-browser").openAuthSessionAsync.mockResolvedValue({
+      type: "success",
+      url: `huevista://pay/callback#status=success&order_id=order_SHADE12345&payment_id=pay_SHADE6789&signature=${"e".repeat(64)}`,
+    });
+    await openBookTab();
+    await waitFor(() => expect(screen.getAllByTestId("shade-book-buy").length).toBe(2));
+
+    fireEvent.press(screen.getAllByTestId("shade-book-buy")[0]!);
+
+    await waitFor(() => expect(screen.getByTestId("shade-book-notice")).toBeTruthy());
+    expect(screen.getByTestId("shade-book-notice")).toHaveTextContent(/The Shade Book is open until/);
+    expect(mockShadeBook.passVerify).toHaveBeenCalledWith({ orderId: "order_SHADE12345", paymentId: "pay_SHADE6789", signature: "e".repeat(64) });
+    await waitFor(() => expect(screen.getByText("Evening calm")).toBeTruthy());
+    expect(screen.getByTestId("suggest-book-open")).toBeTruthy();
+    expect(screen.queryByTestId("shade-book-buy")).toBeNull();
+    // Still in the room's combinations, not sent off to the Shade Book.
+    expect(screen).toHavePathname("/room/p1/suggestions");
+  });
+
+  it("opens too when the pass is bought on the Shade Book screen", async () => {
+    signedIn();
+    mockShadeBook.get.mockResolvedValue(shutBook([GARDEN]));
+    await openBookTab();
+    await waitFor(() => expect(screen.getByTestId("suggest-book-shut")).toBeTruthy());
+
+    // A payment anywhere reads the book again for every screen that shows it.
+    mockShadeBook.get.mockResolvedValue(
+      book([GARDEN], { access: { open: true, reason: "PASS", expiresAt: ist(24 * 3600_000), pricePaise: 4900, currency: "INR", hours: 24, purchasable: true } }),
+    );
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: keys.shadeBook });
+    });
+    await waitFor(() => expect(screen.getByTestId("suggest-book-open")).toBeTruthy());
+    expect(screen.queryByTestId("shade-book-buy")).toBeNull();
+  });
+
+  it("says plainly when the pass can't be bought here", async () => {
+    signedIn();
+    mockShadeBook.get.mockResolvedValue(shutBook([GARDEN], { purchasable: false }));
+    await openBookTab();
+    await waitFor(() => expect(screen.getByText("Garden morning")).toBeTruthy());
+    expect(screen.queryByTestId("shade-book-buy")).toBeNull();
+    expect(screen.getAllByText("The pass can't be bought in this app right now.")).toHaveLength(2);
   });
 
   it("says a closed room can't take new colours", async () => {
     signedIn();
     mockProjects.get.mockResolvedValue(room({ closedAt: "2026-10-01T00:00:00Z" }));
-    renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
+    await openBookTab();
     await waitFor(() => expect(screen.getByText(/This room has closed/)).toBeTruthy());
   });
 });

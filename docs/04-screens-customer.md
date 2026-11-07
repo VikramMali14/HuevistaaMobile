@@ -390,7 +390,7 @@ from the engine's own one-pixel antialiasing.
   rows of swatches scrolling sideways (recent first, then the Shade Book's: the colours of its
   combinations of the room's kind, first colours first, none repeated from Recent; then the catalogue); a tap paints
   the selected wall. Under it, on one line: **More shades** (→ C12, for search),
-  **Shade Book** (→ C13), **Save** (this combination) and the ⓘ. The dock is the same height
+  **Suggestions** (→ C13), **Save** (this combination) and the ⓘ. The dock is the same height
   whatever it holds, so the room above keeps its size (a resize starts the GPU over).
 - Top bar: back, room name, **Compare** (→ C14), **Undo**, and the board tray button
   with a count badge (→ C15).
@@ -421,8 +421,8 @@ and hold the version) — still to be run on a real phone.
 **Route** `shade-picker.tsx` (modal sheet) · **Phase** 3 · **Web reference** `components/atelier/shade-grid.tsx`, `company-picker.tsx`
 
 **Opens at half height** so the room stays visible above it; drag up to 85% to browse.
-Same search, brand tabs, family and tone chips as C3. A **Recent** row on top (no
-shop's picks row: combinations come from the Shade Book, on C13). Tapping a
+Same search, brand tabs, family and tone chips as C3. A **Recent** row on top; for
+shop customers a **Your shop's picks** row (`GET /api/me/retailer-combos`). Tapping a
 swatch paints the selected wall straight away; the sheet stays open to try another.
 **Done** closes it.
 
@@ -433,21 +433,43 @@ the back button and gestures behave; it writes to the same paint store as C11, s
 room above changes as each swatch is tapped. The catalogue is grouped by company rather
 than tabbed.
 
-### C13 · From the Shade Book
+### C13 · Colour combinations
 
-**Route** `room/[projectId]/suggestions.tsx` (sheet) · **Phase** 3 · **Web reference** `components/atelier/shade-grid.tsx` (`ShadeBookPanel`)
+**Route** `room/[projectId]/suggestions.tsx` (sheet) · **Phase** 3 · **Web reference** `components/atelier/shade-grid.tsx` (`VistaAiPanel`, `ShadeBookPanel`)
 
-The Shade Book's combinations, offered on this room: chips for **Interior** / **Exterior**
-(opening on the room's own kind) and **Any** / **2 colours** / **3 colours**, then a card per
-combination with its colours, each labelled with the wall it will go on. **Try this** puts the
-colours on the walls being painted in order — the main walls first, as the page lists its parts
-— and autosaves. Twelve at a time, with **Show more**.
+Two tabs under the title, as in the website's studio: **Vista AI** (opens first) and
+**Vista Shadebook**. Locks and the round survive a look at the other tab.
 
-**API:** `GET /api/shade-book` — every page with a running pass, the free samples without one.
-Without the pass a line says how many more the pass opens, with **Open the Shade Book**.
+**Vista AI.** Three named palettes, each a run of swatches mapped to the walls and one sentence
+on why. **Try this** paints the room with it (autosaves). **Suggest again** asks for a new set.
+Free and instant.
 
-The AI palettes (`POST /api/projects/{id}/recommendations`), their locks and **Suggest again**
-are no longer offered, as on the website. A closed room shows a note in place of the cards.
+- **API:** `POST /api/projects/{id}/recommendations?round={n}`, with an optional body
+  `{ primary, accent, trim }` (each `{ hex, code }`) naming the colours to keep. 402 → the
+  room's access has closed.
+- Each palette shows which wall each colour will go on (main, accent, trim from the paint
+  plan — the website's `shade-grid.tsx`); a colour with no wall to go on is shown faded.
+- **Keep one, change the rest.** In a room with two walls or more, each colour has a lock in its
+  corner. Locking one keeps it on its wall in every palette: the next set is asked for with that
+  colour kept, and is built around it; **Suggest again** changes only the other walls. A bar
+  above the palettes says how many colours are kept and on which walls, with **Unlock all**.
+  With every wall kept, Suggest again is off.
+
+**Vista Shadebook.** The Shade Book's combinations, offered on this room, and no AI suggestions:
+chips for **Interior** / **Exterior** (opening on the room's own kind) and **Any** /
+**2 colours** / **3 colours**, then a card per combination with its colours, each labelled with
+the wall it will go on. **Try this** puts the colours on the walls being painted in order — the
+main walls first, as the page lists its parts — and autosaves. Twelve at a time, with
+**Show more**. A closed room shows a note in place of the cards.
+
+- **API:** `GET /api/shade-book` — every page with a running pass, the free samples without one.
+- **The pass is sold on the tab**: a banner says how many are free and that one pass opens them
+  all — here and in the Shade Book (C34) — with the Shade Book's own buy button (`BuyButton`,
+  `usePassPurchase` with `shadeBookPass`: Google Play in the store build, the website's checkout
+  elsewhere), at its price ("Open all 239 · ₹49 for 24 hours"). Under the free ones, a line says
+  how many more the pass opens, with the same button and **Open the Shade Book**. With a running
+  pass the banner says until when. Both screens read the same `keys.shadeBook`, so a pass bought
+  on either opens both.
 
 ### C14 · Before and after
 
