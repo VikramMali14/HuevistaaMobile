@@ -6,7 +6,7 @@ import { keys } from "@/api/query-keys";
 
 /**
  * The searches spend a small shared allowance (60 an hour for both lists together), so
- * they're asked for only on a new point, a new distance or a pull: kept five minutes, not
+ * they're asked for only on a new state or division, or a pull: kept five minutes, not
  * read again when the app comes back, and never tried again on a refusal (429 included) —
  * only once more when no answer came.
  */
@@ -36,9 +36,10 @@ export function useNearbyShops(search: NearbySearch | null) {
 }
 
 /**
- * The names of the places painters say they work in (nearbyApi.workAreas): the same for
- * everybody and seldom changing, so read once a day at most — and a card does without its
- * "Works in" line rather than wait for it.
+ * The states and divisions HueVistaa is open in (nearbyApi.workAreas) — what a customer's search
+ * chooses from, and the names a card's places are read by: the same for everybody and seldom
+ * changing, so read once a day at most — and a card does without its "Works in" line rather than
+ * wait for it.
  */
 export function useWorkAreas() {
   return useQuery({

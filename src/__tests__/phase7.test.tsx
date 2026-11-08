@@ -122,45 +122,39 @@ const painterRow = (id: string, extra: Partial<NearbyPainter> = {}): NearbyPaint
   id,
   name: "Ravi Kumar",
   photoUrl: `/api/nearby/painters/${id}/photo?v=1730000000000`,
-  address: "Tilakwadi, Belagavi",
+  address: "Vaishali Nagar, Ajmer",
   rating: 4.6,
   ratingCount: 23,
   jobsCompleted: 3,
   certified: true,
-  distanceKm: 0.6,
-  place: "Belagavi, Karnataka",
+  // A search by state or division is from no point: no distance.
+  distanceKm: null,
+  place: "Ajmer, Rajasthan",
   ...extra,
 });
-/** The places painters say they work in, as the server names them — cut down to these tests'. */
-const WORK_AREAS: WorkAreas = {
-  anywhere: "IN",
-  states: [
-    {
-      code: "RJ",
-      name: "Rajasthan",
-      nameHi: "राजस्थान",
-      divisions: [
-        { code: "RJ-AJMER", name: "Ajmer", nameHi: "अजमेर", hint: null, hintHi: null },
-        { code: "RJ-JAIPUR", name: "Jaipur", nameHi: "जयपुर", hint: null, hintHi: null },
-      ],
-    },
-    { code: "GJ", name: "Gujarat", nameHi: "गुजरात", divisions: [] },
-    { code: "KA", name: "Karnataka", nameHi: "कर्नाटक", divisions: [] },
-    { code: "MH", name: "Maharashtra", nameHi: "महाराष्ट्र", divisions: [] },
-    { code: "BR", name: "Bihar", nameHi: "बिहार", divisions: [] },
+/** Where HueVistaa is open, as the server names it: Rajasthan, cut down to three of its divisions. */
+const RAJASTHAN: WorkAreas["states"][number] = {
+  code: "RJ",
+  name: "Rajasthan",
+  nameHi: "राजस्थान",
+  divisions: [
+    { code: "RJ-AJMER", name: "Ajmer", nameHi: "अजमेर", hint: "Bhilwara, Nagaur, Tonk, Beawar", hintHi: "भीलवाड़ा, नागौर, टोंक, ब्यावर" },
+    { code: "RJ-JAIPUR", name: "Jaipur", nameHi: "जयपुर", hint: "Alwar, Sikar, Jhunjhunu, Dausa", hintHi: "अलवर, सीकर, झुंझुनू, दौसा" },
+    { code: "RJ-KOTA", name: "Kota", nameHi: "कोटा", hint: null, hintHi: null },
   ],
 };
+const WORK_AREAS: WorkAreas = { anywhere: "IN", states: [RAJASTHAN] };
 const shopRow = (extra: Partial<NearbyShop> = {}): NearbyShop => ({
   id: "s1",
   name: "Sharma Paints",
-  addressLine: "Shop 4, Khade Bazar",
-  city: "Belagavi",
-  state: "Karnataka",
-  phone: "0831 240 1234",
+  addressLine: "Shop 4, Kaiser Ganj",
+  city: "Ajmer",
+  state: "Rajasthan",
+  phone: "0145 240 1234",
   openingHours: "9 am – 9 pm",
-  latitude: 15.852,
-  longitude: 74.5,
-  distanceKm: 2.4,
+  latitude: 26.45,
+  longitude: 74.64,
+  distanceKm: null,
   ...extra,
 });
 const boardState = (extra: Partial<BoardReviewState> = {}): BoardReviewState => ({
@@ -228,69 +222,92 @@ const tick = (ms = 50) => act(async () => jest.advanceTimersByTime(ms));
 // ── C32 · Find a painter · C36 · Find a paint shop ────────────────────────────
 
 describe("C32 · Find a painter, and C36 · Find a paint shop", () => {
-  const BELAGAVI_PIN: NearbyPlace = { name: "590001", region: "Belagavi, Karnataka", pincode: "590001", latitude: 15.8577, longitude: 74.5113 };
-  const AURANGABAD_MH: NearbyPlace = { name: "Aurangabad", region: "Maharashtra", pincode: null, latitude: 19.8776, longitude: 75.3423 };
-  const AURANGABAD_BR: NearbyPlace = { name: "Aurangabad", region: "Bihar", pincode: null, latitude: 24.7521, longitude: 84.3742 };
-  /** Belagavi's PIN, rounded to ~100 m before it leaves the phone. */
-  const AT_BELAGAVI = { state: "KA", lat: 15.858, lon: 74.511 };
+  /** Rajasthan, then its Ajmer division. */
+  const IN_AJMER = { state: "RJ", division: "RJ-AJMER" };
 
   /** Chooses a state from the list the State box opens. */
-  const chooseState = async (code: string) => {
+  const chooseState = async (code = "RJ") => {
     await waitFor(() => expect(screen.getByTestId("nearby-state")).toBeEnabled());
     fireEvent.press(screen.getByTestId("nearby-state"));
     await waitFor(() => expect(screen.getByTestId(`nearby-state-${code}`)).toBeTruthy());
     fireEvent.press(screen.getByTestId(`nearby-state-${code}`));
   };
 
-  /** The state first, then the place in it, then Search — as a dealer locator asks. */
-  const searchFor = async (typed: string, state = "KA") => {
-    await chooseState(state);
-    fireEvent.changeText(screen.getByTestId("nearby-place"), typed);
+  /** Chooses a division from the list the Division box opens — null for all of the state. */
+  const chooseDivision = async (code: string | null) => {
+    await waitFor(() => expect(screen.getByTestId("nearby-division")).toBeEnabled());
+    fireEvent.press(screen.getByTestId("nearby-division"));
+    const row = code ? `nearby-division-${code}` : "nearby-division-all";
+    await waitFor(() => expect(screen.getByTestId(row)).toBeTruthy());
+    fireEvent.press(screen.getByTestId(row));
+  };
+
+  /** The search most tests start from: Rajasthan, then the Ajmer division. */
+  const searchAjmer = async () => {
+    await chooseState("RJ");
+    await chooseDivision("RJ-AJMER");
+  };
+
+  /** Ajmer's PIN code as the server finds it: the middle of its post offices, its state and division. */
+  const AJMER_PIN: NearbyPlace = {
+    name: "305001",
+    region: "Ajmer, Rajasthan",
+    pincode: "305001",
+    latitude: 26.4517,
+    longitude: 74.6369,
+    state: "RJ",
+    division: "RJ-AJMER",
+  };
+  const NEAR_AJMER_PIN = { state: "RJ", lat: 26.4517, lon: 74.6369 };
+
+  /** Types a PIN code in its box and presses Search. */
+  const searchPin = async (typed: string) => {
+    await waitFor(() => expect(screen.getByTestId("nearby-pin")).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId("nearby-pin"), typed);
     // The lookup answers at once here; let it land inside act, as a person's wait would.
-    await act(async () => fireEvent.press(screen.getByTestId("nearby-place-search")));
+    await act(async () => fireEvent.press(screen.getByTestId("nearby-pin-search")));
   };
 
-  /** The search most tests start from: Belagavi's PIN code, in Karnataka. */
-  const searchBelagavi = async () => {
-    mockNearby.places.mockResolvedValue([BELAGAVI_PIN]);
-    await searchFor("590001");
-  };
-
-  it("asks for the state, then the place, and never for the phone's location", async () => {
+  it("asks for the state, then the division, and never for the phone's location", async () => {
     signedInAs("CUSTOMER");
-    mockNearby.painters.mockResolvedValue([painterRow("p1"), painterRow("p2", { name: null, jobsCompleted: 0, rating: null, ratingCount: 0, distanceKm: 12.3 })]);
+    mockNearby.painters.mockResolvedValue([painterRow("p1"), painterRow("p2", { name: null, jobsCompleted: 0, rating: null, ratingCount: 0 })]);
     mockNearby.shops.mockResolvedValue([shopRow()]);
     renderRouter("./app", { initialUrl: "/nearby" });
     await waitFor(() => expect(screen.getByTestId("nearby-ask")).toBeTruthy());
     expect(screen.getByText(/Choose your state to see everyone in it/)).toBeTruthy();
     expect(screen.queryByTestId("nearby-locate")).toBeNull();
     expect(screen.queryByText(/my location/i)).toBeNull();
-    // The place box waits for a state.
+    // Nothing else to type: no town box, only one for a PIN code, if the customer would rather.
+    expect(screen.queryByTestId("nearby-place")).toBeNull();
+    expect(screen.getByTestId("nearby-pin")).toBeTruthy();
+    // The division waits for a state.
     await waitFor(() => expect(screen.getByTestId("nearby-state")).toHaveTextContent(/Choose your state/));
-    expect(screen.getByTestId("nearby-place").props.editable).toBe(false);
+    expect(screen.getByTestId("nearby-division")).toBeDisabled();
+    expect(screen.getByTestId("nearby-division")).toHaveTextContent(/Choose your state first/);
 
-    await searchBelagavi();
+    await searchAjmer();
     await waitFor(() => expect(screen.getByTestId("nearby-painters")).toBeTruthy());
-    expect(screen.getByTestId("nearby-state")).toHaveTextContent(/Karnataka/);
-    expect(mockNearby.places).toHaveBeenCalledWith("590001");
-    expect(mockNearby.painters).toHaveBeenCalledWith(AT_BELAGAVI);
+    expect(screen.getByTestId("nearby-state")).toHaveTextContent(/Rajasthan/);
+    expect(screen.getByTestId("nearby-division")).toHaveTextContent(/Ajmer/);
+    expect(mockNearby.painters).toHaveBeenCalledWith({ state: "RJ" });
+    expect(mockNearby.painters).toHaveBeenLastCalledWith(IN_AJMER);
+    expect(screen.getByTestId("nearby-in")).toHaveTextContent("In Ajmer, Rajasthan");
+    expect(mockNearby.places).not.toHaveBeenCalled();
     expect(mockLocation.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
     expect(mockLocation.getForegroundPermissionsAsync).not.toHaveBeenCalled();
     // Where each painter is based, to the district — not how far away, nor their jobs and reviews.
-    expect(screen.getByTestId("painter-place-p1")).toHaveTextContent("Belagavi, Karnataka");
+    expect(screen.getByTestId("painter-place-p1")).toHaveTextContent("Ajmer, Rajasthan");
     expect(within(screen.getByTestId("nearby-painters")).queryByText(/km away|m away/)).toBeNull();
     expect(screen.queryByText(/jobs? done|reviews?|New on HueVistaa/)).toBeNull();
     // The painter's card: photo, name and address — and the number when Call is pressed.
     expect(screen.getByLabelText("Photo of Ravi Kumar")).toBeTruthy();
-    expect(screen.getByTestId("painter-address-p1")).toHaveTextContent("Tilakwadi, Belagavi");
+    expect(screen.getByTestId("painter-address-p1")).toHaveTextContent("Vaishali Nagar, Ajmer");
     // Only certified painters are listed, and each card says so.
     expect(screen.getAllByText("HueVistaa Certified")).toHaveLength(2);
     // Painters alone: no switch to shops on this screen, and no shops asked for.
     expect(screen.getByText("Find a painter")).toBeTruthy();
     expect(screen.queryByText(/^Shops/)).toBeNull();
     expect(mockNearby.shops).not.toHaveBeenCalled();
-    expect(screen.getByTestId("nearby-near")).toHaveTextContent(/^In PIN 590001 · Belagavi, Karnataka/);
-    expect(screen.getByTestId("nearby-place-credit")).toHaveTextContent(/India Post.*GeoNames/);
   });
 
   it("searches nothing on arrival", async () => {
@@ -298,8 +315,41 @@ describe("C32 · Find a painter, and C36 · Find a paint shop", () => {
     renderRouter("./app", { initialUrl: "/nearby" });
     await waitFor(() => expect(screen.getByTestId("nearby-state")).toBeEnabled());
     await tick();
-    expect(mockNearby.places).not.toHaveBeenCalled();
     expect(mockNearby.painters).not.toHaveBeenCalled();
+  });
+
+  /** The state alone is all of it, at once; its divisions are offered with the big towns in each. */
+  it("searches the whole state at once, and offers its divisions with their towns", async () => {
+    signedInAs("CUSTOMER");
+    mockNearby.shops.mockResolvedValue([shopRow({ place: "Ajmer, Rajasthan" })]);
+    renderRouter("./app", { initialUrl: "/shops" });
+    await chooseState("RJ");
+    await waitFor(() => expect(screen.getByTestId("nearby-shops")).toBeTruthy());
+    expect(mockNearby.shops).toHaveBeenCalledWith({ state: "RJ" });
+    expect(screen.getByTestId("nearby-all-of")).toHaveTextContent("In all of Rajasthan");
+    expect(screen.getByTestId("nearby-division")).toHaveTextContent(/All of Rajasthan/);
+    expect(screen.queryByText(/away/)).toBeNull();
+
+    fireEvent.press(screen.getByTestId("nearby-division"));
+    await waitFor(() => expect(screen.getByTestId("nearby-division-RJ-AJMER")).toBeTruthy());
+    expect(screen.getByTestId("nearby-division-all")).toHaveTextContent(/All of Rajasthan/);
+    expect(screen.getByTestId("nearby-division-RJ-AJMER")).toHaveTextContent(/Ajmer.*Bhilwara, Nagaur, Tonk, Beawar/);
+    // No towns given: just its name.
+    expect(screen.getByTestId("nearby-division-RJ-KOTA")).toHaveTextContent(/Kota/);
+    expect(screen.getByTestId("nearby-division-RJ-KOTA")).not.toHaveTextContent(/,/);
+  });
+
+  it("narrows to a division, and back to the whole state", async () => {
+    signedInAs("CUSTOMER");
+    mockNearby.painters.mockResolvedValue([painterRow("p1")]);
+    renderRouter("./app", { initialUrl: "/nearby" });
+    await searchAjmer();
+    await waitFor(() => expect(mockNearby.painters).toHaveBeenLastCalledWith(IN_AJMER));
+    await waitFor(() => expect(screen.getByTestId("nearby-in")).toHaveTextContent("In Ajmer, Rajasthan"));
+
+    await chooseDivision(null);
+    await waitFor(() => expect(screen.getByTestId("nearby-all-of")).toHaveTextContent("In all of Rajasthan"));
+    expect(screen.queryByTestId("nearby-in")).toBeNull();
   });
 
   /** Paint shops are a screen of their own, pushed over the tabs, with a way back. */
@@ -310,49 +360,46 @@ describe("C32 · Find a painter, and C36 · Find a paint shop", () => {
     await waitFor(() => expect(screen.getByTestId("nearby-ask")).toBeTruthy());
     expect(screen.getByText("Find a paint shop")).toBeTruthy();
     expect(screen.getByText("Find a paint shop near you.")).toBeTruthy();
-    await searchBelagavi();
+    await searchAjmer();
     await waitFor(() => expect(screen.getByTestId("nearby-shops")).toBeTruthy());
-    expect(mockNearby.shops).toHaveBeenCalledWith(AT_BELAGAVI);
+    expect(mockNearby.shops).toHaveBeenLastCalledWith(IN_AJMER);
     expect(mockNearby.painters).not.toHaveBeenCalled();
-    expect(screen.getByText("Shop 4, Khade Bazar · Belagavi, Karnataka")).toBeTruthy();
+    expect(screen.getByText("Shop 4, Kaiser Ganj · Ajmer, Rajasthan")).toBeTruthy();
     expect(screen.getByText("Open 9 am – 9 pm")).toBeTruthy();
     fireEvent.press(screen.getByTestId("directions-s1"));
-    expect(openURL).toHaveBeenCalledWith(expect.stringContaining("15.852,74.5"));
+    expect(openURL).toHaveBeenCalledWith(expect.stringContaining("26.45,74.64"));
   });
 
   /**
    * A shop's card, like a painter's: the district and state it is in, from its pin, and where it
-   * serves — and one found from far off, because it serves the customer's place, says so.
+   * serves — and one found from further off, because it serves the division chosen, says so.
    */
   it("says where each shop is and where it serves, and marks one that serves your area", async () => {
     signedInAs("CUSTOMER");
     mockNearby.shops.mockResolvedValue([
-      shopRow({ place: "Belagavi, Karnataka", serviceAreas: ["RJ-AJMER", "GJ"] }),
+      shopRow({ place: "Ajmer, Rajasthan", serviceAreas: ["RJ-AJMER", "RJ-KOTA"] }),
       shopRow({
         id: "s2",
         name: "Jaipur Paint House",
         addressLine: "MI Road",
         city: "Jaipur",
-        state: "Rajasthan",
-        distanceKm: 1237.1,
         place: "Jaipur, Rajasthan",
-        serviceAreas: ["IN"],
+        serviceAreas: ["RJ"],
         servesYourArea: true,
       }),
     ]);
     renderRouter("./app", { initialUrl: "/shops" });
-    await searchBelagavi();
+    await searchAjmer();
     await waitFor(() => expect(screen.getByTestId("nearby-shops")).toBeTruthy());
 
-    expect(screen.getByTestId("shop-place-s1")).toHaveTextContent("Belagavi, Karnataka");
+    expect(screen.getByTestId("shop-place-s1")).toHaveTextContent("Ajmer, Rajasthan");
     // The street, without the district said twice.
-    expect(screen.getByText("Shop 4, Khade Bazar")).toBeTruthy();
-    await waitFor(() => expect(screen.getByTestId("shop-areas-s1")).toHaveTextContent("Serves Ajmer (Rajasthan) · Gujarat"));
+    expect(screen.getByText("Shop 4, Kaiser Ganj")).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId("shop-areas-s1")).toHaveTextContent("Serves Ajmer, Kota (Rajasthan)"));
     expect(screen.queryByTestId("shop-serves-here-s1")).toBeNull();
 
     expect(screen.getByTestId("shop-place-s2")).toHaveTextContent("Jaipur, Rajasthan");
-    expect(screen.getByText("1,237 km away")).toBeTruthy();
-    expect(screen.getByTestId("shop-areas-s2")).toHaveTextContent("Serves anywhere in India");
+    expect(screen.getByTestId("shop-areas-s2")).toHaveTextContent("Serves Rajasthan");
     expect(screen.getByTestId("shop-serves-here-s2")).toBeTruthy();
   });
 
@@ -399,14 +446,14 @@ describe("C32 · Find a painter, and C36 · Find a paint shop", () => {
     signedInAs("CUSTOMER");
     mockNearby.painters.mockResolvedValue([painterRow("p1")]);
     mockNearby.shops.mockResolvedValue([]);
-    mockNearby.painterPhone.mockResolvedValue({ id: "p1", phone: "+919845012345" });
+    mockNearby.painterPhone.mockResolvedValue({ id: "p1", phone: "+919829012345" });
     renderRouter("./app", { initialUrl: "/nearby" });
-    await searchBelagavi();
+    await searchAjmer();
     await waitFor(() => expect(screen.getByTestId("call-p1")).toBeTruthy());
     expect(mockNearby.painterPhone).not.toHaveBeenCalled();
     fireEvent.press(screen.getByTestId("call-p1"));
-    await waitFor(() => expect(openURL).toHaveBeenCalledWith("tel:+919845012345"));
-    expect(screen.getByTestId("phone-p1")).toHaveTextContent(/\+91.98450.12345/);
+    await waitFor(() => expect(openURL).toHaveBeenCalledWith("tel:+919829012345"));
+    expect(screen.getByTestId("phone-p1")).toHaveTextContent(/\+91.98290.12345/);
     expect(screen.getByTestId("whatsapp-p1")).toBeTruthy();
     fireEvent.press(screen.getByTestId("call-p1"));
     await tick();
@@ -420,7 +467,7 @@ describe("C32 · Find a painter, and C36 · Find a paint shop", () => {
     mockNearby.shops.mockResolvedValue([]);
     mockNearby.painterPhone.mockRejectedValue(new ApiError("http", 404, "This painter isn't taking customers through HueVistaa just now."));
     renderRouter("./app", { initialUrl: "/nearby" });
-    await searchBelagavi();
+    await searchAjmer();
     await waitFor(() => expect(screen.getByTestId("call-p1")).toBeTruthy());
     fireEvent.press(screen.getByTestId("call-p1"));
     await waitFor(() => expect(screen.getByTestId("call-error-p1")).toHaveTextContent(/isn't taking customers/));
@@ -434,14 +481,14 @@ describe("C32 · Find a painter, and C36 · Find a paint shop", () => {
     mockNearby.shops.mockResolvedValue([]);
     mockNearby.painterPhone.mockRejectedValue(offline());
     renderRouter("./app", { initialUrl: "/nearby" });
-    await searchBelagavi();
+    await searchAjmer();
     await waitFor(() => expect(screen.getByTestId("call-p1")).toBeTruthy());
     act(() => onlineManager.setOnline(false));
     try {
       fireEvent.press(screen.getByTestId("call-p1"));
       await waitFor(() => expect(screen.getByTestId("call-error-p1")).toBeTruthy());
       expect(mockNearby.painterPhone).toHaveBeenCalledTimes(1);
-      mockNearby.painterPhone.mockResolvedValue({ id: "p1", phone: "+919845012345" });
+      mockNearby.painterPhone.mockResolvedValue({ id: "p1", phone: "+919829012345" });
       act(() => onlineManager.setOnline(true));
       await tick(1_000);
       expect(openURL).not.toHaveBeenCalled();
@@ -451,7 +498,7 @@ describe("C32 · Find a painter, and C36 · Find a paint shop", () => {
   });
 
   // No distance to pick or shown, as on the website — and nobody listed there yet is "Coming soon".
-  it("names no distance, and says painters are coming soon to the place when none is listed", async () => {
+  it("names no distance, and says painters are coming soon to the division when none is listed", async () => {
     signedInAs("CUSTOMER");
     mockNearby.painters.mockResolvedValue([]);
     mockNearby.shops.mockResolvedValue([]);
@@ -459,49 +506,51 @@ describe("C32 · Find a painter, and C36 · Find a paint shop", () => {
     await waitFor(() => expect(screen.getByTestId("nearby-state")).toBeTruthy());
     expect(screen.queryByTestId("radius-10")).toBeNull();
     expect(screen.queryByTestId("nearby-within")).toBeNull();
-    await searchBelagavi();
+    await searchAjmer();
     await waitFor(() => expect(screen.getByTestId("nearby-coming-soon")).toHaveTextContent("Coming soon"));
-    expect(screen.getByText("Painters in Belagavi are coming soon.")).toBeTruthy();
+    expect(screen.getByText("Painters in Ajmer are coming soon.")).toBeTruthy();
+    // In a division: the way to the whole state.
+    expect(screen.getByTestId("nearby-or-all-of")).toHaveTextContent("Or choose “All of Rajasthan” to see everyone in the state.");
     expect(screen.queryByText(/\bkm\b/)).toBeNull();
-    // The state when it was chosen, then the city in it.
+    // The state when it was chosen, then the division in it.
     expect(mockNearby.painters).toHaveBeenCalledTimes(2);
   });
 
-  it("says paint shops are coming soon to a typed town", async () => {
+  it("says paint shops are coming soon to the whole state", async () => {
     signedInAs("CUSTOMER");
-    mockNearby.places.mockResolvedValue([AURANGABAD_BR]);
     mockNearby.shops.mockResolvedValue([]);
     renderRouter("./app", { initialUrl: "/shops" });
-    await searchFor("Aurangabad", "BR");
-    await waitFor(() => expect(screen.getByText("Paint shops in Aurangabad are coming soon.")).toBeTruthy());
+    await chooseState("RJ");
+    await waitFor(() => expect(screen.getByText("Paint shops in Rajasthan are coming soon.")).toBeTruthy());
+    expect(screen.queryByTestId("nearby-or-all-of")).toBeNull();
   });
 
   // Where each painter can go for a job, named by the server's catalogue; nothing when they haven't said.
   it("says where each painter can work", async () => {
     signedInAs("CUSTOMER");
     mockNearby.painters.mockResolvedValue([
-      painterRow("p1", { workAreas: ["RJ-AJMER", "RJ-JAIPUR", "GJ"] }),
-      painterRow("p2", { distanceKm: 31, workAreas: ["IN"] }),
-      painterRow("p3", { distanceKm: 44, workAreas: [] }),
+      painterRow("p1", { workAreas: ["RJ-AJMER", "RJ-JAIPUR"] }),
+      painterRow("p2", { workAreas: ["RJ"] }),
+      painterRow("p3", { workAreas: [] }),
     ]);
     mockNearby.shops.mockResolvedValue([]);
     renderRouter("./app", { initialUrl: "/nearby" });
-    await searchBelagavi();
-    await waitFor(() => expect(screen.getByTestId("painter-areas-p1")).toHaveTextContent("Works in Ajmer, Jaipur (Rajasthan) · Gujarat"));
-    expect(screen.getByTestId("painter-areas-p2")).toHaveTextContent("Works anywhere in India");
+    await searchAjmer();
+    await waitFor(() => expect(screen.getByTestId("painter-areas-p1")).toHaveTextContent("Works in Ajmer, Jaipur (Rajasthan)"));
+    expect(screen.getByTestId("painter-areas-p2")).toHaveTextContent("Works in Rajasthan");
     expect(screen.queryByTestId("painter-areas-p3")).toBeNull();
   });
 
-  /** A painter further off who said they work where the customer is comes after the ones nearby, and says why. */
-  it("marks a painter who works in the customer's area", async () => {
+  /** A painter further off who said they work in the division comes after the ones based there, and says why. */
+  it("marks a painter who works in the division chosen", async () => {
     signedInAs("CUSTOMER");
     mockNearby.painters.mockResolvedValue([
       painterRow("p1"),
-      painterRow("p2", { distanceKm: 1237, place: "Jaipur, Rajasthan", workAreas: ["IN"], worksInYourArea: true }),
+      painterRow("p2", { place: "Jaipur, Rajasthan", workAreas: ["RJ-AJMER"], worksInYourArea: true }),
     ]);
     mockNearby.shops.mockResolvedValue([]);
     renderRouter("./app", { initialUrl: "/nearby" });
-    await searchBelagavi();
+    await searchAjmer();
 
     await waitFor(() => expect(screen.getByTestId("painter-works-here-p2")).toHaveTextContent("Works in your area"));
     expect(screen.getByTestId("painter-place-p2")).toHaveTextContent("Jaipur, Rajasthan");
@@ -514,127 +563,127 @@ describe("C32 · Find a painter, and C36 · Find a paint shop", () => {
     mockNearby.painters.mockRejectedValue(new ApiError("http", 429, "Too many of these from your account. Please wait a while and try again."));
     mockNearby.shops.mockResolvedValue([]);
     renderRouter("./app", { initialUrl: "/nearby" });
-    await searchBelagavi();
+    await searchAjmer();
     await waitFor(() => expect(screen.getByText(/Too many of these from your account/)).toBeTruthy());
     for (let i = 0; i < 4; i++) await tick(10_000);
-    // Once for the state, once for the city: neither tried again.
+    // Once for the state, once for the division: neither tried again.
     expect(mockNearby.painters).toHaveBeenCalledTimes(2);
   });
 
-  // ── The state, then the place in it ──
-
-  /** Asked as "name, State", and only a place in that state is searched. */
-  it("searches the place in the chosen state, not the likeliest one anywhere", async () => {
+  /** A new state is a new search: the last one's division no longer answers it. */
+  it("starts the division again when the state changes", async () => {
     signedInAs("CUSTOMER");
-    mockNearby.places.mockResolvedValue([AURANGABAD_MH, AURANGABAD_BR]);
+    // Should a second state open, one with no divisions is only ever searched whole.
+    mockNearby.workAreas.mockResolvedValue({ ...WORK_AREAS, states: [{ code: "CH", name: "Chandigarh", nameHi: "चंडीगढ़", divisions: [] }, RAJASTHAN] });
     mockNearby.painters.mockResolvedValue([painterRow("p1")]);
     renderRouter("./app", { initialUrl: "/nearby" });
-    await searchFor("Aurangabad", "BR");
-    await waitFor(() => expect(mockNearby.painters).toHaveBeenCalledWith({ state: "BR", lat: 24.752, lon: 84.374 }));
-    expect(mockNearby.places).toHaveBeenCalledWith("Aurangabad, Bihar");
-    expect(screen.getByTestId("nearby-near")).toHaveTextContent(/^In Aurangabad, Bihar/);
-    expect(screen.queryByText("Aurangabad, Maharashtra")).toBeNull();
-  });
-
-  it("offers the others of one name in the same state", async () => {
-    signedInAs("CUSTOMER");
-    const KOTHRUD: NearbyPlace = { name: "Kothrud", region: "Pune, Maharashtra", pincode: "411038", latitude: 18.5, longitude: 73.8 };
-    const DEPOT: NearbyPlace = { name: "Kothrud Depot", region: "Pune, Maharashtra", pincode: "411038", latitude: 18.49, longitude: 73.79 };
-    mockNearby.places.mockResolvedValue([KOTHRUD, DEPOT]);
-    mockNearby.painters.mockResolvedValue([painterRow("p1")]);
-    renderRouter("./app", { initialUrl: "/nearby" });
-    await searchFor("Kothrud", "MH");
-    await waitFor(() => expect(mockNearby.painters).toHaveBeenCalledWith({ state: "MH", lat: 18.5, lon: 73.8 }));
-    fireEvent.press(screen.getByTestId("nearby-other-0"));
-    await waitFor(() => expect(mockNearby.painters).toHaveBeenLastCalledWith({ state: "MH", lat: 18.49, lon: 73.79 }));
-  });
-
-  it("says so when a PIN is in another state, and offers it", async () => {
-    signedInAs("CUSTOMER");
-    mockNearby.places.mockResolvedValue([BELAGAVI_PIN]);
-    mockNearby.painters.mockResolvedValue([painterRow("p1")]);
-    renderRouter("./app", { initialUrl: "/nearby" });
-    await searchFor("590001", "MH");
-    await waitFor(() => expect(screen.getByTestId("nearby-place-problem")).toHaveTextContent(/The PIN code 590001 is not in Maharashtra\./));
-    // Only Maharashtra, as a whole, when it was chosen: the PIN is not searched.
-    expect(mockNearby.painters).toHaveBeenCalledTimes(1);
-    expect(mockNearby.painters).toHaveBeenLastCalledWith({ state: "MH" });
-    // Choosing it moves the state to match.
-    fireEvent.press(screen.getByTestId("nearby-elsewhere-0"));
-    await waitFor(() => expect(mockNearby.painters).toHaveBeenCalledWith(AT_BELAGAVI));
-    expect(screen.getByTestId("nearby-state")).toHaveTextContent(/Karnataka/);
-  });
-
-  it("clears the list when the state changes", async () => {
-    signedInAs("CUSTOMER");
-    mockNearby.painters.mockResolvedValue([painterRow("p1")]);
-    renderRouter("./app", { initialUrl: "/nearby" });
-    await searchBelagavi();
+    await searchAjmer();
     await waitFor(() => expect(screen.getByTestId("nearby-painters")).toBeTruthy());
     mockNearby.painters.mockResolvedValue([]);
-    await chooseState("GJ");
-    await waitFor(() => expect(mockNearby.painters).toHaveBeenLastCalledWith({ state: "GJ" }));
-    await waitFor(() => expect(screen.getByText("Painters in Gujarat are coming soon.")).toBeTruthy());
+    await chooseState("CH");
+    await waitFor(() => expect(mockNearby.painters).toHaveBeenLastCalledWith({ state: "CH" }));
+    await waitFor(() => expect(screen.getByText("Painters in Chandigarh are coming soon.")).toBeTruthy());
     expect(screen.queryByTestId("nearby-painters")).toBeNull();
-    expect(screen.queryByTestId("nearby-near")).toBeNull();
-    expect(screen.getByTestId("nearby-all-of")).toHaveTextContent("In all of Gujarat");
+    expect(screen.queryByTestId("nearby-in")).toBeNull();
+    expect(screen.getByTestId("nearby-all-of")).toHaveTextContent("In all of Chandigarh");
+    expect(screen.getByTestId("nearby-division")).toBeDisabled();
+    expect(screen.getByTestId("nearby-division")).toHaveTextContent(/All of Chandigarh/);
   });
 
-  it("says so when a typed place can't be found in the state, and searches nothing", async () => {
+  // ── Or a PIN code ──
+
+  /**
+   * A PIN typed is looked up and searched near — nearest first — with no state chosen first: the two
+   * boxes follow it to its state and division, and India Post is credited for it.
+   */
+  it("searches near a PIN code typed, and the boxes follow it to its state and division", async () => {
+    signedInAs("CUSTOMER");
+    mockNearby.places.mockResolvedValue([AJMER_PIN]);
+    mockNearby.painters.mockResolvedValue([painterRow("p1")]);
+    renderRouter("./app", { initialUrl: "/nearby" });
+    await waitFor(() => expect(screen.getByTestId("nearby-state")).toBeEnabled());
+    await searchPin("305001");
+
+    await waitFor(() => expect(screen.getByTestId("nearby-painters")).toBeTruthy());
+    expect(mockNearby.places).toHaveBeenCalledWith("305001");
+    expect(mockNearby.painters).toHaveBeenCalledTimes(1);
+    expect(mockNearby.painters).toHaveBeenCalledWith(NEAR_AJMER_PIN);
+    expect(screen.getByTestId("nearby-state")).toHaveTextContent(/Rajasthan/);
+    expect(screen.getByTestId("nearby-division")).toHaveTextContent(/Ajmer/);
+    expect(screen.getByTestId("nearby-near")).toHaveTextContent("Near PIN 305001 · Ajmer, Rajasthan");
+    expect(screen.getByTestId("nearby-pin-credit")).toHaveTextContent(/India Post/);
+  });
+
+  /** Choosing a state or a division after it is a search by them: the PIN is left. */
+  it("leaves the PIN code for a division chosen after it", async () => {
+    signedInAs("CUSTOMER");
+    mockNearby.places.mockResolvedValue([AJMER_PIN]);
+    mockNearby.painters.mockResolvedValue([painterRow("p1")]);
+    renderRouter("./app", { initialUrl: "/nearby" });
+    await waitFor(() => expect(screen.getByTestId("nearby-state")).toBeEnabled());
+    await searchPin("305001");
+    await waitFor(() => expect(screen.getByTestId("nearby-near")).toBeTruthy());
+
+    await chooseDivision("RJ-JAIPUR");
+    await waitFor(() => expect(mockNearby.painters).toHaveBeenLastCalledWith({ state: "RJ", division: "RJ-JAIPUR" }));
+    expect(screen.getByTestId("nearby-in")).toHaveTextContent("In Jaipur, Rajasthan");
+    expect(screen.queryByTestId("nearby-near")).toBeNull();
+    expect(screen.queryByTestId("nearby-pin-credit")).toBeNull();
+    expect(screen.getByTestId("nearby-pin").props.value).toBe("");
+  });
+
+  it("says a PIN code has six digits, and looks nothing up", async () => {
+    signedInAs("CUSTOMER");
+    renderRouter("./app", { initialUrl: "/nearby" });
+    await searchPin("3050");
+    await waitFor(() => expect(screen.getByTestId("nearby-pin-problem")).toHaveTextContent(/A PIN code has six digits, like 305001\./));
+    expect(mockNearby.places).not.toHaveBeenCalled();
+    expect(mockNearby.painters).not.toHaveBeenCalled();
+  });
+
+  /** A PIN in another state isn't found: the server finds places in the open states alone. */
+  it("says so when a PIN code isn't found in Rajasthan, and searches nothing", async () => {
     signedInAs("CUSTOMER");
     mockNearby.places.mockResolvedValue([]);
     renderRouter("./app", { initialUrl: "/nearby" });
-    await searchFor("Atlantis");
-    await waitFor(() => expect(screen.getByTestId("nearby-place-problem")).toHaveTextContent(/We couldn't find “Atlantis” in Karnataka/));
-    expect(mockNearby.places).toHaveBeenCalledWith("Atlantis, Karnataka");
-    // The state stays searched, all of it; nothing more.
-    expect(mockNearby.painters).toHaveBeenCalledTimes(1);
-    expect(mockNearby.painters).toHaveBeenLastCalledWith({ state: "KA" });
+    await waitFor(() => expect(screen.getByTestId("nearby-state")).toBeEnabled());
+    await searchPin("380001");
+    await waitFor(() =>
+      expect(screen.getByTestId("nearby-pin-problem")).toHaveTextContent(
+        /We couldn't find the PIN code 380001 in Rajasthan\. Check it — HueVistaa is only in Rajasthan for now\./,
+      ),
+    );
+    expect(mockNearby.painters).not.toHaveBeenCalled();
   });
 
-  it("passes on the server's word for digits that aren't a PIN, and asks for something to search", async () => {
+  /** A PIN typed on a Hindi keyboard is still a PIN; nobody near it yet is news on its way. */
+  it("takes a PIN in Hindi digits, and says painters are coming soon near it", async () => {
     signedInAs("CUSTOMER");
-    mockNearby.places.mockRejectedValue(new ApiError("http", 400, "That isn't a PIN code. A PIN has six digits, like 590001."));
+    mockNearby.places.mockResolvedValue([AJMER_PIN]);
+    mockNearby.painters.mockResolvedValue([]);
     renderRouter("./app", { initialUrl: "/nearby" });
-    await searchFor("5900");
-    await waitFor(() => expect(screen.getByTestId("nearby-place-problem")).toHaveTextContent(/A PIN has six digits/));
-
-    // Search with no city: the whole state again, and no lookup.
-    fireEvent.changeText(screen.getByTestId("nearby-place"), "   ");
-    fireEvent.press(screen.getByTestId("nearby-place-search"));
-    await waitFor(() => expect(screen.queryByTestId("nearby-place-problem")).toBeNull());
-    expect(mockNearby.places).toHaveBeenCalledTimes(1);
-    expect(mockNearby.painters).toHaveBeenLastCalledWith({ state: "KA" });
+    await waitFor(() => expect(screen.getByTestId("nearby-state")).toBeEnabled());
+    await searchPin("३०५००१");
+    expect(mockNearby.places).toHaveBeenCalledWith("305001");
+    await waitFor(() => expect(screen.getByText("Painters in Ajmer are coming soon.")).toBeTruthy());
+    expect(screen.getByTestId("nearby-or-all-of")).toHaveTextContent("Or choose “All of Rajasthan” to see everyone in the state.");
   });
 
-  it("searches the whole state as soon as it is chosen, with no distance", async () => {
-    signedInAs("CUSTOMER");
-    mockNearby.shops.mockResolvedValue([shopRow({ distanceKm: null, place: "Belagavi, Karnataka" })]);
-    renderRouter("./app", { initialUrl: "/shops" });
-    await chooseState("KA");
-    await waitFor(() => expect(screen.getByTestId("nearby-shops")).toBeTruthy());
-    expect(mockNearby.shops).toHaveBeenCalledWith({ state: "KA" });
-    expect(mockNearby.places).not.toHaveBeenCalled();
-    expect(screen.getByTestId("nearby-all-of")).toHaveTextContent("In all of Karnataka");
-    expect(screen.queryByText(/away/)).toBeNull();
-  });
-
-  /** Should the list of states not load, the place box still works, as a search of all India. */
-  it("takes a place on its own when the states can't be read", async () => {
+  it("says so when the states can't be loaded, and asks again", async () => {
     signedInAs("CUSTOMER");
     mockNearby.workAreas.mockRejectedValue(new ApiError("http", 500, "down"));
-    mockNearby.places.mockResolvedValue([BELAGAVI_PIN]);
-    mockNearby.painters.mockResolvedValue([painterRow("p1")]);
     renderRouter("./app", { initialUrl: "/nearby" });
     await waitFor(() => expect(screen.getByTestId("nearby-state")).toBeTruthy());
     // The list is tried again a few times before it counts as failed.
     for (let i = 0; i < 4; i++) await tick(10_000);
-    await waitFor(() => expect(screen.queryByTestId("nearby-state")).toBeNull());
-    fireEvent.changeText(screen.getByTestId("nearby-place"), "590001");
-    await act(async () => fireEvent.press(screen.getByTestId("nearby-place-search")));
-    await waitFor(() => expect(mockNearby.places).toHaveBeenCalledWith("590001"));
-    // No state to search by: the place, by distance, as before.
-    await waitFor(() => expect(mockNearby.painters).toHaveBeenCalledWith({ lat: 15.858, lon: 74.511, radiusKm: 50 }));
+    await waitFor(() => expect(screen.getByText("Couldn't load the list of states.")).toBeTruthy());
+    expect(screen.getByTestId("nearby-state")).toBeDisabled();
+
+    mockNearby.workAreas.mockResolvedValue(WORK_AREAS);
+    fireEvent.press(screen.getByText("Try again"));
+    await waitFor(() => expect(screen.queryByText("Couldn't load the list of states.")).toBeNull());
+    await chooseState("RJ");
+    await waitFor(() => expect(mockNearby.painters).toHaveBeenCalledWith({ state: "RJ" }));
   });
 });
 

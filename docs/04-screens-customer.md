@@ -988,42 +988,50 @@ near you**) · both `features/nearby/NearbySearch.tsx` · **Phase** 7 · **Web r
 Who will paint it and where to buy the paint are two different jobs, so they are two places,
 each with one list — never both behind a switch. An old `/nearby?tab=shops` link lands on C36.
 
-**Layout:** the one list, nearest first. No distance to pick or shown, as on the website: the search always reaches as far as the server goes — and painters
-further off who said they work in the place the search is from (its division, its state, or
-anywhere in India) come after the nearby ones, marked **Works in your area**
+**Layout:** the one list. No distance to pick or shown, as on the website: those based in the
+place chosen come first, in order of district, and painters further off who said they work there
+(the division, or all of the state) come after them, marked **Works in your area**
 (`worksInYourArea`) — and shops the same way, those further off that serve the place marked
 **Serves your area** (`servesYourArea`).
 - **Painter row:** the painter's card — photo (`photoUrl`, public while they're listed),
-  name and address — where they can go for a job ("Works in Ajmer, Jaipur (Rajasthan) ·
-  Gujarat", or "Works anywhere in India"; the codes in `workAreas`, named by
-  `GET /api/nearby/work-areas`), with the HueVistaa Certified badge and the district and state
-  they're based in ("Jaipur, Rajasthan" — `place`). No distance and no line of jobs or reviews:
-  the list is already nearest first. Nothing else a painter fills in is shown.
+  name and address — where they can go for a job ("Works in Ajmer, Jaipur (Rajasthan)", or
+  "Works in Rajasthan"; the codes in `workAreas`, named by `GET /api/nearby/work-areas`), with the
+  HueVistaa Certified badge and the district and state they're based in ("Jaipur, Rajasthan" —
+  `place`). No distance and no line of jobs or reviews. Nothing else a painter fills in is shown.
   **Call** reveals the number (`GET /api/nearby/painters/{id}/phone`) and opens the dialler.
-- **Shop row:** name and distance, the district and state it is in ("Belagavi, Karnataka" —
-  `place`, from its pin), its street, hours, where it serves ("Serves Ajmer (Rajasthan) ·
-  Gujarat" — `serviceAreas`, chosen on the website, named like a painter's), and **Serves your
-  area** when that takes in the customer's place · **Call** · **Directions** (opens Maps).
+- **Shop row:** name, the district and state it is in ("Ajmer, Rajasthan" — `place`, from its
+  pin), its street, hours, where it serves ("Serves Ajmer, Kota (Rajasthan)" — `serviceAreas`,
+  chosen on the website, named like a painter's), and **Serves your area** when that takes in the
+  place chosen · **Call** · **Directions** (opens Maps).
 
-**State, then place** — the way a paint company's dealer locator asks: a **State** box first,
-which opens the list of states (`GET /api/nearby/work-areas`, the list painters and shops chose
-their areas from). Choosing one searches all of it at once, with no distance limit ("In all of
-Maharashtra" — `GET /api/nearby/painters?state=MH`, every painter based in the state in order
-of district, then those from further off who work in it). Then, if wanted, a **City, area or
-PIN code (optional)** field with **Search** narrows it to that city ("In Kothrud, Pune,
-Maharashtra" — `?state=MH&lat&lon`, those based in its district, nearest first); Search with the
-field empty is the whole state again. The phone's location is not asked for. If the list of states can't be read, the place
-field works on its own.
+**State, then division** — the way a paint company's dealer locator asks, in two boxes that each
+open a list: a **State** box first (`GET /api/nearby/work-areas` — only the states HueVistaa is
+open in, **Rajasthan at launch**, the list painters and shops chose their areas from). Choosing
+one searches all of it at once, with no distance limit ("In all of Rajasthan" —
+`GET /api/nearby/painters?state=RJ`, every painter based in the state in order of district, then
+those from further off who work in it). Then, if wanted, a **Division (optional)** box —
+**All of Rajasthan**, then Ajmer, Bharatpur, Bikaner, Jaipur, Jodhpur, Kota and Udaipur, each with
+the big towns in it under its name ("Bhilwara, Nagaur, Tonk, Beawar" under Ajmer) — narrows it to
+that division ("In Ajmer, Rajasthan" — `?state=RJ&division=RJ-AJMER`, those whose pin is in its
+districts, then those further off who work in it). The phone's location is not asked for. A state
+with no divisions is only ever searched whole. If the list of states can't be read, it says so with
+**Try again**.
 
-**API:** `GET /api/nearby/painters?state[&lat&lon]` · `GET /api/nearby/shops?state[&lat&lon]` (by
-distance, `?lat&lon&radiusKm=50`, only when the list of states can't be read) ·
-`GET /api/nearby/places?q` · `GET /api/nearby/work-areas` (the states, and the names of the
-places painters work in, read once a day at most).
+**Or a PIN code** — under the two boxes, **Or your PIN code** with **Search** (Hindi digits too).
+The PIN is looked up (`GET /api/nearby/places`, which gives its `state` and `division`, so the two
+boxes follow it) and searched near ("Near PIN 305001 · Ajmer, Rajasthan" — `?state=RJ&lat&lon`,
+those based in its district or close to it, nearest first, then those further off who work in its
+division). Choosing a state or a division again leaves the PIN. Not six digits → said, nothing
+looked up; a PIN outside Rajasthan isn't found ("We couldn't find the PIN code 380001 in
+Rajasthan…"), and nothing is searched. India Post is credited under the list, as its licence asks.
 
-**As built:** nothing is searched until a state is chosen and a place typed in it. The place is
-asked for as "place, State" (`/api/nearby/places` narrows by what follows the comma; a PIN is
-asked for alone), and only places in the chosen state are searched. The point is rounded to
-about 100 m before it leaves the phone. Choosing another state clears the list.
+**API:** `GET /api/nearby/painters?state[&division | &lat&lon]` · `GET /api/nearby/shops?state[&division | &lat&lon]` ·
+`GET /api/nearby/places?q=` (a PIN code) · `GET /api/nearby/work-areas` (the states and their
+divisions, read once a day at most).
+
+**As built:** nothing is searched until a state is chosen or a PIN found. Each search is kept five
+minutes by its state and division, or its PIN's point. Choosing another state clears the division
+and the list.
 
 - **Painters:** the district and state they're based in under the name (`place`), never a
   distance or a record of jobs and reviews. **Call** asks for the number once (each one counts against 20 a day), dials it,
@@ -1034,19 +1042,11 @@ about 100 m before it leaves the phone. Choosing another state clears the list.
   the shop typed only when the district doesn't already say it (`shopAddress`) — hours, where
   it serves (`serviceAreasText`, in the app's language), **Serves your area**, **Directions**
   (Apple Maps on iOS, Google Maps elsewhere), and **Call** when the number can be dialled.
-- Always nearest first; an empty list is a **Coming soon** card naming the place ("Painters in Kothrud are coming soon"), with a line to check back or try a nearby town. The 50
-  nearest are shown, and the list says so. Searches share 60 an hour per account, so a
-  refusal is shown in the server's words and never retried by itself; nothing reloads on
-  focus or reconnect.
+- An empty list is a **Coming soon** card naming the place ("Painters in Ajmer are coming soon"),
+  with a line to check back — and, in a division, "Or choose “All of Rajasthan” to see everyone
+  in the state." Searches share 60 an hour per account, so a refusal is shown in the server's
+  words and never retried by itself; nothing reloads on focus or reconnect.
 - The painter's P5 preview shows their own card as customers see it.
-- **A typed place:** a PIN (Hindi digits too), a city by any of its names — Bangalore,
-  Belgaum, or पुणे / मुंबई in Devanagari for most big cities — or an area (Kothrud). The
-  likeliest in the state is searched at once and "Near Kothrud, Pune, Maharashtra · 411038"
-  says where; others of the same name in the state are offered as chips under **Did you
-  mean**. Found only in another state → said ("The PIN code 590001 is not in Maharashtra"),
-  nothing is searched, and the place is offered under **Found in another state** — choosing
-  it moves the State box to match. Nothing found → said under the field, and nothing is
-  searched. India Post and GeoNames are credited under the list, as their licences ask.
 
 ### C33 · Work as a painter
 

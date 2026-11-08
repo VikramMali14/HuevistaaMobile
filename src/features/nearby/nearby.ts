@@ -1,39 +1,12 @@
 import { Platform } from "react-native";
 
-import type { NearbyPlace, NearbyShop, WorkAreaState } from "@/api/endpoints/nearby";
+import type { NearbyPlace, NearbyShop } from "@/api/endpoints/nearby";
 import { t } from "@/i18n";
 
 /**
  * Painters and shops near you (C32). Ported from the customer website's lib/nearby.ts and
  * the cards in components/app/nearby-finder.tsx, so a row reads the same in both places.
  */
-
-/**
- * How far the search reaches: the server's widest, every time, as on the website. Customers
- * are no longer asked to pick a distance — the lists come back nearest first, so the closest is
- * at the top whether it is round the corner or two towns over.
- */
-export const SEARCH_RADIUS_KM = 50;
-/** The server's cap on one answer; a full list may leave some out. */
-export const MAX_RESULTS = 50;
-
-export interface SearchPoint {
-  lat: number;
-  lon: number;
-}
-
-/**
- * Where to search from: the phone's fix to three places (about 100 m) — plenty for a
- * search of kilometres, and no more of where the customer stands than that leaves the
- * phone. Null for a fix that can't be right (the server refuses those, and 0,0 too).
- */
-export function searchPoint(latitude: number, longitude: number): SearchPoint | null {
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
-  if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null;
-  if (Math.abs(latitude) < 1e-7 && Math.abs(longitude) < 1e-7) return null;
-  const round = (n: number) => Math.round(n * 1000) / 1000;
-  return { lat: round(latitude), lon: round(longitude) };
-}
 
 /**
  * "2.4 km away", "18 km away", "400 m away" — how far a shop is, from its exact pin. A painter's
@@ -86,22 +59,10 @@ export function directionsHref(latitude: number, longitude: number, os: string =
 }
 
 /**
- * A typed place as the search says it is centred: "Pune, Maharashtra", "Kothrud, Pune,
- * Maharashtra · 411038", or "PIN 411038 · Pune, Maharashtra" — enough to see it is the
- * place meant, and not the other one of that name. As the website's placeLabel.
+ * A town found for a painter's pin, as P5 says it: "Ajmer, Rajasthan", "Kaiser Ganj Ajmer, Ajmer,
+ * Rajasthan · 305001", or "PIN 305001 · Ajmer, Rajasthan" — enough to see it is the place meant,
+ * and not the other one of that name. As the website's placeLabel.
  */
-/**
- * Whether a place the server found is in this state. A place's region ends with its state —
- * "Pune, Maharashtra" for a locality, "Maharashtra" for a town — spelt as the work-areas
- * catalogue spells it. Compared without case or spacing. The website's lib/nearby.ts inState.
- */
-export function inState(place: Pick<NearbyPlace, "region">, state: Pick<WorkAreaState, "name">): boolean {
-  const region = place.region ?? "";
-  const last = region.slice(region.lastIndexOf(",") + 1);
-  const norm = (v: string) => v.toLowerCase().replace(/[^a-z]/g, "");
-  return norm(last) !== "" && norm(last) === norm(state.name);
-}
-
 export function placeLabel(place: Pick<NearbyPlace, "name" | "region" | "pincode">): string {
   const region = place.region?.trim();
   if (place.pincode && place.name === place.pincode) {

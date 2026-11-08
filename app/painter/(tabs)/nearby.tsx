@@ -11,7 +11,7 @@ import { useSession } from "@/auth/session";
 import { Banner, Button, Card, ErrorState, Screen, Skeleton, Switch, Text, useToast } from "@/components/ui";
 import { PainterCardBody } from "@/features/nearby/NearbyCards";
 import { useWhere, useWorkAreas } from "@/features/nearby/use-nearby";
-import { sameAreas } from "@/features/nearby/work-areas";
+import { isOpen, normalise, openStates, sameAreas } from "@/features/nearby/work-areas";
 import { hasSavedLocation, listingBody, listingNeeds, ownPhotoUrl, savedPin, type PendingLocation } from "@/features/painter/listing";
 import { PainterHeader } from "@/features/painter/PainterHeader";
 import { PinMap } from "@/features/painter/pin-map/PinMap";
@@ -43,9 +43,14 @@ import { useTheme } from "@/theme";
  * rounded to about a kilometre. Customers never see it, nor a distance. Once saved, the screen
  * names the place the pin is in, so a wrong one is plain to see.
  *
- * Where they can work: divisions of their own state — the one their location is in, drawn first —
- * other states, or anywhere in India (WorkAreasPicker), named by the server's catalogue. Customers
- * in those places find them, however far off.
+ * HueVistaa is open in some states only — Rajasthan at launch — and a painter is found by customers
+ * only with their pin in one of them. The town search finds places in those states alone; a pin
+ * anywhere else is named, said to be outside, and the switch stays off until it moves (the server
+ * refuses it too).
+ *
+ * Where they can work: divisions of those states, or the whole of one (WorkAreasPicker), named by
+ * the server's catalogue — the same divisions a customer's search chooses between. Customers who
+ * choose them find the painter, however far off. Anywhere in India is no longer offered.
  *
  * Only HueVistaa Certified painters are shown to customers. The switch stays the painter's
  * to set before they are — the listing is saved and goes live once they're certified — so
@@ -122,6 +127,15 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
     pending === "clear" ? null : pending ? (pendingArea.data?.state ?? profile.locationState ?? null) : (profile.locationState ?? null);
 
   const needs = listingNeeds(profile, pending);
+  /** The states HueVistaa is open in, for a sentence; null before they load, or across all India. */
+  const open = catalogue.data ? openStates(catalogue.data) : null;
+  // Where the location shown is — the one being moved once the server has said, or the saved one.
+  const shownState = pending === "clear" ? null : pending ? (pendingArea.data?.state ?? null) : (profile.locationState ?? null);
+  const shownPlace = pending === "clear" ? null : pending ? (pendingArea.data?.place ?? null) : (profile.locationPlace ?? null);
+  // Outside the states HueVistaa is open in: customers there can't find a painter yet. Said only
+  // where the states can be named; across most of India the server's refusal says it.
+  const outside = Boolean(catalogue.data) && open !== null && shownState !== null && !isOpen(shownState, catalogue.data!);
+  const ready = needs.ready && !outside;
   const certified = Boolean(profile.certified);
   // Without the catalogue the places can't be drawn or changed, so they are left as they are.
   const areasChanged = Boolean(catalogue.data) && !sameAreas(areas, profile.workAreas ?? [], catalogue.data!);
@@ -191,13 +205,22 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
               setError(null);
               setListed(next);
             }}
-            // Turning it off is always allowed; on needs a base and a confirmed mobile.
-            disabled={!listed && !needs.ready}
+            // Turning it off is always allowed; on needs a base in an open state and a confirmed mobile.
+            disabled={!listed && !ready}
             testID="nearby-switch"
           />
-          {!needs.ready ? (
+          {!ready ? (
             <View style={{ gap: space.xs }} testID="nearby-needs">
-              <Need done={needs.location} label={needs.location ? t("painter.nearby.locationSet") : t("painter.nearby.needLocation")} />
+              <Need
+                done={needs.location && !outside}
+                label={
+                  !needs.location
+                    ? t("painter.nearby.needLocation")
+                    : outside
+                      ? t("painter.nearby.needInside", { states: open ?? "" })
+                      : t("painter.nearby.locationSet")
+                }
+              />
               <Need
                 done={needs.mobile}
                 label={needs.mobile ? t("painter.nearby.mobileSet") : t("painter.nearby.needMobile")}
@@ -232,8 +255,14 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
             {setOn}
           </Text>
         ) : null}
+        {open ? (
+          <Text variant="small" tone="soft" testID="nearby-only-in">
+            {t("painter.nearby.onlyIn", { states: open })}
+          </Text>
+        ) : null}
         <PlaceSearch
           disabled={saving.busy}
+          within={open}
           onPick={(place, label) => {
             setError(null);
             setPending({ latitude: place.latitude, longitude: place.longitude, label });
@@ -256,6 +285,9 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
           }}
           onTouch={setOnMap}
         />
+        {outside ? (
+          <Banner tone="warning" message={t("painter.nearby.outside", { place: shownPlace ?? shownState ?? "", states: open ?? "" })} testID="nearby-outside" />
+        ) : null}
         <Text variant="small" tone="soft">
           {t("painter.nearby.mapHelp")}
         </Text>
@@ -328,9 +360,9 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
                 // Not shown on the card; the place is.
                 distanceKm: 0,
                 // Where the location being saved is, once the server has said — or the saved one's.
-                place: pending === "clear" ? null : pending ? (pendingArea.data?.place ?? null) : (profile.locationPlace ?? null),
-                // As ticked above, before it is saved: what the card will say.
-                workAreas: catalogue.data ? areas : (profile.workAreas ?? []),
+                place: shownPlace,
+                // As ticked above, before it is saved, and read as the server keeps it: what the card will say.
+                workAreas: catalogue.data ? normalise(areas, catalogue.data) : (profile.workAreas ?? []),
               }}
               actions={<Button icon="phone" label={t("nearby.call")} disabled onPress={() => {}} />}
             />
