@@ -1,13 +1,14 @@
 import Feather from "@expo/vector-icons/Feather";
-import { useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Keyboard, Pressable, StyleSheet, View } from "react-native";
 
-import type { NearbySearch as Scope, WorkAreaState } from "@/api/endpoints/nearby";
+import { nearbyApi, type NearbyPlace, type NearbySearch as Scope, type WorkAreaState } from "@/api/endpoints/nearby";
 import { messageFor } from "@/api/errors";
-import { BackButton, Card, ErrorState, ListGroup, ListRow, Pill, Screen, Sheet, Skeleton, Text } from "@/components/ui";
+import { BackButton, Banner, Button, Card, ErrorState, ListGroup, ListRow, Pill, Screen, Sheet, Skeleton, Text, TextField } from "@/components/ui";
+import { placeLabel } from "@/features/nearby/nearby";
 import { PainterCard, ShopCard } from "@/features/nearby/NearbyCards";
 import { useNearbyPainters, useNearbyShops, useWorkAreas } from "@/features/nearby/use-nearby";
-import { divisionTowns, placeName } from "@/features/nearby/work-areas";
+import { divisionTowns, openStates, placeName } from "@/features/nearby/work-areas";
 import { t } from "@/i18n";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { hairline, minTouch, useTheme } from "@/theme";
@@ -33,6 +34,13 @@ export type NearbyKind = "painters" | "shops";
  * further off who said they work in (or serve) it, marked "Works in your area". Nobody listed
  * there yet is "Coming soon".
  *
+ * Or the customer types their **PIN code** in the box under them: it is looked up
+ * (GET /api/nearby/places, which says the PIN's state and division, so the two boxes follow it) and
+ * searched near — `?state=&lat=&lon=`, everybody based in its district or close to it, nearest
+ * first, then those further off who work in its division. Choosing a state or a division again
+ * leaves the PIN for that search. A PIN outside the states HueVistaa is open in is not found, and
+ * the customer is told so; India Post, whose PIN codes these are, is credited under the list.
+ *
  * The states and divisions are the work-areas catalogue's (GET /api/nearby/work-areas): only the
  * states HueVistaa is open in — Rajasthan at launch — the same places a painter and a shop chose
  * from. Only this screen's list is read for each search, and kept five minutes: the lists share a
@@ -49,12 +57,24 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
   /** The chosen division's code; null for all of the state. */
   const [divisionCode, setDivisionCode] = useState<string | null>(null);
   const [choosing, setChoosing] = useState<"state" | "division" | null>(null);
+  /** What is typed in the PIN code box. */
+  const [pinText, setPinText] = useState("");
+  /** The PIN code being searched near, once found; null for a search by state and division. */
+  const [pin, setPin] = useState<NearbyPlace | null>(null);
+  const [findingPin, setFindingPin] = useState(false);
+  const [pinProblem, setPinProblem] = useState<string | null>(null);
+  const live = useRef(true);
   const workAreas = useWorkAreas();
   const states: WorkAreaState[] = workAreas.data?.states ?? [];
   const state = states.find((s) => s.code === stateCode) ?? null;
   const division = state?.divisions.find((d) => d.code === divisionCode) ?? null;
-  // A state chosen is searched at once, all of it, with no distance limit; a division narrows it.
-  const scope: Scope | null = state ? { state: state.code, ...(division ? { division: division.code } : {}) } : null;
+  // A PIN code found is searched near. Otherwise a state chosen is searched at once, all of it,
+  // with no distance limit, and a division narrows it.
+  const scope: Scope | null = pin?.state
+    ? { state: pin.state, lat: pin.latitude, lon: pin.longitude }
+    : state
+      ? { state: state.code, ...(division ? { division: division.code } : {}) }
+      : null;
   // Only this screen's list is asked for.
   const painters = useNearbyPainters(kind === "painters" ? scope : null);
   const shops = useNearbyShops(kind === "shops" ? scope : null);
@@ -62,9 +82,24 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
     if (scope) await (kind === "painters" ? painters.refetch() : shops.refetch());
   });
 
+  useEffect(() => {
+    live.current = true;
+    return () => {
+      live.current = false;
+    };
+  }, []);
+
+  /** A state or a division chosen is a search by them: the PIN code is left. */
+  const leavePin = () => {
+    setPin(null);
+    setPinText("");
+    setPinProblem(null);
+  };
+
   const chooseState = (code: string) => {
     setChoosing(null);
-    if (code === stateCode) return;
+    if (code === stateCode && !pin) return;
+    leavePin();
     setStateCode(code);
     // A new state is a new search: the last one's division no longer answers it.
     setDivisionCode(null);
@@ -72,12 +107,44 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
 
   const chooseDivision = (code: string | null) => {
     setChoosing(null);
+    leavePin();
     setDivisionCode(code);
   };
 
+  /** A PIN code typed: looked up, then searched near — and the boxes above follow it to its state and division. */
+  const findPin = async () => {
+    Keyboard.dismiss();
+    const typed = westernDigits(pinText).replace(/\s+/g, "");
+    if (!/^[1-9]\d{5}$/.test(typed)) {
+      setPinProblem(t("nearby.pinInvalid"));
+      return;
+    }
+    setFindingPin(true);
+    setPinProblem(null);
+    try {
+      // Only places in the states HueVistaa is open in come back, each with its state.
+      const found = (await nearbyApi.places(typed)).find((p) => p.state) ?? null;
+      if (!live.current) return;
+      if (!found?.state) {
+        const open = workAreas.data ? openStates(workAreas.data) : null;
+        setPinProblem(open ? t("nearby.pinNotFoundIn", { pin: typed, states: open }) : t("nearby.pinNotFound", { pin: typed }));
+        return;
+      }
+      setStateCode(found.state);
+      setDivisionCode(found.division ?? null);
+      setPin(found);
+    } catch (err) {
+      if (live.current) setPinProblem(messageFor(err, t("nearby.pinFailed")));
+    } finally {
+      if (live.current) setFindingPin(false);
+    }
+  };
+
   const list = tab === "painters" ? painters : shops;
-  /** The place a "Coming soon" names: the division, or the state. */
-  const where = division ? placeName(division) : state ? placeName(state) : null;
+  /** The place a "Coming soon" names: the PIN's town, the division, or the state. */
+  const where = pin ? pinTown(pin) : division ? placeName(division) : state ? placeName(state) : null;
+  /** In a division, or near a PIN, the state it is in, for a "Coming soon" to offer instead. */
+  const wider = (pin || division) && state ? placeName(state) : null;
 
   let body: React.ReactNode;
   if (!scope) {
@@ -120,10 +187,10 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
           <Text variant="body" tone="soft">
             {tab === "painters" ? t("nearby.noPaintersBody") : t("nearby.noShopsBody")}
           </Text>
-          {/* In a division with nobody yet: the way to the whole state. */}
-          {division && state ? (
+          {/* In a division, or near a PIN, with nobody yet: the way to the whole state. */}
+          {wider ? (
             <Text variant="body" tone="soft" testID="nearby-or-all-of">
-              {t("nearby.orAllOf", { state: placeName(state) })}
+              {t("nearby.orAllOf", { state: wider })}
             </Text>
           ) : null}
         </View>
@@ -176,10 +243,42 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
           onPress={() => setChoosing("division")}
           testID="nearby-division"
         />
+        <View style={[styles.row, styles.bottom, { gap: space.sm }]}>
+          <View style={styles.fill}>
+            <TextField
+              label={t("nearby.pinField")}
+              placeholder={t("nearby.pinPlaceholder")}
+              value={pinText}
+              onChangeText={(next) => {
+                setPinText(next);
+                setPinProblem(null);
+              }}
+              keyboardType="number-pad"
+              autoComplete="postal-code"
+              returnKeyType="search"
+              maxLength={7}
+              onSubmitEditing={() => void findPin()}
+              testID="nearby-pin"
+            />
+          </View>
+          <Button
+            variant="secondary"
+            block={false}
+            label={t("nearby.pinSearch")}
+            loading={findingPin}
+            onPress={() => void findPin()}
+            testID="nearby-pin-search"
+          />
+        </View>
+        {pinProblem ? <Banner tone="warning" message={pinProblem} testID="nearby-pin-problem" /> : null}
         {workAreas.isError && !workAreas.data ? (
           <ErrorState message={t("nearby.statesFailed")} onRetry={() => void workAreas.refetch()} />
         ) : null}
-        {state ? (
+        {pin ? (
+          <Text variant="body" tone="soft" accessibilityLiveRegion="polite" testID="nearby-near">
+            {t("nearby.nearPin", { place: placeLabel(pin) })}
+          </Text>
+        ) : state ? (
           <Text variant="body" tone="soft" accessibilityLiveRegion="polite" testID={division ? "nearby-in" : "nearby-all-of"}>
             {division
               ? t("nearby.inDivision", { division: placeName(division), state: placeName(state) })
@@ -189,6 +288,14 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
       </View>
 
       {body}
+
+      {pin ? (
+        // India Post's directory is published under the Government Open Data License, which asks
+        // to be credited where its data is used.
+        <Text variant="caption" tone="mute" testID="nearby-pin-credit">
+          {t("nearby.pinCredit")}
+        </Text>
+      ) : null}
 
       <Sheet visible={choosing === "state"} onClose={() => setChoosing(null)} title={t("nearby.stateSheet")} testID="nearby-state-sheet">
         <ListGroup>
@@ -229,6 +336,16 @@ export function NearbySearch({ kind, back = false }: { kind: NearbyKind; back?: 
       </Sheet>
     </Screen>
   );
+}
+
+/** "५९०००१" is a PIN's digits too: one typed on a Hindi keyboard is still a PIN. */
+function westernDigits(text: string): string {
+  return text.replace(/[\u0966-\u096F]/g, (d) => String(d.charCodeAt(0) - 0x0966));
+}
+
+/** The town a PIN is in, for a sentence: "Ajmer", from "Ajmer, Rajasthan". */
+function pinTown(pin: NearbyPlace): string {
+  return pin.region?.split(",")[0]?.trim() || pin.name;
 }
 
 /** A box like TextField's, with its label above, that opens a list to choose from. */
@@ -279,6 +396,9 @@ function Select({
 }
 
 const styles = StyleSheet.create({
+  row: { flexDirection: "row", alignItems: "center" },
+  // The Search button level with the box, under the field's label.
+  bottom: { alignItems: "flex-end" },
   fill: { flex: 1 },
   // A box like TextField's, that opens a list.
   select: { minHeight: 52, minWidth: minTouch, flexDirection: "row", alignItems: "center", gap: 8, borderWidth: hairline, paddingHorizontal: 14 },

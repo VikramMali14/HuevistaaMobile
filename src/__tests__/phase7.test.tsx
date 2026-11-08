@@ -12,7 +12,7 @@ import { AccessibilityInfo, Linking } from "react-native";
 
 import { ApiError } from "@/api/errors";
 import type { BoardReviewState, MyQuestions, OwnQuestion, QuestionPage } from "@/api/endpoints/community";
-import type { NearbyPainter, NearbyShop, WorkAreas } from "@/api/endpoints/nearby";
+import type { NearbyPainter, NearbyPlace, NearbyShop, WorkAreas } from "@/api/endpoints/nearby";
 import type { SharedRoom } from "@/api/endpoints/share";
 import type { Conversation, ConversationSummary } from "@/api/endpoints/support";
 import { queryClient } from "@/api/query-client";
@@ -248,6 +248,26 @@ describe("C32 · Find a painter, and C36 · Find a paint shop", () => {
     await chooseDivision("RJ-AJMER");
   };
 
+  /** Ajmer's PIN code as the server finds it: the middle of its post offices, its state and division. */
+  const AJMER_PIN: NearbyPlace = {
+    name: "305001",
+    region: "Ajmer, Rajasthan",
+    pincode: "305001",
+    latitude: 26.4517,
+    longitude: 74.6369,
+    state: "RJ",
+    division: "RJ-AJMER",
+  };
+  const NEAR_AJMER_PIN = { state: "RJ", lat: 26.4517, lon: 74.6369 };
+
+  /** Types a PIN code in its box and presses Search. */
+  const searchPin = async (typed: string) => {
+    await waitFor(() => expect(screen.getByTestId("nearby-pin")).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId("nearby-pin"), typed);
+    // The lookup answers at once here; let it land inside act, as a person's wait would.
+    await act(async () => fireEvent.press(screen.getByTestId("nearby-pin-search")));
+  };
+
   it("asks for the state, then the division, and never for the phone's location", async () => {
     signedInAs("CUSTOMER");
     mockNearby.painters.mockResolvedValue([painterRow("p1"), painterRow("p2", { name: null, jobsCompleted: 0, rating: null, ratingCount: 0 })]);
@@ -257,8 +277,9 @@ describe("C32 · Find a painter, and C36 · Find a paint shop", () => {
     expect(screen.getByText(/Choose your state to see everyone in it/)).toBeTruthy();
     expect(screen.queryByTestId("nearby-locate")).toBeNull();
     expect(screen.queryByText(/my location/i)).toBeNull();
-    // Nothing to type: no town, no PIN code.
+    // Nothing else to type: no town box, only one for a PIN code, if the customer would rather.
     expect(screen.queryByTestId("nearby-place")).toBeNull();
+    expect(screen.getByTestId("nearby-pin")).toBeTruthy();
     // The division waits for a state.
     await waitFor(() => expect(screen.getByTestId("nearby-state")).toHaveTextContent(/Choose your state/));
     expect(screen.getByTestId("nearby-division")).toBeDisabled();
@@ -567,6 +588,85 @@ describe("C32 · Find a painter, and C36 · Find a paint shop", () => {
     expect(screen.getByTestId("nearby-all-of")).toHaveTextContent("In all of Chandigarh");
     expect(screen.getByTestId("nearby-division")).toBeDisabled();
     expect(screen.getByTestId("nearby-division")).toHaveTextContent(/All of Chandigarh/);
+  });
+
+  // ── Or a PIN code ──
+
+  /**
+   * A PIN typed is looked up and searched near — nearest first — with no state chosen first: the two
+   * boxes follow it to its state and division, and India Post is credited for it.
+   */
+  it("searches near a PIN code typed, and the boxes follow it to its state and division", async () => {
+    signedInAs("CUSTOMER");
+    mockNearby.places.mockResolvedValue([AJMER_PIN]);
+    mockNearby.painters.mockResolvedValue([painterRow("p1")]);
+    renderRouter("./app", { initialUrl: "/nearby" });
+    await waitFor(() => expect(screen.getByTestId("nearby-state")).toBeEnabled());
+    await searchPin("305001");
+
+    await waitFor(() => expect(screen.getByTestId("nearby-painters")).toBeTruthy());
+    expect(mockNearby.places).toHaveBeenCalledWith("305001");
+    expect(mockNearby.painters).toHaveBeenCalledTimes(1);
+    expect(mockNearby.painters).toHaveBeenCalledWith(NEAR_AJMER_PIN);
+    expect(screen.getByTestId("nearby-state")).toHaveTextContent(/Rajasthan/);
+    expect(screen.getByTestId("nearby-division")).toHaveTextContent(/Ajmer/);
+    expect(screen.getByTestId("nearby-near")).toHaveTextContent("Near PIN 305001 · Ajmer, Rajasthan");
+    expect(screen.getByTestId("nearby-pin-credit")).toHaveTextContent(/India Post/);
+  });
+
+  /** Choosing a state or a division after it is a search by them: the PIN is left. */
+  it("leaves the PIN code for a division chosen after it", async () => {
+    signedInAs("CUSTOMER");
+    mockNearby.places.mockResolvedValue([AJMER_PIN]);
+    mockNearby.painters.mockResolvedValue([painterRow("p1")]);
+    renderRouter("./app", { initialUrl: "/nearby" });
+    await waitFor(() => expect(screen.getByTestId("nearby-state")).toBeEnabled());
+    await searchPin("305001");
+    await waitFor(() => expect(screen.getByTestId("nearby-near")).toBeTruthy());
+
+    await chooseDivision("RJ-JAIPUR");
+    await waitFor(() => expect(mockNearby.painters).toHaveBeenLastCalledWith({ state: "RJ", division: "RJ-JAIPUR" }));
+    expect(screen.getByTestId("nearby-in")).toHaveTextContent("In Jaipur, Rajasthan");
+    expect(screen.queryByTestId("nearby-near")).toBeNull();
+    expect(screen.queryByTestId("nearby-pin-credit")).toBeNull();
+    expect(screen.getByTestId("nearby-pin").props.value).toBe("");
+  });
+
+  it("says a PIN code has six digits, and looks nothing up", async () => {
+    signedInAs("CUSTOMER");
+    renderRouter("./app", { initialUrl: "/nearby" });
+    await searchPin("3050");
+    await waitFor(() => expect(screen.getByTestId("nearby-pin-problem")).toHaveTextContent(/A PIN code has six digits, like 305001\./));
+    expect(mockNearby.places).not.toHaveBeenCalled();
+    expect(mockNearby.painters).not.toHaveBeenCalled();
+  });
+
+  /** A PIN in another state isn't found: the server finds places in the open states alone. */
+  it("says so when a PIN code isn't found in Rajasthan, and searches nothing", async () => {
+    signedInAs("CUSTOMER");
+    mockNearby.places.mockResolvedValue([]);
+    renderRouter("./app", { initialUrl: "/nearby" });
+    await waitFor(() => expect(screen.getByTestId("nearby-state")).toBeEnabled());
+    await searchPin("380001");
+    await waitFor(() =>
+      expect(screen.getByTestId("nearby-pin-problem")).toHaveTextContent(
+        /We couldn't find the PIN code 380001 in Rajasthan\. Check it — HueVistaa is only in Rajasthan for now\./,
+      ),
+    );
+    expect(mockNearby.painters).not.toHaveBeenCalled();
+  });
+
+  /** A PIN typed on a Hindi keyboard is still a PIN; nobody near it yet is news on its way. */
+  it("takes a PIN in Hindi digits, and says painters are coming soon near it", async () => {
+    signedInAs("CUSTOMER");
+    mockNearby.places.mockResolvedValue([AJMER_PIN]);
+    mockNearby.painters.mockResolvedValue([]);
+    renderRouter("./app", { initialUrl: "/nearby" });
+    await waitFor(() => expect(screen.getByTestId("nearby-state")).toBeEnabled());
+    await searchPin("३०५००१");
+    expect(mockNearby.places).toHaveBeenCalledWith("305001");
+    await waitFor(() => expect(screen.getByText("Painters in Ajmer are coming soon.")).toBeTruthy());
+    expect(screen.getByTestId("nearby-or-all-of")).toHaveTextContent("Or choose “All of Rajasthan” to see everyone in the state.");
   });
 
   it("says so when the states can't be loaded, and asks again", async () => {

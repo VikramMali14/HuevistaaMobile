@@ -1013,15 +1013,25 @@ those from further off who work in it). Then, if wanted, a **Division (optional)
 **All of Rajasthan**, then Ajmer, Bharatpur, Bikaner, Jaipur, Jodhpur, Kota and Udaipur, each with
 the big towns in it under its name ("Bhilwara, Nagaur, Tonk, Beawar" under Ajmer) — narrows it to
 that division ("In Ajmer, Rajasthan" — `?state=RJ&division=RJ-AJMER`, those whose pin is in its
-districts, then those further off who work in it). Nothing is typed, and the phone's location is
-not asked for. A state with no divisions is only ever searched whole. If the list of states can't
-be read, it says so with **Try again**.
+districts, then those further off who work in it). The phone's location is not asked for. A state
+with no divisions is only ever searched whole. If the list of states can't be read, it says so with
+**Try again**.
 
-**API:** `GET /api/nearby/painters?state[&division]` · `GET /api/nearby/shops?state[&division]` ·
-`GET /api/nearby/work-areas` (the states and their divisions, read once a day at most).
+**Or a PIN code** — under the two boxes, **Or your PIN code** with **Search** (Hindi digits too).
+The PIN is looked up (`GET /api/nearby/places`, which gives its `state` and `division`, so the two
+boxes follow it) and searched near ("Near PIN 305001 · Ajmer, Rajasthan" — `?state=RJ&lat&lon`,
+those based in its district or close to it, nearest first, then those further off who work in its
+division). Choosing a state or a division again leaves the PIN. Not six digits → said, nothing
+looked up; a PIN outside Rajasthan isn't found ("We couldn't find the PIN code 380001 in
+Rajasthan…"), and nothing is searched. India Post is credited under the list, as its licence asks.
 
-**As built:** nothing is searched until a state is chosen. Each search is kept five minutes by its
-state and division. Choosing another state clears the division and the list.
+**API:** `GET /api/nearby/painters?state[&division | &lat&lon]` · `GET /api/nearby/shops?state[&division | &lat&lon]` ·
+`GET /api/nearby/places?q=` (a PIN code) · `GET /api/nearby/work-areas` (the states and their
+divisions, read once a day at most).
+
+**As built:** nothing is searched until a state is chosen or a PIN found. Each search is kept five
+minutes by its state and division, or its PIN's point. Choosing another state clears the division
+and the list.
 
 - **Painters:** the district and state they're based in under the name (`place`), never a
   distance or a record of jobs and reviews. **Call** asks for the number once (each one counts against 20 a day), dials it,

@@ -101,18 +101,23 @@ export interface PainterContact {
 }
 
 /**
- * GET /api/nearby/places (PlaceResponse) — a city, area or PIN code typed instead of
- * sharing a location, as the point to search near. Public geography, never an address.
+ * GET /api/nearby/places (PlaceResponse) — a PIN code a customer searches near (C32, C36), or the
+ * town, area or PIN a painter finds their pin by (P5): in the states HueVistaa is open in, as a
+ * point. Public geography, never an address.
  */
 export interface NearbyPlace {
-  /** "Pune", "Kothrud" — for a PIN search, the PIN itself. */
+  /** "Ajmer", "Kaiser Ganj" — for a PIN search, the PIN itself. */
   name: string;
-  /** "Pune, Maharashtra", or just a state for a city. */
+  /** "Ajmer, Rajasthan", or just a state for a town. */
   region: string;
-  /** Its own PIN when it has one: a PIN, or a post office's locality. Null for a city. */
+  /** Its own PIN when it has one: a PIN, or a post office's locality. Null for a town. */
   pincode: string | null;
   latitude: number;
   longitude: number;
+  /** Its state as a work-areas code, "RJ"; null when not known. Absent from older servers. */
+  state?: string | null;
+  /** Its division, "RJ-AJMER" — known for a PIN or a locality, not a town. Absent from older servers. */
+  division?: string | null;
 }
 
 /**
@@ -169,24 +174,28 @@ export interface WorkAreas {
 
 /**
  * Where a search looks: a state HueVistaa is open in (a work-areas code, "RJ") — all of it, or one
- * of its divisions ("RJ-AJMER") — with no distance limit.
+ * of its divisions ("RJ-AJMER"), with no distance limit — or, for a PIN code, the point it is at
+ * (`lat`, `lon`), nearest first.
  */
 export interface NearbySearch {
   state: string;
   division?: string;
+  lat?: number;
+  lon?: number;
 }
 
 export const nearbyApi = {
   /**
    * All of a state, or one of its divisions, with no distance limit: those based there first, in
-   * order of district, then those further off who work there. 400 "Choose a state from the list."
-   * for a state HueVistaa isn't open in, and for a division not of the state.
+   * order of district, then those further off who work there. With a PIN's point instead of a
+   * division: those based in its district or close to it, nearest first. 400 "Choose a state from
+   * the list." for a state HueVistaa isn't open in, and for a division not of the state.
    */
-  painters: ({ state, division }: NearbySearch) =>
-    api.request<NearbyPainter[]>("api/nearby/painters", { query: { state, division } }),
+  painters: ({ state, division, lat, lon }: NearbySearch) =>
+    api.request<NearbyPainter[]>("api/nearby/painters", { query: { state, division, lat, lon } }),
 
-  shops: ({ state, division }: NearbySearch) =>
-    api.request<NearbyShop[]>("api/nearby/shops", { query: { state, division } }),
+  shops: ({ state, division, lat, lon }: NearbySearch) =>
+    api.request<NearbyShop[]>("api/nearby/shops", { query: { state, division, lat, lon } }),
 
   /**
    * One painter's number, only when the customer asks for it, so the list can't be walked
@@ -197,9 +206,10 @@ export const nearbyApi = {
 
   /**
    * Up to 6 places the words could mean, the likeliest first — in the states HueVistaa is open in,
-   * and nowhere else; empty when none. For a painter putting their pin on the map. Answered from a
-   * file on the server, so what is typed goes nowhere else. 400 with a sentence for an empty search
-   * or digits that aren't a PIN. Not counted against the searches' allowance.
+   * and nowhere else, each with its state and division; empty when none. For a customer's search by
+   * PIN code, and a painter putting their pin on the map. Answered from a file on the server, so
+   * what is typed goes nowhere else. 400 with a sentence for an empty search or digits that aren't a
+   * PIN. Not counted against the searches' allowance.
    */
   places: (q: string) => api.request<NearbyPlace[]>("api/nearby/places", { query: { q } }),
 
