@@ -980,6 +980,15 @@ Shown only to shop customers.
 
 ### C32 · Find a painter · C36 · Find a paint shop
 
+> **Now by state and city, or PIN code.** Three boxes: **State** (choosing it lists everybody in
+> it, `?state=`), **City** (the towns those painters or shops are in, read from the list itself;
+> choosing one narrows the list on the phone, with no new request), and **Or your PIN code**
+> (`?pincode=`: everybody whose own PIN code is within 20 km, nearest first — from 307026, Abu
+> Road, the painter in 307510, Shantivan). Choosing a state leaves the PIN code, and a PIN code
+> leaves the state. There are no divisions: the Division box, "Works in…" and "Works in your
+> area" are gone, and each card says the town and PIN code. What follows about divisions is how
+> it was.
+
 **Routes** `(tabs)/nearby.tsx` (C32, the **Painters** tab) and `shops.tsx` (C36, pushed over
 the tabs, with a way back — from its tile on Home, from Account, and a shade's **Find a shop
 near you**) · both `features/nearby/NearbySearch.tsx` · **Phase** 7 · **Web reference**

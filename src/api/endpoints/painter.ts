@@ -52,6 +52,10 @@ export interface PainterProfile {
   pinLatitude?: number | null;
   pinLongitude?: number | null;
   locationUpdatedAt?: string | null;
+  /** The 6-digit PIN code they work in — all P5 asks. Null with no location, or a pin from before PIN codes. */
+  pincode?: string | null;
+  /** The town that PIN code is in: "Abu Road". Null without a PIN code. */
+  locationCity?: string | null;
   /**
    * The place nearest that position — "Kaiser Ganj Ajmer, Ajmer, Rajasthan" — so the painter
    * can see it is where they meant. Null without one; absent from older servers.
@@ -92,17 +96,15 @@ export interface TradeProfileUpdate {
 }
 
 /**
- * PUT /api/painters/me/listing. The position: both coordinates set it, `clearLocation` removes
+ * PUT /api/painters/me/listing. The location: `pincode` sets it, `clearLocation` removes
  * it, neither leaves it alone. The old line about the painter isn't sent: customers see only
  * the painter's card now (name, photo, address), and left out it is cleared.
  */
 export interface ListingUpdate {
   listedForCustomers: boolean;
-  latitude?: number;
-  longitude?: number;
+  /** The 6-digit PIN code the painter works in: the server makes it their location. */
+  pincode?: string;
   clearLocation?: boolean;
-  /** WorkAreas codes. Left out, they are left alone; [] takes them all off. */
-  workAreas?: string[];
 }
 
 export const painterApi = {
@@ -121,8 +123,8 @@ export const painterApi = {
     api.request<PainterProfile>("api/painters/me", { method: "PUT", body }),
 
   /**
-   * 400 when listing without a location or a confirmed mobile, or with only one coordinate;
-   * the sentence says which. The server rounds the position to two places before storing it.
+   * 400 when listing without a PIN code or a confirmed mobile, and for a PIN code nobody has or
+   * one outside the states HueVistaa is open in; the sentence says which.
    */
   updateListing: (body: ListingUpdate) =>
     api.request<PainterProfile>("api/painters/me/listing", { method: "PUT", body }),

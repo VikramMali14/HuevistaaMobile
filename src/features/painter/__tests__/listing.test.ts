@@ -1,21 +1,14 @@
-import { addItem, AREAS, listingBody, listingNeeds, ownPhotoUrl, rupees, savedPin, SPECIALTIES, tradeBody, wholeNumber } from "../listing";
+import { addItem, AREAS, listingBody, listingNeeds, ownPhotoUrl, rupees, SPECIALTIES, tradeBody, wholeNumber } from "../listing";
 
 const profile = { latitude: 19.07, longitude: 72.88, phoneVerified: true, phone: "+919876543210" };
 
 describe("listing (P5)", () => {
-  // The pin goes where the painter put it, to about a metre — what the server keeps of it.
-  it("sends the pin as put", () => {
-    expect(listingBody(true, { latitude: 19.0765432, longitude: 72.8777128 })).toEqual({
+  // The PIN code is the whole of where: the server makes the middle of it the painter's location.
+  it("sends the PIN code, and nothing else about where", () => {
+    expect(listingBody(true, { pincode: "307026", place: "Abu Road, Sirohi, Rajasthan" })).toEqual({
       listedForCustomers: true,
-      latitude: 19.07654,
-      longitude: 72.87771,
+      pincode: "307026",
     });
-  });
-
-  it("opens the map on the pin, or on a location saved before pins", () => {
-    expect(savedPin({ latitude: 19.08, longitude: 72.88, pinLatitude: 19.07654, pinLongitude: 72.87771 })).toEqual({ latitude: 19.07654, longitude: 72.87771 });
-    expect(savedPin({ latitude: 19.08, longitude: 72.88 })).toEqual({ latitude: 19.08, longitude: 72.88 });
-    expect(savedPin({ latitude: null, longitude: null, pinLatitude: null, pinLongitude: null })).toBeNull();
   });
 
   // Customers see only the painter's card (name, photo, address), so no line about them goes.
@@ -29,11 +22,11 @@ describe("listing (P5)", () => {
     expect(ownPhotoUrl(null)).toBeNull();
   });
 
-  it("needs a location and a confirmed mobile", () => {
+  it("needs a PIN code and a confirmed mobile", () => {
     expect(listingNeeds(profile, null)).toEqual({ location: true, mobile: true, ready: true });
     expect(listingNeeds(profile, "clear").ready).toBe(false);
     expect(listingNeeds({ ...profile, latitude: null, longitude: null }, null).location).toBe(false);
-    expect(listingNeeds({ ...profile, latitude: null, longitude: null }, { latitude: 1, longitude: 2 }).location).toBe(true);
+    expect(listingNeeds({ ...profile, latitude: null, longitude: null }, { pincode: "307026", place: "Abu Road" }).location).toBe(true);
     expect(listingNeeds({ ...profile, phoneVerified: false }, null)).toEqual({ location: true, mobile: false, ready: false });
   });
 });

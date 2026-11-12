@@ -63,13 +63,75 @@ export function directionsHref(latitude: number, longitude: number, os: string =
  * Rajasthan · 305001", or "PIN 305001 · Ajmer, Rajasthan" — enough to see it is the place meant,
  * and not the other one of that name. As the website's placeLabel.
  */
-export function placeLabel(place: Pick<NearbyPlace, "name" | "region" | "pincode">): string {
+export function placeLabel(place: Pick<NearbyPlace, "name" | "region" | "pincode" | "city">): string {
   const region = place.region?.trim();
   if (place.pincode && place.name === place.pincode) {
-    return [t("nearby.pin", { pin: place.pincode }), region].filter(Boolean).join(" · ");
+    // A PIN code says its town first: "PIN 307026 · Abu Road, Sirohi, Rajasthan".
+    return [t("nearby.pin", { pin: place.pincode }), cityLine(place)].filter(Boolean).join(" · ");
   }
   const named = [place.name, region].filter(Boolean).join(", ");
   return place.pincode ? `${named} · ${place.pincode}` : named;
+}
+
+/**
+ * A PIN code's place as a person says it: "Abu Road, Sirohi, Rajasthan" — the town once when its
+ * district is named after it ("Ajmer, Rajasthan"). As the server's PlaceDirectory#cityLine.
+ */
+export function cityLine(place: Pick<NearbyPlace, "region" | "city">): string {
+  const region = place.region?.trim() ?? "";
+  const city = place.city?.trim();
+  if (!city) return region;
+  if (!region) return city;
+  const same = region.split(",").some((part) => part.trim().toLowerCase() === city.toLowerCase());
+  return same ? region : `${city}, ${region}`;
+}
+
+/** What was typed as plain digits, six at most: "३०७ ०२६" is 307026. */
+export function pinDigits(typed: string): string {
+  return typed
+    .replace(/[\u0966-\u096F]/g, (d) => String(d.charCodeAt(0) - 0x0966))
+    .replace(/\D/g, "")
+    .slice(0, 6);
+}
+
+/** Six digits, the first not a zero. */
+export function isPin(text: string): boolean {
+  return /^[1-9]\d{5}$/.test(text);
+}
+
+/**
+ * The town a painter or a shop is in, for the City list of a search by state: the town of their
+ * own PIN code, or — for one pinned on the map before PIN codes — the district their card names
+ * ("Ajmer", from "Ajmer, Rajasthan"). Null when the server could not say.
+ */
+export function cityOf(who: { place?: string | null; city?: string | null; pincodeCity?: string | null; addressLine?: unknown }): string | null {
+  // A shop's `city` is what its owner typed; its town is `pincodeCity`.
+  const town = "addressLine" in who ? who.pincodeCity : who.city;
+  return town?.trim() || who.place?.split(",")[0]?.trim() || null;
+}
+
+/** The towns of a list, each once, A to Z. */
+export function citiesOf(list: readonly Parameters<typeof cityOf>[0][] | null | undefined): string[] {
+  const towns = new Set<string>();
+  for (const who of list ?? []) {
+    const town = cityOf(who);
+    if (town) towns.add(town);
+  }
+  return [...towns].sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * Directions to a shop. One that said where it is by PIN code has no point of its own — its
+ * coordinates are the middle of the PIN — so the maps app is asked for it by name and address; a
+ * shop pinned on the map before PIN codes is led to its pin.
+ */
+export function shopDirectionsHref(
+  shop: Pick<NearbyShop, "name" | "addressLine" | "latitude" | "longitude" | "pincode" | "pincodeCity">,
+  os: string = Platform.OS,
+): string {
+  if (!shop.pincode) return directionsHref(shop.latitude, shop.longitude, os);
+  const query = encodeURIComponent([shop.name, shop.addressLine?.trim(), shop.pincodeCity?.trim(), shop.pincode].filter(Boolean).join(", "));
+  return os === "ios" ? `https://maps.apple.com/?q=${query}` : `https://www.google.com/maps/search/?api=1&query=${query}`;
 }
 
 /** "12 MG Road · Belagavi, Karnataka", from whichever parts the shop gave. */

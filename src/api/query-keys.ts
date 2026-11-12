@@ -61,10 +61,10 @@ export const keys = {
   sharedBrands: (token: string) => ["share", token, "brands"] as const,
   sharedShades: (token: string, brandSlug: string) => ["share", token, "shades", brandSlug] as const,
   /** C32: a search, by its state and division, or a PIN's point (memory only — nothing here is written down). */
-  nearbyPainters: (s: { state?: string; division?: string; lat?: number; lon?: number }) =>
-    ["nearby", "painters", s.state ?? null, s.division ?? null, s.lat ?? null, s.lon ?? null] as const,
-  nearbyShops: (s: { state?: string; division?: string; lat?: number; lon?: number }) =>
-    ["nearby", "shops", s.state ?? null, s.division ?? null, s.lat ?? null, s.lon ?? null] as const,
+  nearbyPainters: (s: { state?: string; pincode?: string; division?: string; lat?: number; lon?: number }) =>
+    ["nearby", "painters", s.state ?? null, s.pincode ?? null, s.division ?? null, s.lat ?? null, s.lon ?? null] as const,
+  nearbyShops: (s: { state?: string; pincode?: string; division?: string; lat?: number; lon?: number }) =>
+    ["nearby", "shops", s.state ?? null, s.pincode ?? null, s.division ?? null, s.lat ?? null, s.lon ?? null] as const,
   /** C32: a painter's number once asked for — kept for the session so it's never asked twice. */
   nearbyPhone: (painterId: string) => ["nearby", "phone", painterId] as const,
   /** The names of the places painters say they work in — the same for everybody. */

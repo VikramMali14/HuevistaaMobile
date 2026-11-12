@@ -87,10 +87,10 @@ photos.
 - Claim a board: an unanswered claim is checked against the points, never repeated.
 - Rewards priced against the balance, redeemed with a key that makes a retry safe, and
   vouchers with their codes.
-- Be found nearby (a pin put on a map, after finding the town or PIN, with location left off — in
-  Rajasthan, the one state HueVistaa is open in for now — and where the painter can work:
-  Rajasthan's divisions, or all of it — customers who choose those places find them however far off;
-  customers see the painter's photo, name, address and those places), the trade profile, and
+- Be found nearby (the PIN code the painter works in, and nothing else: no map, location left
+  off, no divisions — in Rajasthan, the one state HueVistaa is open in for now; customers who
+  search a PIN code within 20 km find them, and see the painter's photo, name, address, town and
+  PIN code), the trade profile, and
   C33 for a customer becoming a painter.
 
 Left for a real phone: the camera on a printed board, the reader on Android and iOS, and

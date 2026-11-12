@@ -38,8 +38,13 @@ export interface NearbyPainter {
   certified?: boolean;
   /** Not shown: the card says `place`. Null for a search by state or division, which is from no point. */
   distanceKm: number | null;
+  /** The PIN code the painter works in; null for a pin from before PIN codes. Absent from older servers. */
+  pincode?: string | null;
+  /** The town that PIN code is in: "Abu Road". */
+  city?: string | null;
   /**
-   * Where the painter is based, to the district: "Jaipur, Rajasthan", "South Delhi" — or the state
+   * Where the painter is based: the town of their PIN code, its district and state ("Abu Road,
+   * Sirohi, Rajasthan") — or, for a pin from before PIN codes, "Jaipur, Rajasthan", or the state
    * alone. Shown instead of a distance. Null when the server can't tell; absent from older servers.
    */
   place?: string | null;
@@ -76,8 +81,12 @@ export interface NearbyShop {
   longitude: number;
   /** Null for a search by state or division, which is from no point. */
   distanceKm: number | null;
+  /** The PIN code the shop said it is in; null for a pin from before PIN codes. Absent from older servers. */
+  pincode?: string | null;
+  /** The town that PIN code is in: "Abu Road". (`city` is what the owner typed.) */
+  pincodeCity?: string | null;
   /**
-   * Where the shop is, to the district, from its pin: "Belagavi, Karnataka", "South Delhi" — or the
+   * Where the shop is — the town of its PIN code, its district and state — or, to the district, from its pin: "Belagavi, Karnataka", "South Delhi" — or the
    * state alone. Null when the server can't tell; absent from older servers.
    */
   place?: string | null;
@@ -112,6 +121,8 @@ export interface NearbyPlace {
   region: string;
   /** Its own PIN when it has one: a PIN, or a post office's locality. Null for a town. */
   pincode: string | null;
+  /** For a PIN code, the town it is in — "Abu Road" for 307026 — or its district. Absent for a place found by name. */
+  city?: string | null;
   latitude: number;
   longitude: number;
   /** Its state as a work-areas code, "RJ"; null when not known. Absent from older servers. */
@@ -178,7 +189,11 @@ export interface WorkAreas {
  * (`lat`, `lon`), nearest first.
  */
 export interface NearbySearch {
-  state: string;
+  /** All of a state ("RJ"): everybody in it. */
+  state?: string;
+  /** Around a PIN code: everybody whose own PIN code is within 20 km of it, nearest first. */
+  pincode?: string;
+  /** No longer sent by this app: kept for the server's older searches. */
   division?: string;
   lat?: number;
   lon?: number;
@@ -191,11 +206,11 @@ export const nearbyApi = {
    * division: those based in its district or close to it, nearest first. 400 "Choose a state from
    * the list." for a state HueVistaa isn't open in, and for a division not of the state.
    */
-  painters: ({ state, division, lat, lon }: NearbySearch) =>
-    api.request<NearbyPainter[]>("api/nearby/painters", { query: { state, division, lat, lon } }),
+  painters: ({ state, pincode, division, lat, lon }: NearbySearch) =>
+    api.request<NearbyPainter[]>("api/nearby/painters", { query: { state, pincode, division, lat, lon } }),
 
-  shops: ({ state, division, lat, lon }: NearbySearch) =>
-    api.request<NearbyShop[]>("api/nearby/shops", { query: { state, division, lat, lon } }),
+  shops: ({ state, pincode, division, lat, lon }: NearbySearch) =>
+    api.request<NearbyShop[]>("api/nearby/shops", { query: { state, pincode, division, lat, lon } }),
 
   /**
    * One painter's number, only when the customer asks for it, so the list can't be walked
