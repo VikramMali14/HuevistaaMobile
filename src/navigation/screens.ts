@@ -89,7 +89,7 @@ export const screens = {
   C12: { title: "Shade picker", area: "customer", href: "/shade-picker?projectId=demo&regionId=1", phase: 3,
     spec: CUSTOMER, status: "built", summary: "A half-height sheet of shades that paints the wall as you tap." },
   C13: { title: "Colour combinations", area: "customer", href: "/room/demo/suggestions", phase: 3, spec: CUSTOMER,
-    status: "built", summary: "Vista AI palettes for this room, and the Shade Book's combinations with its pass." },
+    status: "built", summary: "Vista AI palettes for this room, and the Colour Combination Book's combinations with its pass." },
   C14: { title: "Before and after", area: "customer", href: "/room/demo/compare", phase: 3, spec: CUSTOMER,
     status: "built", summary: "A draggable divider between the photo and the painted room." },
   C15: { title: "Colour board — choose and confirm", area: "customer", href: "/room/demo/board", phase: 4,
@@ -139,9 +139,9 @@ export const screens = {
     status: "built", summary: "Turn this account into a painter's, saying plainly it is for good." },
   C36: { title: "Find a paint shop", area: "customer", href: "/shops", phase: 7, spec: CUSTOMER,
     status: "built", summary: "Listed paint shops near you, nearest first, with directions and a call." },
-  C34: { title: "Shade Book", area: "customer", href: "/shade-book", phase: 8, spec: CUSTOMER, status: "built",
+  C34: { title: "Colour Combination Book", area: "customer", href: "/shade-book", phase: 8, spec: CUSTOMER, status: "built",
     summary: "Combinations of our shades in a grid of pictures, each on its house or all on one: a few free, the rest for 24 hours.", next: ["C37"] },
-  C37: { title: "Shade Book picture", area: "customer", href: "/shade-book/demo", phase: 8, spec: CUSTOMER, status: "built",
+  C37: { title: "Colour Combination Book picture", area: "customer", href: "/shade-book/demo", phase: 8, spec: CUSTOMER, status: "built",
     summary: "One combination large, on every house it fits, with its Vista codes; saved or sent with the pass." },
 
   // ── Painter ───────────────────────────────────────────────────────────────

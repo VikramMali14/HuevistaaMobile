@@ -16,7 +16,7 @@ import { inCheckoutSession, refusedForGood } from "./payments";
  * confirmed is never "failed": the server's webhook opens the pass by itself, so what it opens
  * is read again rather than anything being kept here.
  *
- * One rail for every pass — the Shade Book's and the Colour finder's — each told apart by its
+ * One rail for every pass — the Colour Combination Book's and the Colour finder's — each told apart by its
  * {@link PassSpec}: its own routes, its own kept order and its own words. The Android store
  * build sells each pass through Google Play instead (play-checkout.ts).
  */

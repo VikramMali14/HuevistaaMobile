@@ -1,5 +1,5 @@
 /**
- * Buying the Shade Book's pass on the website: the order, the browser session the basket
+ * Buying the Colour Combination Book's pass on the website: the order, the browser session the basket
  * uses too, and the answer — confirmed by the server, reported to the payment audit, and
  * never called "failed" once Razorpay said paid. And D3, on a cold start, knowing the pass's
  * answer from the basket's.
@@ -39,13 +39,13 @@ const SIG = "e".repeat(64);
 const ORDER: ShadeBookPassOrder = {
   orderId: "order_SHADE12345",
   kind: "SHADE_BOOK",
-  label: "Shade Book",
+  label: "Colour Combination Book",
   amount: 4900,
   currency: "INR",
   hours: 24,
   razorpayKeyId: "rzp_test_123456",
 };
-const PASS = { kind: "SHADE_BOOK" as const, label: "Shade Book", startsAt: "2026-10-30T16:05:00", expiresAt: "2026-10-31T16:05:00", amountPaise: 4900 };
+const PASS = { kind: "SHADE_BOOK" as const, label: "Colour Combination Book", startsAt: "2026-10-30T16:05:00", expiresAt: "2026-10-31T16:05:00", amountPaise: 4900 };
 const success = `huevista://pay/callback#status=success&order_id=${ORDER.orderId}&payment_id=pay_SHADE6789&signature=${SIG}`;
 
 beforeEach(async () => {
@@ -66,7 +66,7 @@ describe("buyPassOnWebsite", () => {
 
     const [url, redirect] = mockOpen.mock.calls[0] as [string, string];
     expect(url).toMatch(/^https:\/\/huevistaa\.com\/pay\/mobile\?order=order_SHADE12345&key=rzp_test_123456&amount=4900&currency=INR/);
-    expect(decodeURIComponent(url)).toContain("desc=Shade Book · 24-hour pass");
+    expect(decodeURIComponent(url)).toContain("desc=Colour Combination Book · 24-hour pass");
     expect(url).toContain("name=Asha");
     expect(redirect).toBe("huevista://pay/callback");
     expect(mockBilling.reportCheckout).toHaveBeenCalledWith(ORDER.orderId, expect.objectContaining({ status: "OPENED" }));

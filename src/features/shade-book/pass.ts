@@ -8,7 +8,7 @@ import { t } from "@/i18n";
 export type { PassNotice } from "@/features/payments/day-pass";
 
 /**
- * Buying 24 hours of the Shade Book outside Google Play — on iOS, and on an Android build
+ * Buying 24 hours of the Colour Combination Book outside Google Play — on iOS, and on an Android build
  * that pays on the website — on the rail every pass is bought on (day-pass.ts): the order from
  * the server, Razorpay Checkout on the website's /pay/mobile page, then the server's
  * verification. The book is read again once a payment may have opened it.

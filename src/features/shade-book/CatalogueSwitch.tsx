@@ -8,7 +8,7 @@ type Place = "shades" | "book" | "finder";
 const ROUTES = { shades: "/catalogue", book: "/shade-book", finder: "/colour-finder" } as const;
 
 /**
- * The top of the Catalogue tab: the shades themselves, the Shade Book — combinations of them
+ * The top of the Catalogue tab: the shades themselves, the Colour Combination Book — combinations of them
  * painted on real houses — or the Colour finder, which finds them in a photo. The same switch
  * heads all three screens, so each is one press from the others.
  */
@@ -16,6 +16,8 @@ export function CatalogueSwitch({ value }: { value: Place }) {
   const router = useRouter();
   return (
     <Segmented
+      // "Colour Combination Book" is too long for a third of a 360 dp phone on one line.
+      compact
       accessibilityLabel={t("shadeBook.switchLabel")}
       options={[
         { value: "shades", label: t("shadeBook.switchShades") },

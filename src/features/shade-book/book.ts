@@ -2,7 +2,7 @@ import type { ShadeBook, ShadeBookFacet, ShadeBookPage, ShadeBookPart, ShadeBook
 import { hexToRgb, luminance } from "@/lib/color";
 
 /**
- * The Shade Book's rules that need no phone. The reader narrows the book — exterior or interior,
+ * The Colour Combination Book's rules that need no phone. The reader narrows the book — exterior or interior,
  * two colours or three, the colour families a combination must have — and sees every combination
  * that fits painted on a house, in a grid: each on its own, or all on the one house chosen (the
  * colour test's four photos and the houses and rooms the team adds). One opens large, on every
@@ -132,7 +132,7 @@ export function pagesOn<P extends Pick<ShadeBookPage, "photoId" | "scope" | "col
 
 /**
  * The grid: the pages that fit the filter, on the house chosen for it — while the filter keeps
- * that house — or each on its own. The Shade Book's screen and a picture opened from it read it
+ * that house — or each on its own. The Colour Combination Book's screen and a picture opened from it read it
  * alike, so Previous and Next step through what the reader was looking at.
  */
 export function gridPages(

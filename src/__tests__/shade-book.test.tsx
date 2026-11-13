@@ -1,5 +1,5 @@
 /**
- * The Shade Book (C34) and a picture of it opened large (C37) through the REAL route tree: beside
+ * The Colour Combination Book (C34) and a picture of it opened large (C37) through the REAL route tree: beside
  * the shades in the Catalogue tab, the filters, which house to see them on, and every combination
  * in a grid of pictures — the free ones and the pass's price, buying it on the website — then one
  * opened large on every house it fits, stepped through, and saved with its Vista codes. Only the
@@ -175,21 +175,21 @@ const card = (label: string) => screen.getByLabelText(label);
 const MODERN_SAMPLE = "Pale beige with deep indigo blue, on the Modern house: HV0348, HV1102, HV2210";
 const TOWN_SECOND = "Off-white with sage green, on the Town house: HV0101, HV0202";
 
-describe("C34 · Shade Book", () => {
+describe("C34 · Colour Combination Book", () => {
   it("sits beside the shades, at the top of the Catalogue tab, which stays lit", async () => {
     signedIn();
     mockBook.get.mockResolvedValue(shut());
     renderRouter("./app", { initialUrl: "/catalogue" });
-    await waitFor(() => expect(screen.getByLabelText("Shades, the Shade Book or the Colour finder")).toBeTruthy());
-    // Six tabs: the Shade Book and the Colour finder have no buttons of their own.
+    await waitFor(() => expect(screen.getByLabelText("Shades, the Colour Combination Book or the Colour finder")).toBeTruthy());
+    // Six tabs: the Colour Combination Book and the Colour finder have no buttons of their own.
     expect(screen.queryByTestId("tab-shade-book")).toBeNull();
     expect(screen.queryByTestId("tab-colour-finder")).toBeNull();
 
-    fireEvent.press(screen.getByRole("tab", { name: "Shade Book" }));
+    fireEvent.press(screen.getByRole("tab", { name: "Colour Combination Book" }));
 
     await waitFor(() => expect(screen).toHavePathname("/shade-book"));
     await waitFor(() => expect(screen.getByTestId("shade-book-page-s1")).toBeTruthy());
-    expect(screen.getByRole("tab", { name: "Shade Book", selected: true })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Colour Combination Book", selected: true })).toBeTruthy();
     fireEvent.press(screen.getByRole("tab", { name: "Shades" }));
     await waitFor(() => expect(screen).toHavePathname("/catalogue"));
   });
@@ -272,13 +272,13 @@ describe("C34 · Shade Book", () => {
     mockBook.passOrder.mockResolvedValue({
       orderId: "order_SHADE12345",
       kind: "SHADE_BOOK",
-      label: "Shade Book",
+      label: "Colour Combination Book",
       amount: 4900,
       currency: "INR",
       hours: 24,
       razorpayKeyId: "rzp_test_123456",
     });
-    mockBook.passVerify.mockResolvedValue({ kind: "SHADE_BOOK", label: "Shade Book", startsAt: ist(0), expiresAt: ist(24 * 3600_000), amountPaise: 4900 });
+    mockBook.passVerify.mockResolvedValue({ kind: "SHADE_BOOK", label: "Colour Combination Book", startsAt: ist(0), expiresAt: ist(24 * 3600_000), amountPaise: 4900 });
     mockBrowser.openAuthSessionAsync.mockResolvedValue({
       type: "success",
       url: `huevista://pay/callback#status=success&order_id=order_SHADE12345&payment_id=pay_SHADE6789&signature=${"e".repeat(64)}`,
@@ -289,7 +289,7 @@ describe("C34 · Shade Book", () => {
     fireEvent.press(screen.getAllByTestId("shade-book-buy")[0]!);
 
     await waitFor(() => expect(screen.getByTestId("shade-book-notice")).toBeTruthy());
-    expect(screen.getByTestId("shade-book-notice")).toHaveTextContent(/The Shade Book is open until/);
+    expect(screen.getByTestId("shade-book-notice")).toHaveTextContent(/The Colour Combination Book is open until/);
     const [url] = mockBrowser.openAuthSessionAsync.mock.calls[0] as [string];
     expect(url).toContain("amount=4900");
     expect(mockBook.passVerify).toHaveBeenCalledWith({ orderId: "order_SHADE12345", paymentId: "pay_SHADE6789", signature: "e".repeat(64) });
@@ -307,7 +307,7 @@ describe("C34 · Shade Book", () => {
   });
 });
 
-describe("C37 · A Shade Book picture, opened large", () => {
+describe("C37 · A Colour Combination Book picture, opened large", () => {
   it("opens with each part's Vista code and every house it fits, and steps through the grid", async () => {
     signedIn();
     mockBook.get.mockResolvedValue(opened());

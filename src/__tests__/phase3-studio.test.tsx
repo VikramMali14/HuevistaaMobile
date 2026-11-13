@@ -161,7 +161,7 @@ const region = (id: number, category: RoomRegion["category"], extra: Partial<Roo
   inPlan: true,
   ...extra,
 });
-/** A Shade Book page of these Vista codes and colours, for a room inside unless told otherwise. */
+/** A Colour Combination Book page of these Vista codes and colours, for a room inside unless told otherwise. */
 const bookPage = (id: string, parts: [string, string][], scope: "INTERIOR" | "EXTERIOR" = "INTERIOR") => ({
   id,
   photoId: "interior-2",
@@ -181,7 +181,7 @@ const book = (combinations: ReturnType<typeof bookPage>[], extra: object = {}) =
 });
 /** India's wall clock, as the server writes it, `fromNow` ms from now. */
 const ist = (fromNow: number) => new Date(Date.now() + fromNow + 5.5 * 3600_000).toISOString().slice(0, 19);
-/** A Shade Book shut to this account: the samples alone, and the pass at ₹49. */
+/** A Colour Combination Book shut to this account: the samples alone, and the pass at ₹49. */
 const shutBook = (combinations: ReturnType<typeof bookPage>[], over: object = {}) =>
   book(combinations, {
     access: { open: false, reason: "NONE", pricePaise: 4900, currency: "INR", hours: 24, purchasable: true, ...over },
@@ -741,19 +741,19 @@ describe("C11 · Paint", () => {
     await waitFor(() => expect(screen.getByLabelText("Recent: HV0101")).toBeTruthy());
   });
 
-  it("offers Shade Book colours on a first visit, and paints one with a tap", async () => {
+  it("offers Colour Combination Book colours on a first visit, and paints one with a tap", async () => {
     signedIn();
     mockShadeBook.get.mockResolvedValue(book([GARDEN]));
     renderRouter("./app", { initialUrl: "/room/p1/paint" });
-    await waitFor(() => expect(screen.getByLabelText("Shade Book: HV0118")).toBeTruthy());
+    await waitFor(() => expect(screen.getByLabelText("Colour Combination Book: HV0118")).toBeTruthy());
     expect(screen.queryByText("Press and hold the photo to see it before.")).toBeNull();
     expect(mockProjects.suggestions).not.toHaveBeenCalled();
-    fireEvent.press(screen.getByLabelText("Shade Book: HV0118"));
+    fireEvent.press(screen.getByLabelText("Colour Combination Book: HV0118"));
     await waitFor(() => expect(screen.getByLabelText("Main wall, HV0118")).toBeTruthy());
     // Used once, it is a recent colour, not a suggestion twice over.
     await waitFor(() => expect(screen.getByLabelText("Recent: HV0118")).toBeTruthy());
-    expect(screen.queryByLabelText("Shade Book: HV0118")).toBeNull();
-    expect(screen.getByLabelText("Shade Book: HV0101")).toBeTruthy();
+    expect(screen.queryByLabelText("Colour Combination Book: HV0118")).toBeNull();
+    expect(screen.getByLabelText("Colour Combination Book: HV0101")).toBeTruthy();
     await waitFor(() => expect(mockProjects.saveColours).toHaveBeenCalledWith("p1", [{ regionId: 11, shadeCode: "HV0118", hexCode: "#7b8a72" }]), {
       timeout: 2000,
     });
@@ -906,7 +906,7 @@ describe("C13 · Colour combinations — Vista AI", () => {
     trimShade: { shadeCode: "HV0124", hvCode: "HV0124", hexCode: "#3e4a52" },
   };
 
-  it("opens on Vista AI, with the Shade Book's combinations on the other tab", async () => {
+  it("opens on Vista AI, with the Colour Combination Book's combinations on the other tab", async () => {
     signedIn();
     mockProjects.suggestions.mockResolvedValue({ projectId: "p1", combinations: [combo] });
     mockShadeBook.get.mockResolvedValue(book([bookPage("From the book", [["HV0101", "#e8d5b0"], ["HV0124", "#3e4a52"]])]));
@@ -914,7 +914,7 @@ describe("C13 · Colour combinations — Vista AI", () => {
     await waitFor(() => expect(screen.getByText("Garden morning")).toBeTruthy());
     expect(screen.getByText("Colour combinations")).toBeTruthy();
     expect(screen.getByText("Vista AI")).toBeTruthy();
-    expect(screen.getByText("Vista Shadebook")).toBeTruthy();
+    expect(screen.getByText("Vista Colour Combination Book")).toBeTruthy();
     expect(screen.queryByText("From the book")).toBeNull();
   });
 
@@ -977,7 +977,7 @@ describe("C13 · Colour combinations — Vista AI", () => {
     expect(screen.queryByText("Keeping 1 colour")).toBeNull();
   });
 
-  it("keeps a lock through a look at the Shade Book and back", async () => {
+  it("keeps a lock through a look at the Colour Combination Book and back", async () => {
     signedIn();
     mockProjects.suggestions.mockResolvedValue({ projectId: "p1", combinations: [combo] });
     renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
@@ -985,7 +985,7 @@ describe("C13 · Colour combinations — Vista AI", () => {
     fireEvent.press(screen.getByLabelText("Keep HV0118 on Accent wall"));
     await waitFor(() => expect(screen.getByText("Keeping 1 colour")).toBeTruthy());
 
-    press("Vista Shadebook");
+    press("Vista Colour Combination Book");
     await waitFor(() => expect(screen.queryByText("Keeping 1 colour")).toBeNull());
     press("Vista AI");
     await waitFor(() => expect(screen.getByText("Keeping 1 colour")).toBeTruthy());
@@ -1074,17 +1074,17 @@ describe("C13 · Colour combinations — Vista AI", () => {
   });
 });
 
-describe("C13 · Colour combinations — Vista Shadebook", () => {
+describe("C13 · Colour combinations — Vista Colour Combination Book", () => {
   beforeEach(() => {
     // Vista AI opens first and asks for its palettes; these tests are about the other tab.
     mockProjects.suggestions.mockResolvedValue({ projectId: "p1", combinations: [] });
   });
 
-  /** Open the screen and turn to the Shade Book's tab. */
+  /** Open the screen and turn to the Colour Combination Book's tab. */
   const openBookTab = async () => {
     renderRouter("./app", { initialUrl: "/room/p1/suggestions" });
-    await waitFor(() => expect(screen.getByText("Vista Shadebook")).toBeTruthy());
-    press("Vista Shadebook");
+    await waitFor(() => expect(screen.getByText("Vista Colour Combination Book")).toBeTruthy());
+    press("Vista Colour Combination Book");
   };
 
   it("puts each colour on the walls being painted, in order, and saves", async () => {
@@ -1126,19 +1126,19 @@ describe("C13 · Colour combinations — Vista Shadebook", () => {
     expect(screen.getByText("Garden morning")).toBeTruthy();
 
     press("Exterior");
-    await waitFor(() => expect(screen.getByText("No Shade Book combinations of this kind yet.")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("No Colour Combination Book combinations of this kind yet.")).toBeTruthy());
     press("Any");
     await waitFor(() => expect(screen.getByText("Outside")).toBeTruthy());
   });
 
-  it("sells the Shade Book's pass right on the tab, at its price", async () => {
+  it("sells the Colour Combination Book's pass right on the tab, at its price", async () => {
     signedIn();
     mockShadeBook.get.mockResolvedValue(shutBook([GARDEN]));
     await openBookTab();
     await waitFor(() => expect(screen.getByText("Garden morning")).toBeTruthy());
     expect(screen.getByText("1 free of 40")).toBeTruthy();
-    expect(screen.getByText("One pass opens every one of them for 24 hours — here, and in the Shade Book.")).toBeTruthy();
-    expect(screen.getByText("39 more combinations open with the pass — the same one the Shade Book sells.")).toBeTruthy();
+    expect(screen.getByText("One pass opens every one of them for 24 hours — here, and in the Colour Combination Book.")).toBeTruthy();
+    expect(screen.getByText("39 more combinations open with the pass — the same one the Colour Combination Book sells.")).toBeTruthy();
     // At the top and under the free ones: the same pass, at the same price.
     expect(screen.getAllByText("Open all 40 · ₹49 for 24 hours")).toHaveLength(2);
     expect(screen.getByTestId("open-shade-book")).toBeTruthy();
@@ -1151,13 +1151,13 @@ describe("C13 · Colour combinations — Vista Shadebook", () => {
     mockShadeBook.passOrder.mockResolvedValue({
       orderId: "order_SHADE12345",
       kind: "SHADE_BOOK",
-      label: "Shade Book",
+      label: "Colour Combination Book",
       amount: 4900,
       currency: "INR",
       hours: 24,
       razorpayKeyId: "rzp_test_123456",
     });
-    mockShadeBook.passVerify.mockResolvedValue({ kind: "SHADE_BOOK", label: "Shade Book", startsAt: ist(0), expiresAt: ist(24 * 3600_000), amountPaise: 4900 });
+    mockShadeBook.passVerify.mockResolvedValue({ kind: "SHADE_BOOK", label: "Colour Combination Book", startsAt: ist(0), expiresAt: ist(24 * 3600_000), amountPaise: 4900 });
     jest.requireMock<{ openAuthSessionAsync: jest.Mock }>("expo-web-browser").openAuthSessionAsync.mockResolvedValue({
       type: "success",
       url: `huevista://pay/callback#status=success&order_id=order_SHADE12345&payment_id=pay_SHADE6789&signature=${"e".repeat(64)}`,
@@ -1168,16 +1168,16 @@ describe("C13 · Colour combinations — Vista Shadebook", () => {
     fireEvent.press(screen.getAllByTestId("shade-book-buy")[0]!);
 
     await waitFor(() => expect(screen.getByTestId("shade-book-notice")).toBeTruthy());
-    expect(screen.getByTestId("shade-book-notice")).toHaveTextContent(/The Shade Book is open until/);
+    expect(screen.getByTestId("shade-book-notice")).toHaveTextContent(/The Colour Combination Book is open until/);
     expect(mockShadeBook.passVerify).toHaveBeenCalledWith({ orderId: "order_SHADE12345", paymentId: "pay_SHADE6789", signature: "e".repeat(64) });
     await waitFor(() => expect(screen.getByText("Evening calm")).toBeTruthy());
     expect(screen.getByTestId("suggest-book-open")).toBeTruthy();
     expect(screen.queryByTestId("shade-book-buy")).toBeNull();
-    // Still in the room's combinations, not sent off to the Shade Book.
+    // Still in the room's combinations, not sent off to the Colour Combination Book.
     expect(screen).toHavePathname("/room/p1/suggestions");
   });
 
-  it("opens too when the pass is bought on the Shade Book screen", async () => {
+  it("opens too when the pass is bought on the Colour Combination Book screen", async () => {
     signedIn();
     mockShadeBook.get.mockResolvedValue(shutBook([GARDEN]));
     await openBookTab();

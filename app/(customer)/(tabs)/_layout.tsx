@@ -28,9 +28,9 @@ const tabs: { name: string; label: MessageKey; icon: IconName }[] = [
  * studio's tab says "Paint" and the catalogue's "Colours" — everyday words for what they hold,
  * for a customer who may read slowly; the routes keep their names.
  *
- * The Shade Book (C34) and the Colour finder (C35) live in the Catalogue tab, beside the
+ * The Colour Combination Book (C34) and the Colour finder (C35) live in the Catalogue tab, beside the
  * shades — a switch at the top of all three screens — rather than as tabs of their own: seven
- * leave about 45 dp a label on a 360–390 dp phone, and "Shade Book" needs 63. Their routes have
+ * leave about 45 dp a label on a 360–390 dp phone, and "Colour Combination Book" needs 63. Their routes have
  * no button of their own, and the Catalogue tab stays lit while either shows. The Paint tab is
  * built the same way: your rooms, Vista images and ready-made rooms behind one switch.
  */

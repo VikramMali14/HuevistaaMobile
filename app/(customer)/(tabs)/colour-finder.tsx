@@ -24,7 +24,7 @@ import { useTheme } from "@/theme";
 const PHOTO_SHARE = 0.55;
 
 /**
- * C35 · Colour finder. In the Catalogue tab, beside the shades and the Shade Book: the switch at
+ * C35 · Colour finder. In the Catalogue tab, beside the shades and the Colour Combination Book: the switch at
  * the top of all three, and the tab stays lit.
  *
  * A photo of a colour the customer loves — taken, or chosen from the phone — a tap on it, and

@@ -86,7 +86,7 @@ export default function PaymentReturn() {
       }
       const pending = await loadPending();
       const ours = pendingIsFor(pending, signedIn.id) ? pending : null;
-      // A pass — the Shade Book's or the Colour finder's — paid for on the website while
+      // A pass — the Colour Combination Book's or the Colour finder's — paid for on the website while
       // Android stopped the app: it is confirmed with its own route, and its screen says what
       // it opened. A cancel names no order, so it is the checkout this phone opened last.
       const [bookKept, finderKept] = await Promise.all([keptPassOrder(), colourFinderPass.kept()]);

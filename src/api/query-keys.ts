@@ -71,7 +71,7 @@ export const keys = {
   workAreas: ["nearby", "work-areas"] as const,
   /** Which place a point is in, by the point to two decimals (memory only). */
   nearbyWhere: (lat: number, lon: number) => ["nearby", "where", lat, lon] as const,
-  /** The Shade Book: its pages as this account may read them, and whether the pass is running. */
+  /** The Colour Combination Book: its pages as this account may read them, and whether the pass is running. */
   shadeBook: ["me", "shade-book"] as const,
   colourFinder: ["me", "colour-finder"] as const,
   colourFinderMatch: (hex: string) => ["me", "colour-finder", "match", hex] as const,

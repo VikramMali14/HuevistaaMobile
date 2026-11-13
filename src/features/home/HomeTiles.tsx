@@ -62,7 +62,7 @@ export function homeTiles({ hasShop }: { hasShop: boolean }): HomeTile[] {
  * tiles (HueVistaFrontEnd components/app/customer-home.tsx).
  *
  * A customer may read slowly, or read little English, and some of these places live
- * behind a switch (the Shade Book and the Colour finder are inside the Colours tab) or
+ * behind a switch (the Colour Combination Book and the Colour finder are inside the Colours tab) or
  * nowhere on the tab bar at all (a shop code, the balance, help). Laid out here, each is a
  * picture, a word or three, and one short line saying what it is for.
  */

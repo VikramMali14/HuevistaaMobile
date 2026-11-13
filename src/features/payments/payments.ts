@@ -288,7 +288,7 @@ export async function payForBasket({ split, basket, expectedPaise, accountId, pr
  * — from the session itself, or as a deep link (D3, or the app's own link listener) while
  * the session was open. `settle` runs with that answer (null: the browser closed and the
  * page said nothing) before the session counts as over, so D3 takes any link that arrives
- * meanwhile for an echo. The basket and the Shade Book's pass both pay through here.
+ * meanwhile for an echo. The basket and the Colour Combination Book's pass both pay through here.
  */
 export async function inCheckoutSession<T>(
   orderId: string,

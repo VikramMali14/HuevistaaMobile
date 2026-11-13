@@ -10,7 +10,7 @@ import type { ShadeBookPage } from "@/api/types";
 import { pictureFileName } from "./book";
 
 /**
- * A Shade Book page's picture to keep: the photo in its colours over every part's Vista
+ * A Colour Combination Book page's picture to keep: the photo in its colours over every part's Vista
  * code, made by the server (the same picture the website saves). Fetched into the cache
  * with the session — it needs the pass — then saved to the photos or shared. Deleted on
  * sign-out.
@@ -72,7 +72,7 @@ export async function sharePicture(uri: string, title: string): Promise<void> {
   await Sharing.shareAsync(uri, { mimeType: "image/jpeg", UTI: "public.jpeg", dialogTitle: title });
 }
 
-/** Forget every Shade Book picture kept on the phone (sign-out, or a switch of profile). */
+/** Forget every Colour Combination Book picture kept on the phone (sign-out, or a switch of profile). */
 export function clearShadeBookFiles(): void {
   try {
     const dir = folder();
