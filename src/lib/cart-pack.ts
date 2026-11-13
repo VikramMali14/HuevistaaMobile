@@ -85,6 +85,7 @@ function coverCount(rooms: number, pictures: number, perRooms: number, perPictur
  * where this screen's arithmetic can be compared against the server's.
  */
 function price(split: CartSplit, cart: CartCatalogue): PackedCart {
+  const projectCredits = includedPictures(cart);
   const comboProjects = cart.comboProjects ?? 0;
   const comboCredits = cart.comboCredits ?? 0;
   const bundleProjects = cart.bundleProjects ?? 0;
@@ -108,7 +109,8 @@ function price(split: CartSplit, cart: CartCatalogue): PackedCart {
   return {
     ...split,
     roomsGranted: split.projects + split.combos * comboProjects + split.bundles * bundleProjects,
-    picturesGranted: split.credits + split.combos * comboCredits + split.bundles * bundleCredits,
+    picturesGranted: split.credits + split.projects * projectCredits
+      + split.combos * comboCredits + split.bundles * bundleCredits,
     subtotalPaise: subtotal,
     discountBasePaise: discountBase,
     offer,
@@ -117,10 +119,21 @@ function price(split: CartSplit, cart: CartCatalogue): PackedCart {
   };
 }
 
+/**
+ * Vista images that come with each room on its own line. A room is sold with its picture
+ * now, so one bought singly already covers that many of the pictures asked for. Zero from
+ * a server that predates it.
+ */
+export function includedPictures(cart: CartCatalogue): number {
+  return Math.max(0, Math.floor(cart.projectCredits ?? 0));
+}
+
 /** The plain basket: everything bought one at a time, no package anywhere near it. */
 export function packSingly(rooms: number, pictures: number, cart: CartCatalogue): PackedCart {
   if (rooms + pictures <= 0) return EMPTY;
-  return price({ projects: rooms, credits: pictures, combos: 0, bundles: 0 }, cart);
+  // Pictures that arrive with the rooms are not bought a second time.
+  const credits = Math.max(0, pictures - rooms * includedPictures(cart));
+  return price({ projects: rooms, credits, combos: 0, bundles: 0 }, cart);
 }
 
 /**
@@ -165,7 +178,11 @@ export function packCart(rooms: number, pictures: number, cart: CartCatalogue): 
 
     for (let combos = 0; combos <= maxCombos; combos++) {
       const projects = Math.max(0, afterBundlesRooms - combos * comboProjects);
-      const credits = Math.max(0, afterBundlesPictures - combos * comboCredits);
+      // The rooms left as singles bring their own pictures with them.
+      const credits = Math.max(
+        0,
+        afterBundlesPictures - combos * comboCredits - projects * includedPictures(cart),
+      );
       // Every line travels to the server as its own quantity, and the server refuses one
       // over the cap. A split that cannot be SENT is not a candidate, however cheap.
       if (projects > max || credits > max) continue;

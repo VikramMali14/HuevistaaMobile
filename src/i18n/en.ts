@@ -869,6 +869,7 @@ export const en = {
   checkout: {
     title: "Checkout",
     lead: "Say how many. We'll work out the cheapest way to sell them to you. Everything lasts {span}.",
+    leadIncluded: "Say how many rooms. Each room comes with {images}. Everything lasts {span}.",
     rooms: "{n} rooms",
     oneRoom: "1 room",
     credits: "{n} Vista credits",
@@ -878,8 +879,10 @@ export const en = {
     roomsLine: "Rooms",
     roomsBlurb: "Your own photo of one. Mark the walls, try as many shades as you like, keep the codes.",
     each: "{price} each",
+    eachIncluded: "{price} each · includes {images}",
     addOn: "Optional add-on",
     imagesLine: "Vista images",
+    extraImagesLine: "Extra Vista images",
     imagesBlurb: "One photo-real image of a room you've already finished. Nothing needs it — paint, shades and codes all work without one.",
     fewer: "One fewer: {what}",
     more: "One more: {what}",
@@ -985,6 +988,7 @@ export const en = {
     ask: "Ask your shop for another room",
     freshCode: "Have a new shop code? Add it",
     missingTitle: "You have no rooms yet",
+    priceWithImages: "{price}, with {images} included",
     missingBody: "One room costs {price}. You can use it for {span}. Got a code from a paint shop? Use it instead.",
     missingBodyPlain: "Buy a room to start. Or use a code from your paint shop.",
     // The same, while shop codes are switched off (src/config/hidden-features.ts).

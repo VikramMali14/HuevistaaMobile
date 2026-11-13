@@ -115,6 +115,8 @@ export interface ProjectPurchaseOptions {
   projectPricePoints: number;
   /** Paise. */
   projectPricePaise: number;
+  /** Vista images that come with a room bought at that price. Absent from an older server. */
+  projectAiCredits?: number;
   bundleCredits?: number;
   bundlePricePaise?: number;
   bundleAiCredits?: number;
@@ -546,6 +548,9 @@ export interface CartCatalogue {
   /** False for an account this counter is not for (it answers 403 to an order). */
   eligible: boolean;
   projectPricePaise: number;
+  /** Vista images that come with each room at that price. Absent from an older server,
+   *  which sold the room bare. */
+  projectCredits?: number;
   creditPricePaise: number;
   /** The combo: cheaper than its parts bought separately. */
   comboPricePaise: number;

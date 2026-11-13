@@ -105,9 +105,17 @@ export function NextStepCard({
     headline = t("home.missingTitle");
     // Google Play charges its own price for a room, so the website's is never quoted there.
     const priced = paymentsMode() === "play" ? null : options;
+    // A room is sold with its Vista image, and the price is quoted with it.
+    const withRoom = priced?.projectAiCredits ?? 0;
     detail = priced
       ? t(SHOW_SHOP_CODES ? "home.missingBody" : "home.missingBodyNoCode", {
-          price: formatRupees(priced.projectPricePaise),
+          price:
+            withRoom > 0
+              ? t("home.priceWithImages", {
+                  price: formatRupees(priced.projectPricePaise),
+                  images: withRoom === 1 ? t("checkout.oneImage") : t("checkout.images", { n: withRoom }),
+                })
+              : formatRupees(priced.projectPricePaise),
           span: validitySpan(priced.validDays),
         })
       : t(SHOW_SHOP_CODES ? "home.missingBodyPlain" : "home.missingBodyPlainNoCode");

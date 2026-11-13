@@ -173,3 +173,68 @@ describe("packCart", () => {
     expect(packed.totalPaise).toBe(7000);
   });
 });
+
+/**
+ * The counter as it is sold now: ONE purchase. A room is ₹249 and comes with one Vista
+ * image; an extra image is ₹49; the old combo line is the room under another name; there
+ * is no three-room offer and there are no percentage offers.
+ */
+const SINGLE: CartCatalogue = {
+  eligible: true,
+  projectPricePaise: 24900,
+  projectCredits: 1,
+  creditPricePaise: 4900,
+  comboPricePaise: 24900,
+  comboProjects: 1,
+  comboCredits: 1,
+  bundleAvailable: false,
+  bundlePricePaise: 0,
+  bundleListPricePaise: 0,
+  bundleProjects: 0,
+  bundleCredits: 0,
+  validDays: 365,
+  maxQuantity: 20,
+  offers: [],
+  availableProjects: 0,
+  creditBalance: 0,
+  currency: "INR",
+};
+
+describe("a room that comes with its Vista image", () => {
+  it("sells one room as one line, for ₹249, with the image in it", () => {
+    const packed = packCart(1, 0, SINGLE);
+
+    expect(packed).toMatchObject({ projects: 1, credits: 0, combos: 0, bundles: 0 });
+    expect(packed.totalPaise).toBe(24900);
+    expect(packed.roomsGranted).toBe(1);
+    expect(packed.picturesGranted).toBe(1);
+    expect(packed.offer).toBeNull();
+  });
+
+  it("does not charge again for the image the room already brings", () => {
+    const packed = packCart(1, 1, SINGLE);
+
+    expect(packed.totalPaise).toBe(24900);
+    expect(packed.credits).toBe(0);
+    expect(packed.picturesGranted).toBe(1);
+    // The list price is the same figure: nothing is "saved", because nothing was dearer.
+    expect(packSingly(1, 1, SINGLE).totalPaise).toBe(24900);
+  });
+
+  it("charges only for the images beyond the ones the rooms bring", () => {
+    const packed = packCart(2, 5, SINGLE);
+
+    expect(packed.totalPaise).toBe(2 * 24900 + 3 * 4900);
+    expect(packed.roomsGranted).toBe(2);
+    expect(packed.picturesGranted).toBe(5);
+    expect(packed.discountPaise).toBe(0);
+  });
+
+  it("takes nothing off however large the basket", () => {
+    const packed = packCart(10, 0, SINGLE);
+
+    expect(packed.totalPaise).toBe(10 * 24900);
+    expect(packed.bundles).toBe(0);
+    expect(packed.offer).toBeNull();
+  });
+});

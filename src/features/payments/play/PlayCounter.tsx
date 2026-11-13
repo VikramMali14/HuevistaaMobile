@@ -31,8 +31,10 @@ function count(raw: string | undefined): number {
 
 /** Which pack C28's link asked for: Vista images alone, both, or (by default) a room. */
 function highlighted(packs: Pack[], rooms: number, credits: number): Pack | undefined {
-  const fits = (p: Pack) => (credits > 0 && rooms === 0 ? p.projects === 0 : rooms > 0 && credits > 0 ? p.projects > 0 && p.credits > 0 : p.projects > 0 && p.credits === 0);
-  const singles = packs.filter((p) => p.projects + p.credits === 1);
+  // A room pack may carry the Vista image that comes with a room, so "a room" is any pack
+  // with a room in it — the smallest one first.
+  const fits = (p: Pack) => (credits > 0 && rooms === 0 ? p.projects === 0 : rooms > 0 && credits > 0 ? p.projects > 0 && p.credits > 0 : p.projects > 0);
+  const singles = packs.filter((p) => p.projects <= 1 && p.credits <= 1);
   return singles.find(fits) ?? packs.find(fits) ?? packs[0];
 }
 
@@ -154,7 +156,7 @@ export function PlayCounter({ rooms, credits, from }: { rooms?: string; credits?
             />
           ))}
         </View>
-        {pack.projects + pack.credits === 1 ? (
+        {pack.projects <= 1 && pack.credits <= 1 ? (
           <Text variant="small" tone="mute">
             {t("checkout.playQuantity")}
           </Text>

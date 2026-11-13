@@ -18,7 +18,7 @@ import { usePaidButUnconfirmed } from "@/features/payments/pending-payment";
 import { PlayCounter } from "@/features/payments/play/PlayCounter";
 import { buyOnWebsite, useWhereToBuy, type WhereToBuy } from "@/features/payments/where-to-buy";
 import { t } from "@/i18n";
-import { packCart, packSingly } from "@/lib/cart-pack";
+import { includedPictures, packCart, packSingly } from "@/lib/cart-pack";
 import { validitySpan } from "@/lib/dates";
 import { formatRupees } from "@/lib/money";
 import { useSubmit } from "@/lib/use-submit";
@@ -195,7 +195,10 @@ function RazorpayCheckout() {
     const empty = wantRooms + want.pictures === 0;
     const packSaving = Math.max(0, listPaise - packed.subtotalPaise);
     const ticket = packSaving > 0 ? listPaise : packed.subtotalPaise;
-    const extra = packed.roomsGranted - wantRooms + (packed.picturesGranted - want.pictures);
+    // Vista images that come with each room: part of the room, not a surplus from an offer.
+    const perRoom = includedPictures(data);
+    const extraPictures = Math.max(0, packed.picturesGranted - want.pictures - packed.projects * perRoom);
+    const extra = packed.roomsGranted - wantRooms + extraPictures;
     const bundle =
       !shopCustomer && data.bundleAvailable && (data.bundlePricePaise ?? 0) > 0 && (data.bundleListPricePaise ?? 0) > (data.bundlePricePaise ?? 0) && packed.bundles === 0
         ? {
@@ -205,7 +208,7 @@ function RazorpayCheckout() {
             saving: (data.bundleListPricePaise ?? 0) - (data.bundlePricePaise ?? 0),
           }
         : null;
-    const line = (title: string, blurb: string, price: number, value: number, onChange: (n: number) => void, noun: (n: number) => string, testID: string) => (
+    const line = (title: string, blurb: string, price: string, value: number, onChange: (n: number) => void, noun: (n: number) => string, testID: string) => (
       <View style={[styles.line, { borderTopColor: colors.rule }]}>
         <View style={[styles.fill, { gap: 2 }]}>
           <Text variant="bodyStrong">{title}</Text>
@@ -213,7 +216,7 @@ function RazorpayCheckout() {
             {blurb}
           </Text>
           <Text variant="small" tone="mute">
-            {t("checkout.each", { price: formatRupees(price) })}
+            {price}
           </Text>
         </View>
         <Stepper
@@ -232,13 +235,23 @@ function RazorpayCheckout() {
 
     body = (
       <>
-        <Text variant="lead">{t("checkout.lead", { span: validitySpan(data.validDays) })}</Text>
+        <Text variant="lead">
+          {perRoom > 0 && !shopCustomer
+            ? t("checkout.leadIncluded", { images: images(perRoom), span: validitySpan(data.validDays) })
+            : t("checkout.lead", { span: validitySpan(data.validDays) })}
+        </Text>
         {shopCustomer ? (
           <Text variant="small" tone="mute">
             {t("checkout.shopRooms")}
           </Text>
         ) : (
-          line(t("checkout.roomsLine"), t("checkout.roomsBlurb"), data.projectPricePaise, want.rooms, (n) => setWant((w) => ({ ...w, rooms: n })), rooms, "stepper-rooms")
+          line(
+            t("checkout.roomsLine"),
+            t("checkout.roomsBlurb"),
+            perRoom > 0
+              ? t("checkout.eachIncluded", { price: formatRupees(data.projectPricePaise), images: images(perRoom) })
+              : t("checkout.each", { price: formatRupees(data.projectPricePaise) }),
+            want.rooms, (n) => setWant((w) => ({ ...w, rooms: n })), rooms, "stepper-rooms")
         )}
         <View style={{ gap: space.xs }}>
           {!shopCustomer ? (
@@ -246,7 +259,11 @@ function RazorpayCheckout() {
               {t("checkout.addOn")}
             </Text>
           ) : null}
-          {line(t("checkout.imagesLine"), t("checkout.imagesBlurb"), data.creditPricePaise, want.pictures, (n) => setWant((w) => ({ ...w, pictures: n })), images, "stepper-images")}
+          {line(
+            perRoom > 0 && !shopCustomer ? t("checkout.extraImagesLine") : t("checkout.imagesLine"),
+            t("checkout.imagesBlurb"),
+            t("checkout.each", { price: formatRupees(data.creditPricePaise) }),
+            want.pictures, (n) => setWant((w) => ({ ...w, pictures: n })), images, "stepper-images")}
         </View>
         {want.pictures > 0 && finished.data?.length === 0 ? (
           <Banner tone="info" message={t("checkout.noFinishedRoom", { span: validitySpan(data.validDays) })} />
@@ -304,7 +321,7 @@ function RazorpayCheckout() {
               {extra > 0
                 ? t("checkout.surplus", {
                     basket: roomsAndImages(packed.roomsGranted, packed.picturesGranted),
-                    extra: roomsAndImages(packed.roomsGranted - wantRooms, packed.picturesGranted - want.pictures),
+                    extra: roomsAndImages(packed.roomsGranted - wantRooms, extraPictures),
                   })
                 : roomsAndImages(packed.roomsGranted, packed.picturesGranted)}
             </Text>
