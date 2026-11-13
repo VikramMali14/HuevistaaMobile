@@ -1,4 +1,3 @@
-import Feather from "@expo/vector-icons/Feather";
 import type { ReactNode } from "react";
 import { Linking, StyleSheet, View } from "react-native";
 
@@ -11,9 +10,8 @@ import { useAlive } from "@/lib/use-alive";
 import { useSubmit } from "@/lib/use-submit";
 import { useTheme } from "@/theme";
 
-import { directionsHref, distanceLabel, shopAddress, shopHours, telHref, whatsappHref } from "./nearby";
-import { usePainterPhone, useWorkAreas } from "./use-nearby";
-import { serviceAreasText, workAreasText } from "./work-areas";
+import { distanceLabel, shopAddress, shopDirectionsHref, shopHours, telHref, whatsappHref } from "./nearby";
+import { usePainterPhone } from "./use-nearby";
 
 /** Opens a link the phone may have nothing for (tel: on a tablet): nothing happens then. */
 function open(url: string | null) {
@@ -23,16 +21,13 @@ function open(url: string | null) {
 /**
  * One painter as a customer sees them (C32) — and as the painter sees their own listing
  * (P5's preview, with `actions` standing in for the call). Ported from the website's
- * PainterCard: the painter's card — photo, name, the district and state they're based in, and
- * their address — where they can go for a job, and the badge. Not how far away they are, and not
- * their jobs and reviews. Nothing else a painter fills in is shown to customers. The places are named by the catalogue (useWorkAreas); until it has loaded, or
- * if it can't, the card simply goes without that line.
+ * PainterCard: the painter's card — photo, name, the town and PIN code they work in, and
+ * their address — and the badge. Not how far away they are, not their jobs and reviews, and no
+ * divisions. Nothing else a painter fills in is shown to customers.
  */
 export function PainterCardBody({ painter: p, actions }: { painter: NearbyPainter; actions?: ReactNode }) {
-  const { space, colors } = useTheme();
+  const { space } = useTheme();
   const name = p.name?.trim() || t("nearby.painter");
-  const catalogue = useWorkAreas();
-  const areas = workAreasText(p.workAreas, catalogue.data);
   return (
     <View style={{ gap: space.sm }}>
       <View style={[styles.painterHead, { gap: space.sm }]}>
@@ -45,7 +40,7 @@ export function PainterCardBody({ painter: p, actions }: { painter: NearbyPainte
           </Text>
           {p.place?.trim() ? (
             <Text variant="small" tone="accent" testID={`painter-place-${p.id}`}>
-              {p.place.trim()}
+              {p.pincode ? `${p.place.trim()} · ${p.pincode}` : p.place.trim()}
             </Text>
           ) : null}
           {p.address?.trim() ? (
@@ -55,19 +50,9 @@ export function PainterCardBody({ painter: p, actions }: { painter: NearbyPainte
           ) : null}
         </View>
       </View>
-      {areas ? (
-        <View style={[styles.areas, { gap: space.xs }]}>
-          <Feather name="map" size={16} color={colors.accentText} style={styles.areasIcon} />
-          <Text variant="small" style={styles.fill} testID={`painter-areas-${p.id}`}>
-            {areas}
-          </Text>
-        </View>
-      ) : null}
-      {p.certified !== false || p.worksInYourArea ? (
+      {p.certified !== false ? (
         <View style={[styles.row, styles.wrap, { gap: space.xs }]}>
-          {p.certified !== false ? <Pill label={t("nearby.certified")} tone="accent" testID="painter-certified" /> : null}
-          {/* Found because they work where the customer is, maybe from far off: said, so the distance makes sense. */}
-          {p.worksInYourArea ? <Pill label={t("nearby.worksHere")} tone="success" testID={`painter-works-here-${p.id}`} /> : null}
+          <Pill label={t("nearby.certified")} tone="accent" testID="painter-certified" />
         </View>
       ) : null}
       {actions}
@@ -134,18 +119,15 @@ export function PainterCard({ painter }: { painter: NearbyPainter }) {
 }
 
 /**
- * A shop: name and distance, the district and state it is in (from its pin, as a painter's card
- * says where they are based), its street and when it's open, where it serves — Directions, and Call
- * when dialable. A shop found because it serves the customer's place, maybe from far off, says so,
- * so the distance makes sense. As the website's shop card.
+ * A shop: name and distance, the town and PIN code it is in (as a painter's card says where they
+ * work), its street and when it's open — Directions, and Call when dialable. As the website's
+ * shop card.
  */
 export function ShopCard({ shop: s }: { shop: NearbyShop }) {
-  const { space, colors } = useTheme();
+  const { space } = useTheme();
   const address = shopAddress(s);
   const hours = shopHours(s.openingHours);
   const tel = telHref(s.phone);
-  const catalogue = useWorkAreas();
-  const areas = serviceAreasText(s.serviceAreas, catalogue.data);
   return (
     <Card>
       <View style={{ gap: space.sm }}>
@@ -156,7 +138,7 @@ export function ShopCard({ shop: s }: { shop: NearbyShop }) {
             </Text>
             {s.place?.trim() ? (
               <Text variant="small" tone="accent" testID={`shop-place-${s.id}`}>
-                {s.place.trim()}
+                {s.pincode ? `${s.place.trim()} · ${s.pincode}` : s.place.trim()}
               </Text>
             ) : null}
           </View>
@@ -170,23 +152,9 @@ export function ShopCard({ shop: s }: { shop: NearbyShop }) {
             {hours}
           </Text>
         ) : null}
-        {areas ? (
-          <View style={[styles.areas, { gap: space.xs }]}>
-            <Feather name="map" size={16} color={colors.accentText} style={styles.areasIcon} />
-            <Text variant="small" style={styles.fill} testID={`shop-areas-${s.id}`}>
-              {areas}
-            </Text>
-          </View>
-        ) : null}
-        {/* Found because it serves where the customer is, maybe from far off: said, so the distance makes sense. */}
-        {s.servesYourArea ? (
-          <View style={[styles.row, styles.wrap, { gap: space.xs }]}>
-            <Pill label={t("nearby.servesHere")} tone="success" testID={`shop-serves-here-${s.id}`} />
-          </View>
-        ) : null}
         <View style={[styles.row, { gap: space.xs }]}>
           <View style={styles.fill}>
-            <Button icon="navigation" label={t("nearby.directions")} onPress={() => open(directionsHref(s.latitude, s.longitude))} testID={`directions-${s.id}`} />
+            <Button icon="navigation" label={t("nearby.directions")} onPress={() => open(shopDirectionsHref(s))} testID={`directions-${s.id}`} />
           </View>
           {tel ? <Button variant="secondary" block={false} icon="phone" label={t("nearby.call")} accessibilityHint={s.phone ?? undefined} onPress={() => open(tel)} testID={`shop-call-${s.id}`} /> : null}
         </View>
@@ -201,7 +169,5 @@ const styles = StyleSheet.create({
   photo: { width: 56, height: 56, borderRadius: 28 },
   row: { flexDirection: "row", alignItems: "center" },
   wrap: { flexWrap: "wrap" },
-  areas: { flexDirection: "row", alignItems: "flex-start" },
-  areasIcon: { marginTop: 2 },
   fill: { flex: 1 },
 });

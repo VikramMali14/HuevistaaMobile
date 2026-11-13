@@ -1,23 +1,21 @@
 import Feather from "@expo/vector-icons/Feather";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { messageFor } from "@/api/errors";
+import { nearbyApi } from "@/api/endpoints/nearby";
 import { painterApi, type PainterProfile } from "@/api/endpoints/painter";
 import { keys } from "@/api/query-keys";
 import { useSession } from "@/auth/session";
-import { Banner, Button, Card, ErrorState, Screen, Skeleton, Switch, Text, useToast } from "@/components/ui";
+import { Banner, Button, Card, ErrorState, Screen, Skeleton, Switch, Text, TextField, useToast } from "@/components/ui";
 import { PainterCardBody } from "@/features/nearby/NearbyCards";
-import { useWhere, useWorkAreas } from "@/features/nearby/use-nearby";
-import { isOpen, normalise, openStates, sameAreas } from "@/features/nearby/work-areas";
-import { hasSavedLocation, listingBody, listingNeeds, ownPhotoUrl, savedPin, type PendingLocation } from "@/features/painter/listing";
+import { cityLine, isPin, pinDigits } from "@/features/nearby/nearby";
+import { useWorkAreas } from "@/features/nearby/use-nearby";
+import { openStates } from "@/features/nearby/work-areas";
+import { hasSavedLocation, listingBody, listingNeeds, ownPhotoUrl, type PendingLocation } from "@/features/painter/listing";
 import { PainterHeader } from "@/features/painter/PainterHeader";
-import { PinMap } from "@/features/painter/pin-map/PinMap";
-import { PLACE_ZOOM, STREET_ZOOM } from "@/features/painter/pin-map/protocol";
-import { PlaceSearch } from "@/features/painter/PlaceSearch";
-import { WorkAreasPicker } from "@/features/painter/WorkAreasPicker";
 import { isNoProfile, usePainterProfile } from "@/features/painter/use-painter";
 import { t } from "@/i18n";
 import { formatServerDate } from "@/lib/dates";
@@ -31,26 +29,21 @@ import { useTheme } from "@/theme";
  * P5 · Nearby — be found by customers. Spec: docs/05-screens-painter.md — P5. Web
  * reference: HueVistaaPainter app/(app)/(painter)/listing/listing-screen.tsx.
  *
- * Whether customers nearby see this painter, where they're based, where they can go for a job,
- * and the card a customer would see: their photo, name and address (set on the painter website)
- * and those places, nothing else. Listing needs a base and a confirmed mobile; what's missing is
- * said, with the way to it.
+ * Whether customers nearby see this painter, where they work, and the card a customer would
+ * see: their photo, name and address (set on the painter website) and the town their PIN code is
+ * in, nothing else. Listing needs a PIN code and a confirmed mobile; what's missing is said, with
+ * the way to it.
  *
- * Where they're based is a pin on a map (features/painter/pin-map): the painter finds their town
- * or PIN code to take the map there, and drags it — or taps it — until the pin is on their place.
- * Nothing asks the phone where it is, so location can stay off, and the pin stays where they put
- * it until they move it again: the server keeps it for their own map, and searches only from it
- * rounded to about a kilometre. Customers never see it, nor a distance. Once saved, the screen
- * names the place the pin is in, so a wrong one is plain to see.
+ * Where they work is one question: the PIN code. The painter types its six digits, the server
+ * looks them up in its own directory (GET /api/nearby/places) and the screen says the town —
+ * "Abu Road, Sirohi, Rajasthan" — so a wrong one is plain to see. No map, nothing asks the phone
+ * where it is, and there are no divisions to tick: a customer who searches a PIN code within
+ * 20 km of the painter's finds them. A pin put on the map before PIN codes still works, and the
+ * painter is asked for their PIN code.
  *
- * HueVistaa is open in some states only — Rajasthan at launch — and a painter is found by customers
- * only with their pin in one of them. The town search finds places in those states alone; a pin
- * anywhere else is named, said to be outside, and the switch stays off until it moves (the server
+ * HueVistaa is open in some states only — Rajasthan at launch. The lookup finds PIN codes in
+ * those states alone, so one anywhere else is not found, and the screen says why (the server
  * refuses it too).
- *
- * Where they can work: divisions of those states, or the whole of one (WorkAreasPicker), named by
- * the server's catalogue — the same divisions a customer's search chooses between. Customers who
- * choose them find the painter, however far off. Anywhere in India is no longer offered.
  *
  * Only HueVistaa Certified painters are shown to customers. The switch stays the painter's
  * to set before they are — the listing is saved and goes live once they're certified — so
@@ -69,7 +62,7 @@ export default function PainterNearby() {
     // A saved change starts the form afresh from what the server kept.
     return (
       <ListingForm
-        key={`${p.listedForCustomers}|${p.latitude}|${p.longitude}|${p.locationUpdatedAt ?? ""}|${(p.workAreas ?? []).join(",")}`}
+        key={`${p.listedForCustomers}|${p.latitude}|${p.longitude}|${p.locationUpdatedAt ?? ""}|${p.pincode ?? ""}`}
         profile={p}
         onRefresh={() => painter.refetch()}
       />
@@ -112,40 +105,67 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
   const pull = usePullToRefresh(onRefresh);
   const { profile: account } = useSession();
   const [listed, setListed] = useState(Boolean(profile.listedForCustomers));
+  /** The PIN code as typed: digits only, six at most. */
+  const [pinText, setPinText] = useState(profile.pincode ?? "");
   const [pending, setPending] = useState<PendingLocation>(null);
-  const [areas, setAreas] = useState<string[]>(profile.workAreas ?? []);
+  /** Why a PIN code typed can't be used: not found, or the lookup failed. */
+  const [pinProblem, setPinProblem] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // A finger on the map: the page holds still under it.
-  const [onMap, setOnMap] = useState(false);
   const saving = useSubmit();
   const catalogue = useWorkAreas();
-  // Where a location not saved yet is: named before it is saved, and its state first among the places.
-  const pendingArea = useWhere(pending && pending !== "clear" ? { lat: pending.latitude, lon: pending.longitude } : null);
-  // The one about to be saved once the server has said where it is — the saved one's until then —
-  // and none once it is removed.
-  const homeState =
-    pending === "clear" ? null : pending ? (pendingArea.data?.state ?? profile.locationState ?? null) : (profile.locationState ?? null);
-
-  const needs = listingNeeds(profile, pending);
   /** The states HueVistaa is open in, for a sentence; null before they load, or across all India. */
   const open = catalogue.data ? openStates(catalogue.data) : null;
-  // Where the location shown is — the one being moved once the server has said, or the saved one.
-  const shownState = pending === "clear" ? null : pending ? (pendingArea.data?.state ?? null) : (profile.locationState ?? null);
-  const shownPlace = pending === "clear" ? null : pending ? (pendingArea.data?.place ?? null) : (profile.locationPlace ?? null);
-  // Outside the states HueVistaa is open in: customers there can't find a painter yet. Said only
-  // where the states can be named; across most of India the server's refusal says it.
-  const outside = Boolean(catalogue.data) && open !== null && shownState !== null && !isOpen(shownState, catalogue.data!);
-  const ready = needs.ready && !outside;
+
+  // Looked up as soon as the sixth digit is typed: the painter reads their town without pressing
+  // anything. The saved PIN code is not asked about again — the profile already names its place.
+  const savedPincode = profile.pincode ?? null;
+  const typedNew = isPin(pinText) && pinText !== savedPincode;
+  useEffect(() => {
+    if (!typedNew) return;
+    let live = true;
+    nearbyApi
+      .places(pinText)
+      .then((places) => {
+        if (!live) return;
+        const place = places.find((found) => found.pincode === pinText);
+        if (place) setPending({ pincode: pinText, place: cityLine(place) });
+        else setPinProblem(open ? t("painter.nearby.pinNotFoundIn", { pin: pinText, states: open }) : t("painter.nearby.pinNotFound", { pin: pinText }));
+      })
+      .catch((err) => {
+        if (live) setPinProblem(messageFor(err, t("painter.nearby.placeFailed")));
+      });
+    return () => {
+      live = false;
+    };
+    // `open` only words the sentence: the catalogue loading must not ask again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pinText, typedNew]);
+
+  const typePin = (text: string) => {
+    setError(null);
+    setPinProblem(null);
+    // A new digit is a new PIN code: the last one found is no longer the one typed.
+    setPending(null);
+    setPinText(pinDigits(text));
+  };
+
+  // Being looked up: a new PIN code typed, with no answer about it yet.
+  const finding = typedNew && pending === null && pinProblem === null;
+  const needs = listingNeeds(profile, pending);
+  const ready = needs.ready;
   const certified = Boolean(profile.certified);
-  // Without the catalogue the places can't be drawn or changed, so they are left as they are.
-  const areasChanged = Boolean(catalogue.data) && !sameAreas(areas, profile.workAreas ?? [], catalogue.data!);
-  const dirty = listed !== Boolean(profile.listedForCustomers) || pending !== null || areasChanged;
+  // The town on the card: the PIN code's being saved, or the saved one's (a pin from before PIN
+  // codes says its district and state).
+  const shownPlace =
+    pending === "clear" ? null : pending ? pending.place : savedPincode ? (profile.locationName ?? profile.locationPlace ?? null) : (profile.locationPlace ?? null);
+  const shownPincode = pending === "clear" ? null : pending ? pending.pincode : savedPincode;
+  const dirty = listed !== Boolean(profile.listedForCustomers) || pending !== null;
 
   const save = () =>
     void saving.run(async () => {
       setError(null);
       try {
-        const updated = await painterApi.updateListing(listingBody(listed, pending, areasChanged ? areas : undefined));
+        const updated = await painterApi.updateListing(listingBody(listed, pending));
         queryClient.setQueryData(keys.painterProfile, updated);
         toast.show(
           !updated.listedForCustomers
@@ -162,24 +182,19 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
 
   let status: string;
   if (pending === "clear") status = t("painter.nearby.pendingClear");
-  else if (pending)
-    status = pending.label
-      ? t("painter.nearby.pendingPlace", { place: pending.label })
-      : pendingArea.data?.name
-        ? t("painter.nearby.pendingNear", { place: pendingArea.data.name })
-        : t("painter.nearby.pendingNew");
-  else if (hasSavedLocation(profile) && profile.locationName) status = t("painter.nearby.near", { place: profile.locationName });
-  else if (hasSavedLocation(profile)) status = profile.locationUpdatedAt ? t("painter.nearby.setOn", { date: formatServerDate(profile.locationUpdatedAt) }) : t("painter.nearby.setPlain");
+  else if (pending) status = pending.place;
+  else if (pinText.length > 0 && !isPin(pinText)) status = t("painter.nearby.pinShort");
+  else if (hasSavedLocation(profile) && savedPincode) status = shownPlace ?? t("nearby.pin", { pin: savedPincode });
+  else if (hasSavedLocation(profile)) status = profile.locationName ? t("painter.nearby.near", { place: profile.locationName }) : t("painter.nearby.setPlain");
   else status = t("painter.nearby.none");
   // The date under the place, once it is named.
-  const setOn = !pending && hasSavedLocation(profile) && profile.locationName && profile.locationUpdatedAt ? t("painter.nearby.setOn", { date: formatServerDate(profile.locationUpdatedAt) }) : null;
+  const setOn = !pending && hasSavedLocation(profile) && profile.locationUpdatedAt ? t("painter.nearby.setOn", { date: formatServerDate(profile.locationUpdatedAt) }) : null;
 
   const name = (account?.namePending ? null : account?.name?.trim()) || profile.name?.trim() || t("painter.nearby.painter");
 
   return (
     <Screen
       scroll
-      scrollEnabled={!onMap}
       edges={["top"]}
       onRefresh={pull.onRefresh}
       refreshing={pull.refreshing}
@@ -205,22 +220,13 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
               setError(null);
               setListed(next);
             }}
-            // Turning it off is always allowed; on needs a base in an open state and a confirmed mobile.
+            // Turning it off is always allowed; on needs a PIN code and a confirmed mobile.
             disabled={!listed && !ready}
             testID="nearby-switch"
           />
           {!ready ? (
             <View style={{ gap: space.xs }} testID="nearby-needs">
-              <Need
-                done={needs.location && !outside}
-                label={
-                  !needs.location
-                    ? t("painter.nearby.needLocation")
-                    : outside
-                      ? t("painter.nearby.needInside", { states: open ?? "" })
-                      : t("painter.nearby.locationSet")
-                }
-              />
+              <Need done={needs.location} label={needs.location ? t("painter.nearby.locationSet") : t("painter.nearby.needLocation")} />
               <Need
                 done={needs.mobile}
                 label={needs.mobile ? t("painter.nearby.mobileSet") : t("painter.nearby.needMobile")}
@@ -247,53 +253,54 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
         <Text variant="title3" accessibilityRole="header">
           {t("painter.nearby.where")}
         </Text>
-        <Text variant="painterBody" testID="nearby-location-status">
-          {status}
-        </Text>
+        <TextField
+          label={t("painter.nearby.pinLabel")}
+          placeholder={t("painter.nearby.pinPlaceholder")}
+          value={pinText}
+          onChangeText={typePin}
+          keyboardType="number-pad"
+          autoComplete="postal-code"
+          maxLength={8}
+          editable={!saving.busy}
+          testID="nearby-pincode"
+        />
+        {pinProblem ? (
+          <Banner tone="warning" message={pinProblem} testID="nearby-pin-problem" />
+        ) : (
+          <Text variant="painterBody" accessibilityLiveRegion="polite" testID="nearby-location-status">
+            {finding ? t("painter.nearby.pinFinding") : status}
+          </Text>
+        )}
+        {pending && pending !== "clear" ? (
+          <Text variant="small" tone="soft" testID="nearby-pending-save">
+            {t("painter.nearby.pendingPlace")}
+          </Text>
+        ) : null}
         {setOn ? (
           <Text variant="small" tone="mute">
             {setOn}
           </Text>
         ) : null}
+        {!pending && hasSavedLocation(profile) && !savedPincode ? (
+          <Text variant="small" tone="soft" testID="nearby-add-pin">
+            {t("painter.nearby.addPin")}
+          </Text>
+        ) : null}
+        <Text variant="small" tone="soft">
+          {t("painter.nearby.pinHelp")}
+        </Text>
         {open ? (
           <Text variant="small" tone="soft" testID="nearby-only-in">
             {t("painter.nearby.onlyIn", { states: open })}
           </Text>
         ) : null}
-        <PlaceSearch
-          disabled={saving.busy}
-          within={open}
-          onPick={(place, label) => {
-            setError(null);
-            setPending({ latitude: place.latitude, longitude: place.longitude, label });
-          }}
-        />
-        {pending && pending !== "clear" && pending.label ? (
+        {pending && pending !== "clear" ? (
           // India Post's directory is published under the Government Open Data License and
           // GeoNames under CC BY 4.0; both ask to be credited where their data is used.
           <Text variant="caption" tone="mute" testID="nearby-place-credit">
             {t("painter.nearby.placeCredit")}
           </Text>
         ) : null}
-        <PinMap
-          pin={pending === "clear" ? null : (pending ?? savedPin(profile))}
-          zoom={pending && pending !== "clear" && pending.label ? PLACE_ZOOM : STREET_ZOOM}
-          disabled={saving.busy}
-          onMove={(moved) => {
-            setError(null);
-            setPending(moved);
-          }}
-          onTouch={setOnMap}
-        />
-        {outside ? (
-          <Banner tone="warning" message={t("painter.nearby.outside", { place: shownPlace ?? shownState ?? "", states: open ?? "" })} testID="nearby-outside" />
-        ) : null}
-        <Text variant="small" tone="soft">
-          {t("painter.nearby.mapHelp")}
-        </Text>
-        <Text variant="small" tone="soft">
-          {t("painter.nearby.kept")}
-        </Text>
         {needs.location ? (
           <View style={styles.row}>
             <Button
@@ -301,8 +308,10 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
               block={false}
               label={t("painter.nearby.remove")}
               onPress={() => {
+                setPinText("");
+                setPinProblem(null);
                 setPending("clear");
-                // A painter with no base can't be listed.
+                // A painter with no PIN code can't be listed.
                 setListed(false);
               }}
               disabled={saving.busy}
@@ -310,31 +319,6 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
             />
           </View>
         ) : null}
-      </View>
-
-      <View style={{ gap: space.sm }}>
-        <Text variant="title3" accessibilityRole="header">
-          {t("painter.nearby.areasTitle")}
-        </Text>
-        <Text variant="small" tone="soft">
-          {t("painter.nearby.areasLede")}
-        </Text>
-        {catalogue.data ? (
-          <WorkAreasPicker
-            catalogue={catalogue.data}
-            value={areas}
-            homeState={homeState}
-            disabled={saving.busy}
-            onChange={(next) => {
-              setError(null);
-              setAreas(next);
-            }}
-          />
-        ) : catalogue.isError ? (
-          <ErrorState message={t("painter.nearby.areasLoadFailed")} onRetry={() => void catalogue.refetch()} />
-        ) : (
-          <Skeleton height={120} radius={16} />
-        )}
       </View>
 
       <View style={{ gap: space.sm }}>
@@ -359,10 +343,9 @@ function ListingForm({ profile, onRefresh }: { profile: PainterProfile; onRefres
                 certified: true,
                 // Not shown on the card; the place is.
                 distanceKm: 0,
-                // Where the location being saved is, once the server has said — or the saved one's.
+                // The town of the PIN code being saved — or the saved one's.
                 place: shownPlace,
-                // As ticked above, before it is saved, and read as the server keeps it: what the card will say.
-                workAreas: catalogue.data ? normalise(areas, catalogue.data) : (profile.workAreas ?? []),
+                pincode: shownPincode,
               }}
               actions={<Button icon="phone" label={t("nearby.call")} disabled onPress={() => {}} />}
             />

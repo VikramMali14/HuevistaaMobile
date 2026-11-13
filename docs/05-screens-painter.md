@@ -83,6 +83,14 @@ confirmed mobile → a banner to S4.
 
 ### P5 · Nearby — be found by customers
 
+> **Now by PIN code.** P5 no longer has a map, a town search or divisions. The painter types the
+> 6-digit PIN code they work in; the screen looks it up as soon as six digits are typed
+> (`GET /api/nearby/places`) and says the town — "Abu Road, Sirohi, Rajasthan" — and Save sends
+> `{ pincode }`. The server makes the middle of that PIN code the painter's location, and a
+> customer who searches a PIN code within 20 km finds them. A pin put on the map before still
+> works, and the painter is asked for their PIN code. The map (`features/painter/pin-map`,
+> MapLibre) and `WorkAreasPicker` are removed; what follows about them is how it was.
+
 **Route** `painter/(tabs)/nearby.tsx` · **Phase** 6 · **Web reference** `app/(app)/(painter)/listing/listing-screen.tsx`
 
 **Layout:**

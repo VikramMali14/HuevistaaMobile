@@ -5,28 +5,14 @@ import type { ListingUpdate, PainterProfile, TradeProfileUpdate } from "@/api/en
  * (listing-screen.tsx, profile-screen.tsx).
  */
 
-/** About a metre: finer than a finger puts a pin on a map, and what the server keeps of one. */
-export function pinDegrees(degrees: number): number {
-  return Math.round(degrees * 100_000) / 100_000;
-}
-
 /**
- * Where the base stands while being edited: as saved, a pin moved on the map — or the middle of
- * a place typed, with the `label` it was chosen by — or to be removed.
+ * Where the painter works while being edited: as saved, a new PIN code the server found — with
+ * the `place` it turned out to be, "Abu Road, Sirohi, Rajasthan" — or to be removed.
  */
-export type PendingLocation = { latitude: number; longitude: number; label?: string } | "clear" | null;
+export type PendingLocation = { pincode: string; place: string } | "clear" | null;
 
 export function hasSavedLocation(profile: Pick<PainterProfile, "latitude" | "longitude">): boolean {
   return profile.latitude != null && profile.longitude != null;
-}
-
-/** Where the painter left the pin — or, for a location saved before pins, the point searches use. */
-export function savedPin(
-  profile: Pick<PainterProfile, "latitude" | "longitude" | "pinLatitude" | "pinLongitude">,
-): { latitude: number; longitude: number } | null {
-  if (profile.pinLatitude != null && profile.pinLongitude != null) return { latitude: profile.pinLatitude, longitude: profile.pinLongitude };
-  if (profile.latitude != null && profile.longitude != null) return { latitude: profile.latitude, longitude: profile.longitude };
-  return null;
 }
 
 /**
@@ -37,7 +23,7 @@ export function ownPhotoUrl(version: string | null | undefined): string | null {
   return version ? `/api/painters/me/photo?v=${encodeURIComponent(version)}` : null;
 }
 
-/** Whether the listing can be turned on: a base (saved or new) and a confirmed mobile. */
+/** Whether the listing can be turned on: a PIN code (saved or new, or a pin from before) and a confirmed mobile. */
 export function listingNeeds(profile: Pick<PainterProfile, "latitude" | "longitude" | "phoneVerified" | "phone">, pending: PendingLocation) {
   const location = pending === "clear" ? false : pending !== null || hasSavedLocation(profile);
   const mobile = Boolean(profile.phoneVerified && profile.phone);
@@ -45,18 +31,13 @@ export function listingNeeds(profile: Pick<PainterProfile, "latitude" | "longitu
 }
 
 /**
- * The listing as sent. The pin goes where the painter put it: the server keeps it for their own
- * map, and searches only from it rounded to about a kilometre. `workAreas` only when they changed:
- * left out, the server leaves them be.
+ * The listing as sent. The PIN code is the whole of where: the server makes the middle of it the
+ * painter's location. Left out, the location is left alone.
  */
-export function listingBody(listed: boolean, pending: PendingLocation, workAreas?: string[]): ListingUpdate {
+export function listingBody(listed: boolean, pending: PendingLocation): ListingUpdate {
   const body: ListingUpdate = { listedForCustomers: listed };
   if (pending === "clear") body.clearLocation = true;
-  else if (pending) {
-    body.latitude = pinDegrees(pending.latitude);
-    body.longitude = pinDegrees(pending.longitude);
-  }
-  if (workAreas) body.workAreas = workAreas;
+  else if (pending) body.pincode = pending.pincode;
   return body;
 }
 
