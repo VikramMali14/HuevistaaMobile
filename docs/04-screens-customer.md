@@ -380,20 +380,32 @@ from the engine's own one-pixel antialiasing.
 - Tap a wall on the photo to select it (hit-test the masks). The selected wall gets a
   thin outline: a light line on its edge with a soft dark halo, drawn by the engine in the
   same frame as the paint (not in snapshots, nor while holding for the "before").
-- **Wall strip** just above the dock: chips with each wall's current colour + name. A
+- **Three numbered steps** down the left of the dock, for somebody who has never used a
+  tool like this or would sooner look than read — the same three the website's studio
+  opens with: **1** the walls, **2** the colours, **3** Save. The numbers are discs, not
+  words, so the dock keeps its height; the words are in **How it works** (below).
+- **Wall strip** (step 1) just above the dock: chips with each wall's current colour + name;
+  the chosen wall is the ink capsule. A
   saved colour shows as its shade (the catalogue shade found again); the backend's
   opening colours show as the nearest real shade, as on the website (07, "The studio's
   state").
 - **Dock:** horizontal row of recently used and suggested swatches · **Browse shades**
-  (→ C12) · **Suggestions** (→ C13). As built: the palette is always on screen under the
-  room, so the photo is never covered while colours are tried: family chips, then two
+  (→ C12) · **Ideas** (→ C13). As built: the palette is always on screen under the
+  room, so the photo is never covered while colours are tried: a row of colour-family
+  dots (step 2 — round, one colour each or two for the families that hold two, a wheel
+  for All; each says its family's name to a screen reader), then two
   rows of swatches scrolling sideways (recent first, then the Colour Combination Book's: the colours of its
   combinations of the room's kind, first colours first, none repeated from Recent; then the catalogue); a tap paints
-  the selected wall. Under it, on one line: **More shades** (→ C12, for search),
-  **Suggestions** (→ C13), **Save** (this combination) and the ⓘ. The dock is the same height
+  the selected wall. Under it, on one line: **3 Save** (this combination — the dock's one
+  brass button), then **More shades** (→ C12, for search) and **Ideas** (→ C13). The dock is the same height
   whatever it holds, so the room above keeps its size (a resize starts the GPU over).
-- Top bar: back, room name, **Compare** (→ C14), **Undo**, and the board tray button
+- Top bar: back, room name, **Undo** and **Redo** (each only while there is something to
+  undo or redo), **Compare** (→ C14), **Help**, and the board tray button
   with a count badge (→ C15).
+- **How it works:** a sheet with the three steps as a number, a picture and a line each,
+  one **Start** button, and the shade disclaimer at its foot. Opens by itself the first
+  time a phone has a room it can paint (`hv.paintHowTo` in AsyncStorage, set as it
+  opens); **Help** opens it after that. Not on a view-only room.
 - **Press and hold** anywhere on the photo to see the original underneath.
 - **Save this combination** — adds the current colours to the board tray (stored on
   the phone until the board is made; the website keeps the tray client-side too).
@@ -410,7 +422,8 @@ undoes a change still waiting to be saved (07, "The studio's state").
 - Access ending → banner "3 days left on this room".
 - GL not available (very old phone) → "Your phone can't show live colour. You can
   still pick shades and take a board." The rest of the screen keeps working.
-- The shade disclaimer is one tap away (ⓘ) and printed on the board.
+- The shade disclaimer is at the foot of How it works — read once on a phone's first
+  visit, one tap away (Help) after — and printed on the board.
 
 **Performance target:** colour change visible in < 100 ms, 60 fps pan/zoom on a
 mid-range Android (e.g. 4 GB RAM). Measured with the live-colour check (Settings → press

@@ -872,6 +872,107 @@ describe("C11 · Paint", () => {
   });
 });
 
+/**
+ * Paint, as three numbered steps — 1 the walls, 2 the colours, 3 Save — for somebody who
+ * has never used a tool like this, or who would sooner look than read. "How it works"
+ * opens once per phone and from Help after that; the families are colour dots; Undo and
+ * Redo arrive with something to undo or redo.
+ */
+describe("C11 · Paint, in three steps", () => {
+  const howTo = () => screen.queryByText("Paint your wall in 3 steps");
+
+  it("shows how it works on a phone's first visit, once", async () => {
+    signedIn();
+    renderRouter("./app", { initialUrl: "/room/p1/paint" });
+    await waitFor(() => expect(howTo()).toBeTruthy());
+    expect(screen.getByText("Choose a wall")).toBeTruthy();
+    expect(screen.getByText("Choose a colour")).toBeTruthy();
+    expect(screen.getByText("Save it")).toBeTruthy();
+    // The shade disclaimer the ⓘ used to keep, read once on the way in.
+    expect(screen.getByText(/^Shade colours are taken from the paint companies' own shade cards/)).toBeTruthy();
+    await waitFor(async () => expect(await AsyncStorage.getItem("hv.paintHowTo")).toBe("1"));
+
+    press("Start");
+    await waitFor(() => expect(howTo()).toBeNull());
+  });
+
+  it("doesn't show it again by itself, and opens it from Help", async () => {
+    signedIn();
+    await AsyncStorage.setItem("hv.paintHowTo", "1");
+    renderRouter("./app", { initialUrl: "/room/p1/paint" });
+    await waitFor(() => expect(screen.getByTestId("wall-11")).toBeTruthy());
+    expect(howTo()).toBeNull();
+
+    fireEvent.press(screen.getByLabelText("How it works"));
+    await waitFor(() => expect(howTo()).toBeTruthy());
+  });
+
+  it("doesn't show it on a room that can't be painted", async () => {
+    signedIn();
+    mockProjects.get.mockResolvedValue(room({ readOnly: true }));
+    renderRouter("./app", { initialUrl: "/room/p1/paint" });
+    await waitFor(() => expect(screen.getByText("This room is view only.")).toBeTruthy());
+    expect(howTo()).toBeNull();
+    expect(await AsyncStorage.getItem("hv.paintHowTo")).toBeNull();
+    // No steps to number on a room that is only looked at. (The numbers are hidden from
+    // screen readers, which hear each control's own name, so they are asked for as such.)
+    expect(screen.getByTestId("wall-11")).toBeTruthy();
+    expect(screen.queryByTestId("step-1", { includeHiddenElements: true })).toBeNull();
+    expect(screen.queryByTestId("step-3", { includeHiddenElements: true })).toBeNull();
+  });
+
+  it("numbers the dock's three steps, and the third is Save", async () => {
+    signedIn();
+    await AsyncStorage.setItem("hv.paintHowTo", "1");
+    renderRouter("./app", { initialUrl: "/room/p1/paint" });
+    await waitFor(() => expect(screen.getByTestId("wall-11")).toBeTruthy());
+    const hidden = { includeHiddenElements: true };
+    expect(screen.getByTestId("step-1", hidden)).toBeTruthy();
+    expect(screen.getByTestId("step-2", hidden)).toBeTruthy();
+    expect(screen.getByTestId("paint-save")).toContainElement(screen.getByTestId("step-3", hidden));
+    // Ideas and More shades are still a tap away, beside it.
+    expect(screen.getByText("More shades")).toBeTruthy();
+    fireEvent.press(screen.getByText("Ideas"));
+    await waitFor(() => expect(screen).toHavePathname("/room/p1/suggestions"));
+  });
+
+  it("chooses colours by family from a row of dots", async () => {
+    signedIn();
+    await AsyncStorage.setItem("hv.paintHowTo", "1");
+    renderRouter("./app", { initialUrl: "/room/p1/paint" });
+    await waitFor(() => expect(screen.getByLabelText("HV0101")).toBeTruthy());
+    expect(screen.getByLabelText("HV0118")).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText("Greens"));
+    await waitFor(() => expect(screen.queryByLabelText("HV0101")).toBeNull());
+    expect(screen.getByLabelText("HV0118")).toBeTruthy();
+    expect(screen.queryByLabelText("HV0124")).toBeNull();
+    expect(screen.getByLabelText("Greens")).toBeSelected();
+
+    fireEvent.press(screen.getByLabelText("All colours"));
+    await waitFor(() => expect(screen.getByLabelText("HV0101")).toBeTruthy());
+    expect(screen.getByLabelText("All colours")).toBeSelected();
+  });
+
+  it("brings Undo and Redo with something to undo or redo", async () => {
+    signedIn();
+    await AsyncStorage.setItem("hv.paintHowTo", "1");
+    pushRecent({ hex: "#7b8a72", code: "HV0118", lrv: 30 });
+    renderRouter("./app", { initialUrl: "/room/p1/paint" });
+    await waitFor(() => expect(screen.getByLabelText("Recent: HV0118")).toBeTruthy());
+    expect(screen.queryByLabelText("Undo")).toBeNull();
+    expect(screen.queryByLabelText("Redo")).toBeNull();
+
+    fireEvent.press(screen.getByLabelText("Recent: HV0118"));
+    await waitFor(() => expect(screen.getByLabelText("Undo")).toBeTruthy());
+    expect(screen.queryByLabelText("Redo")).toBeNull();
+
+    fireEvent.press(screen.getByLabelText("Undo"));
+    await waitFor(() => expect(screen.getByLabelText("Redo")).toBeTruthy());
+    expect(screen.queryByLabelText("Undo")).toBeNull();
+  });
+});
+
 describe("C12 · Shade picker", () => {
   it("paints the wall with a tap and stays open", async () => {
     signedIn();

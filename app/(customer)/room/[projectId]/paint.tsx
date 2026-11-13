@@ -4,10 +4,11 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "reac
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { RoomRegion } from "@/api/types";
-import { BackButton, Banner, Button, Disclaimer, ErrorState, IconButton, Screen, Sheet, Text, useToast, ZoomView } from "@/components/ui";
+import { BackButton, Banner, Button, ErrorState, IconButton, Screen, Text, useToast, ZoomView } from "@/components/ui";
 import { useCatalogue, useShadeScheme } from "@/features/catalogue/use-catalogue";
 import { daysLeft } from "@/features/rooms/room-status";
 import { CanvasTrouble } from "@/features/studio/CanvasTrouble";
+import { markPaintHowToSeen, PaintHowTo, paintHowToSeen } from "@/features/studio/PaintHowTo";
 import { PaintPalette } from "@/features/studio/PaintPalette";
 import { canvasWalls, roomPhoto } from "@/features/studio/canvas-walls";
 import { RoomCanvas, type CanvasState, type RoomCanvasHandle } from "@/features/studio/engine/RoomCanvas";
@@ -25,6 +26,7 @@ import {
   type WallColour,
 } from "@/features/studio/paint-store";
 import { shadeColour } from "@/features/studio/shade-colour";
+import { StepNumber } from "@/features/studio/StepNumber";
 import { scopeOf, useDockSuggestions } from "@/features/studio/suggested-swatches";
 import { saveCombo, useTray } from "@/features/studio/tray-store";
 import { useColourReader } from "@/features/studio/use-colour-reader";
@@ -40,6 +42,11 @@ import { hairline, useTheme } from "@/theme";
  * another is chosen; light and shadow are the photo's own (the website's engine on
  * expo-gl). Colours save themselves a moment after the last change, and wait for the
  * connection when there is none. Press and hold the photo to see it before.
+ *
+ * Laid out as three numbered steps down the left of the dock — 1 the walls, 2 the
+ * colours, 3 Save — for somebody who has never used a tool like this, or who would
+ * sooner look than read. The first visit on a phone opens "How it works", which says
+ * the same three steps in pictures; Help opens it again.
  */
 export default function Paint() {
   const router = useRouter();
@@ -58,7 +65,8 @@ export default function Paint() {
   const canvasRef = useRef<RoomCanvasHandle>(null);
   const [canvas, setCanvas] = useState<CanvasState>({ kind: "loading" });
   const [holding, setHolding] = useState(false);
-  const [info, setInfo] = useState(false);
+  const [howTo, setHowTo] = useState(false);
+  const howToOffered = useRef(false);
   const shadeApplied = useRef(false);
 
   const data = room.data;
@@ -75,6 +83,24 @@ export default function Paint() {
   useEffect(() => {
     void markPainted(id);
   }, [id]);
+
+  // "How it works" opens by itself once per phone: the first time Paint has a room
+  // that can be painted. It is marked seen as it opens, so leaving mid-sheet does not
+  // bring it back; Help in the top bar opens it any time after.
+  const paintable = editable && walls.length > 0;
+  useEffect(() => {
+    if (!paintable || howToOffered.current) return;
+    howToOffered.current = true;
+    let live = true;
+    void paintHowToSeen().then((seen) => {
+      if (!live || seen) return;
+      setHowTo(true);
+      void markPaintHowToSeen();
+    });
+    return () => {
+      live = false;
+    };
+  }, [paintable]);
 
   // Leaving the screen sends anything still waiting; a refusal already shown is done with.
   useFocusEffect(
@@ -148,13 +174,17 @@ export default function Paint() {
         <Text variant="bodyStrong" numberOfLines={1} style={styles.title} accessibilityRole="header">
           {name}
         </Text>
-        <IconButton icon="corner-up-left" label={t("paint.undo")} onPress={() => undo(id)} disabled={!editable || paint.history.length === 0} />
-        <IconButton icon="corner-up-right" label={t("paint.redo")} onPress={() => redo(id)} disabled={!editable || paint.future.length === 0} />
+        {/* Undo and Redo arrive with something to take back or put back. Two greyed
+            arrows at rest are two buttons that refuse, on the screen a first visit is
+            least sure of; and they leave the room's name more of the bar. */}
+        {editable && paint.history.length > 0 ? <IconButton icon="corner-up-left" label={t("paint.undo")} onPress={() => undo(id)} /> : null}
+        {editable && paint.future.length > 0 ? <IconButton icon="corner-up-right" label={t("paint.redo")} onPress={() => redo(id)} /> : null}
         <IconButton
           icon="columns"
           label={t("paint.compare")}
           onPress={() => router.push({ pathname: "/room/[projectId]/compare", params: { projectId: id } } as Href)}
         />
+        <IconButton icon="help-circle" label={t("paint.help")} onPress={() => setHowTo(true)} testID="paint-help" />
         <IconButton
           icon="layers"
           label={t("paint.tray")}
@@ -220,42 +250,75 @@ export default function Paint() {
         </View>
       ) : (
         <View style={[styles.dock, { backgroundColor: colors.bg, paddingBottom: insets.bottom + space.sm, borderTopColor: colors.rule }]}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.xs, paddingHorizontal: space.gutter }}>
-            {walls.map((w) => {
-              const key = String(w.id);
-              const c = paint.colours[key];
-              const on = paint.selected === key;
-              return (
-                <Pressable
-                  key={key}
-                  onPress={() => selectWall(id, key)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: on }}
-                  accessibilityLabel={`${wallLabel(w)}, ${c?.code ?? (c ? c.hex : t("paint.unpainted"))}`}
-                  style={[
-                    styles.wallChip,
-                    { borderRadius: radius.pill, borderColor: on ? colors.fg : colors.ruleStrong, backgroundColor: on ? colors.surfaceSoft : colors.surface },
-                  ]}
-                  testID={`wall-${key}`}
-                >
-                  <View style={[styles.wallDot, { backgroundColor: c?.hex ?? "transparent", borderColor: colors.ruleStrong }]} />
-                  <Text variant="small" numberOfLines={1}>
-                    {wallLabel(w)}
-                  </Text>
-                  {c?.code ? (
-                    <Text variant="caption" tone="mute">
-                      {c.code}
+          {/* Step 1, the walls. Also chosen by tapping the wall on the photo. */}
+          <View style={styles.stepRow}>
+            {editable ? <StepNumber n={1} style={{ marginLeft: space.gutter }} /> : null}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.fill}
+              contentContainerStyle={{ gap: space.xs, paddingLeft: editable ? space.xs : space.gutter, paddingRight: space.gutter }}
+            >
+              {walls.map((w) => {
+                const key = String(w.id);
+                const c = paint.colours[key];
+                const on = paint.selected === key;
+                // The chosen wall is the ink capsule, as a chosen option is everywhere
+                // else in the app — an outline among outlines was a difference somebody
+                // had to look for.
+                const ink = on ? colors.bg : colors.fg;
+                return (
+                  <Pressable
+                    key={key}
+                    onPress={() => selectWall(id, key)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                    accessibilityLabel={`${wallLabel(w)}, ${c?.code ?? (c ? c.hex : t("paint.unpainted"))}`}
+                    style={[
+                      styles.wallChip,
+                      { borderRadius: radius.pill, borderColor: on ? colors.fg : colors.ruleStrong, backgroundColor: on ? colors.fg : colors.surface },
+                    ]}
+                    testID={`wall-${key}`}
+                  >
+                    <View style={[styles.wallDot, { backgroundColor: c?.hex ?? "transparent", borderColor: on ? colors.bg : colors.ruleStrong }]} />
+                    <Text variant="bodyStrong" numberOfLines={1} style={{ color: ink }}>
+                      {wallLabel(w)}
                     </Text>
-                  ) : null}
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+                    {c?.code ? (
+                      <Text variant="caption" style={{ color: on ? colors.bg : colors.fgMute, opacity: on ? 0.8 : 1 }}>
+                        {c.code}
+                      </Text>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
 
           {editable ? (
             <>
-              <PaintPalette current={selectedColour} suggested={suggested} onPick={pick} disabled={!paint.selected} gutter={space.gutter} />
-              <View style={[styles.actions, { paddingHorizontal: space.xs }]}>
+              {/* Step 2, the colours. */}
+              <PaintPalette current={selectedColour} suggested={suggested} onPick={pick} disabled={!paint.selected} gutter={space.gutter} step={2} />
+              <View style={[styles.actions, { paddingLeft: space.gutter, paddingRight: space.xs }]}>
+                {/* Step 3: keep it. The one filled button in the dock, numbered like the
+                    two rows above it, so 1 · 2 · 3 runs down the left edge in the order
+                    the screen is used. Saving keeps the combination for the board. */}
+                <Pressable
+                  onPress={saveThis}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("paint.save")}
+                  style={({ pressed }) => [
+                    styles.saveButton,
+                    { backgroundColor: colors.accent, borderRadius: radius.pill, opacity: pressed ? 0.85 : 1 },
+                  ]}
+                  testID="paint-save"
+                >
+                  <StepNumber n={3} tone="onAccent" />
+                  <Text variant="bodyStrong" numberOfLines={1} style={{ color: colors.accentOn }}>
+                    {t("paint.save")}
+                  </Text>
+                </Pressable>
+                <View style={styles.fill} />
                 <Button
                   variant="ghost"
                   block={false}
@@ -268,21 +331,19 @@ export default function Paint() {
                 <Button
                   variant="ghost"
                   block={false}
+                  icon="star"
                   label={t("paint.suggestions")}
                   onPress={() => router.push({ pathname: "/room/[projectId]/suggestions", params: { projectId: id } } as Href)}
+                  testID="paint-ideas"
                 />
-                <Button variant="ghost" block={false} label={t("paint.save")} onPress={saveThis} testID="paint-save" />
-                <View style={styles.fill} />
-                <IconButton icon="info" label={t("paint.info")} onPress={() => setInfo(true)} />
               </View>
             </>
           ) : null}
         </View>
       )}
 
-      <Sheet visible={info} onClose={() => setInfo(false)} title={t("paint.info")}>
-        <Disclaimer kind="shades" />
-      </Sheet>
+      {/* How it works — and, at its foot, the shade disclaimer the ⓘ used to keep. */}
+      <PaintHowTo visible={howTo} onClose={() => setHowTo(false)} />
     </View>
   );
 }
@@ -295,7 +356,9 @@ const styles = StyleSheet.create({
   beforePill: { position: "absolute", alignSelf: "center", paddingHorizontal: 14, paddingVertical: 6 },
   overlay: { position: "absolute", top: 0, left: 0, right: 0 },
   dock: { paddingTop: 10, gap: 10, borderTopWidth: hairline },
-  wallChip: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, minHeight: 40 },
-  wallDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 1 },
-  actions: { flexDirection: "row", alignItems: "center" },
+  stepRow: { flexDirection: "row", alignItems: "center" },
+  wallChip: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, paddingLeft: 8, paddingRight: 14, paddingVertical: 6, minHeight: 44 },
+  wallDot: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5 },
+  actions: { flexDirection: "row", alignItems: "center", gap: 4 },
+  saveButton: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44, paddingLeft: 10, paddingRight: 18 },
 });
