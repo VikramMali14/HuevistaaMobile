@@ -1,5 +1,5 @@
 /**
- * The Shade Book's rules that need no phone: what a filter keeps, which houses a combination is
+ * The Colour Combination Book's rules that need no phone: what a filter keeps, which houses a combination is
  * shown on, what the pass would open, which colour goes on which part of another photo, when the
  * pass ends (India's clock), and a saved picture's name.
  */

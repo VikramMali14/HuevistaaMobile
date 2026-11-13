@@ -289,7 +289,7 @@ describe("C1 · Home in pictures and plain words", () => {
     await waitFor(() => expect(screen.getByText("What would you like to do?")).toBeTruthy());
     for (const label of [
       "Colours. Every colour, with its code",
-      "Shade Book. Colours that go together, on real homes",
+      "Colour Combination Book. Colours that go together, on real homes",
       "Colour finder. Find our colour from your photo",
       "Find a painter. Painters near you. Call them",
       "Find a paint shop. Paint shops near you, with directions",

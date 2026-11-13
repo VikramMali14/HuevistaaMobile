@@ -114,12 +114,12 @@ Left for a real phone: the camera on a printed board, the reader on Android and 
 Left for a real phone: the location prompts, App Links on a signed build, and handing
 over to the dialler, WhatsApp and Maps.
 
-**The Colour finder (C35).** In the Catalogue tab, beside the shades and the Shade Book: a
+**The Colour finder (C35).** In the Catalogue tab, beside the shades and the Colour Combination Book: a
 photo taken or chosen, a colour tapped on it, and the nearest HueVistaa shades — Vista code,
 colour and the colour in words, never a paint company. The photo is read on the phone (a
 small PNG decoded with `fflate`, sampled the website's way); picking a colour is free, and
 the shades are opened by a ₹59, 24-hour unlimited pass — a Google Play product of its own in
-the store build, the website's Razorpay checkout elsewhere, on the rail the Shade Book's pass
+the store build, the website's Razorpay checkout elsewhere, on the rail the Colour Combination Book's pass
 shares (`src/features/payments/day-pass.ts`).
 
 **HueVistaa Certified painters.** Only certified painters are shown to customers in
@@ -138,7 +138,7 @@ Catalogue; the next-step card says what they can do in short sentences ("You can
 rooms") with a picture for the state; **How it works** shows the three steps as numbered
 pictures (photo of the wall → tap a colour → show the code at the shop); and **What would you
 like to do?** lays out a picture tile, with one short line, for every other place — Colours,
-Shade Book, Colour finder, Painters & shops, Add a shop code, My balance, My products, Help.
+Colour Combination Book, Colour finder, Painters & shops, Add a shop code, My balance, My products, Help.
 The website's customer home says the same things (docs/04, C1).
 
 **Shop codes are switched off for now.** Every way to "Add a shop code" (C30) is hidden behind

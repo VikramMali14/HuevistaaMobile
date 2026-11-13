@@ -11,7 +11,7 @@ import { msUntilEnd } from "./book";
 const LONGEST_WAIT_MS = 24 * 60 * 60_000;
 
 /**
- * The Shade Book as this account may read it. Read again when a payment changes it (it is in
+ * The Colour Combination Book as this account may read it. Read again when a payment changes it (it is in
  * paymentChanges) and the moment a running pass ends, so the book shuts on time rather than
  * leaving pictures the server now refuses.
  */

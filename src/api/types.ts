@@ -643,7 +643,7 @@ export interface PlayCatalogue {
   previousObfuscatedAccountIds?: string[];
   products: PlayProduct[];
   /**
-   * The 24-hour passes sold through Google Play — the Shade Book's and the Colour finder's —
+   * The 24-hour passes sold through Google Play — the Colour Combination Book's and the Colour finder's —
    * each its own product.
    * Absent from a server that sells none (or doesn't know them yet).
    */
@@ -768,10 +768,10 @@ export interface AssignedProducts {
   }[];
 }
 
-// ── The Shade Book ──────────────────────────────────────────────────────────────
+// ── The Colour Combination Book ──────────────────────────────────────────────────────────────
 
 /**
- * Whether the Shade Book is open to this account, and what opening it costs. ADMIN and a
+ * Whether the Colour Combination Book is open to this account, and what opening it costs. ADMIN and a
  * running PASS read every page (until `expiresAt`); NONE reads the free samples.
  */
 export interface ShadeBookAccess {
@@ -788,7 +788,7 @@ export interface ShadeBookAccess {
   playProductId?: string | null;
 }
 
-/** A shade on a Shade Book page: its Vista code and colour (no company — customers never see one). */
+/** A shade on a Colour Combination Book page: its Vista code and colour (no company — customers never see one). */
 export interface ShadeBookShade {
   hvCode?: string | null;
   shadeCode?: string | null;
@@ -880,7 +880,7 @@ export interface ShadeBookPass {
 
 /**
  * GET /api/colour-finder — whether a customer's Colour finder is open, and what opening it
- * costs: the Shade Book's shape. ADMIN and a running PASS (until `expiresAt`) are open.
+ * costs: the Colour Combination Book's shape. ADMIN and a running PASS (until `expiresAt`) are open.
  */
 export interface ColourFinderAccess {
   open: boolean;

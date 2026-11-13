@@ -30,7 +30,7 @@ import { useTheme } from "@/theme";
 const MIXED_FRAME = 4 / 3;
 
 /**
- * C34 · Shade Book. Spec: docs/04-screens-customer.md — C34. In the Catalogue tab, beside the
+ * C34 · Colour Combination Book. Spec: docs/04-screens-customer.md — C34. In the Catalogue tab, beside the
  * shades: the switch at the top of both screens, and the tab stays lit.
  *
  * What to look at — exterior or interior, two colours or three, the colour families a

@@ -1,8 +1,8 @@
 /**
- * Buying the Colour finder's pass on the website: the same rail as the Shade Book's — the
+ * Buying the Colour finder's pass on the website: the same rail as the Colour Combination Book's — the
  * order, the browser session, the server's confirmation — on the finder's own routes, with its
  * own order kept on the phone, and the finder read again once it may have opened. And D3, on a
- * cold start, telling the finder's answer from the Shade Book's and the basket's.
+ * cold start, telling the finder's answer from the Colour Combination Book's and the basket's.
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -79,13 +79,13 @@ describe("the Colour finder's pass on the website", () => {
     );
     expect(mockFinder.passVerify).toHaveBeenCalledWith({ orderId: ORDER.orderId, paymentId: "pay_FINDER6789", signature: SIG });
     expect(outcome).toEqual({ kind: "opened", pass: PASS });
-    // The finder is read again — not the Shade Book — and nothing is left waiting on the phone.
+    // The finder is read again — not the Colour Combination Book — and nothing is left waiting on the phone.
     expect(mockInvalidate).toHaveBeenCalledWith({ queryKey: ["me", "colour-finder"] });
     expect(mockInvalidate).not.toHaveBeenCalledWith({ queryKey: ["me", "shade-book"] });
     expect(await colourFinderPass.kept()).toBeNull();
   });
 
-  it("keeps its order apart from the Shade Book's while the browser is open", async () => {
+  it("keeps its order apart from the Colour Combination Book's while the browser is open", async () => {
     let finder: unknown = null;
     let book: string | null = "untouched";
     mockOpen.mockImplementation(async () => {
@@ -121,7 +121,7 @@ describe("D3 on a cold start", () => {
     await AsyncStorage.setItem("hv.colourFinderOrder", JSON.stringify({ orderId: ORDER.orderId, startedAt: opened }));
     const cancelled = parsePayCallback("huevista://pay/callback#status=cancelled");
     expect(await colourFinderPass.isAnswer(cancelled, null)).toBe(ORDER.orderId);
-    // The Shade Book's checkout, or the basket's, opened after it: the cancel is theirs.
+    // The Colour Combination Book's checkout, or the basket's, opened after it: the cancel is theirs.
     expect(await colourFinderPass.isAnswer(cancelled, latestStart(opened - 5_000, opened + 1_000))).toBeNull();
     expect(await colourFinderPass.isAnswer(cancelled, latestStart(null, opened - 1_000))).toBe(ORDER.orderId);
   });

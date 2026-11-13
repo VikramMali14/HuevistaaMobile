@@ -10,7 +10,7 @@ import type { WallColour } from "./paint-store";
 import { shadeColour } from "./shade-colour";
 
 /**
- * A suggested colour — from a Vista AI palette or a Shade Book combination — ready for a wall
+ * A suggested colour — from a Vista AI palette or a Colour Combination Book combination — ready for a wall
  * (and for the Recent row once used).
  */
 export type SuggestedColour = WallColour & { brandSlug?: string };
@@ -40,7 +40,7 @@ export function comboColours(combo: ColourCombo, shades: readonly PaintShade[] |
   ];
 }
 
-/** C11: at most this many Shade Book swatches in the dock. */
+/** C11: at most this many Colour Combination Book swatches in the dock. */
 export const DOCK_SUGGESTED_MAX = 9;
 
 /** Where a room's photo is: anything not known to be outside is a room inside. */
@@ -49,7 +49,7 @@ export function scopeOf(imageType: string | null | undefined): "INTERIOR" | "EXT
 }
 
 /**
- * A Shade Book colour as a wall's colour: its catalogue shade when the catalogue has it (so it
+ * A Colour Combination Book colour as a wall's colour: its catalogue shade when the catalogue has it (so it
  * paints at the real paint's lightness and shows this viewer's code), else the page's own hex
  * and code.
  */
@@ -71,7 +71,7 @@ export function pageColours(page: ShadeBookPage, shades: readonly PaintShade[] |
 }
 
 /**
- * The dock's Shade Book swatches: every combination's colours, first colours first (they suit
+ * The dock's Colour Combination Book swatches: every combination's colours, first colours first (they suit
  * a whole wall), each once, leaving out what the Recent row already shows. Only real shades —
  * a colour with no code can't be saved as one.
  */
@@ -99,7 +99,7 @@ export function dockSuggestions(
 }
 
 /**
- * C11's suggested swatches for a room: the Shade Book's combinations of the room's kind
+ * C11's suggested swatches for a room: the Colour Combination Book's combinations of the room's kind
  * (inside or outside), as single colours. Empty while loading, or when there are none.
  */
 export function useDockSuggestions(scope: "INTERIOR" | "EXTERIOR", enabled: boolean, shown: readonly string[]) {

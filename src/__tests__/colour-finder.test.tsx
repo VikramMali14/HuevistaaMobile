@@ -1,5 +1,5 @@
 /**
- * The Colour finder (C35) through the REAL route tree: beside the shades and the Shade Book in
+ * The Colour finder (C35) through the REAL route tree: beside the shades and the Colour Combination Book in
  * the Catalogue tab, a photo chosen and tapped for free, and the HueVistaa shades for that
  * colour — Vista codes and colours alone — once the ₹59 pass is running, bought on the website.
  * Only the network, the secure store, the browser, the photo picker and the photo's pixels are
@@ -102,11 +102,11 @@ beforeEach(async () => {
 });
 
 describe("C35 · Colour finder", () => {
-  it("sits beside the shades and the Shade Book, in the Catalogue tab, which stays lit", async () => {
+  it("sits beside the shades and the Colour Combination Book, in the Catalogue tab, which stays lit", async () => {
     signedIn();
     mockFinder.get.mockResolvedValue(SHUT);
     renderRouter("./app", { initialUrl: "/catalogue" });
-    await waitFor(() => expect(screen.getByLabelText("Shades, the Shade Book or the Colour finder")).toBeTruthy());
+    await waitFor(() => expect(screen.getByLabelText("Shades, the Colour Combination Book or the Colour finder")).toBeTruthy());
     expect(screen.queryByTestId("tab-colour-finder")).toBeNull();
 
     fireEvent.press(screen.getByRole("tab", { name: "Colour finder" }));

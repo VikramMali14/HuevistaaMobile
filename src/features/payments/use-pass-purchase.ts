@@ -23,7 +23,7 @@ export interface PassAccess {
 }
 
 /**
- * A 24-hour pass's Buy button, wherever it is shown — the Shade Book's or the Colour finder's.
+ * A 24-hour pass's Buy button, wherever it is shown — the Colour Combination Book's or the Colour finder's.
  * In the Android store build it is a Google Play purchase of the pass's own product, at
  * Google's price — nothing there mentions the website. Everywhere else it is Razorpay Checkout
  * on the website (`rail`), at the server's price. Either way only the server opens the pass,

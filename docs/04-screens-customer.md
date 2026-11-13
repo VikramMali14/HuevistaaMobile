@@ -58,7 +58,7 @@ go laid out on the page rather than behind a switch or a menu.
 5. **Rooms in progress** — horizontal strip: photo, name, status chip, days left. Tap
    resumes at the right step. "See all" → Rooms tab.
 6. **What would you like to do?** — picture tiles, two across, each with one short line:
-   Colours (C3), Shade Book (C34), Colour finder (C35), Find a painter (C32), Find a paint
+   Colours (C3), Colour Combination Book (C34), Colour finder (C35), Find a painter (C32), Find a paint
    shop (C36), Add a shop
    code (C30, only while shop codes are on — see C30), My balance (C27), My products (C29,
    only with a shop behind the account),
@@ -380,20 +380,32 @@ from the engine's own one-pixel antialiasing.
 - Tap a wall on the photo to select it (hit-test the masks). The selected wall gets a
   thin outline: a light line on its edge with a soft dark halo, drawn by the engine in the
   same frame as the paint (not in snapshots, nor while holding for the "before").
-- **Wall strip** just above the dock: chips with each wall's current colour + name. A
+- **Three numbered steps** down the left of the dock, for somebody who has never used a
+  tool like this or would sooner look than read — the same three the website's studio
+  opens with: **1** the walls, **2** the colours, **3** Save. The numbers are discs, not
+  words, so the dock keeps its height; the words are in **How it works** (below).
+- **Wall strip** (step 1) just above the dock: chips with each wall's current colour + name;
+  the chosen wall is the ink capsule. A
   saved colour shows as its shade (the catalogue shade found again); the backend's
   opening colours show as the nearest real shade, as on the website (07, "The studio's
   state").
 - **Dock:** horizontal row of recently used and suggested swatches · **Browse shades**
-  (→ C12) · **Suggestions** (→ C13). As built: the palette is always on screen under the
-  room, so the photo is never covered while colours are tried: family chips, then two
-  rows of swatches scrolling sideways (recent first, then the Shade Book's: the colours of its
+  (→ C12) · **Ideas** (→ C13). As built: the palette is always on screen under the
+  room, so the photo is never covered while colours are tried: a row of colour-family
+  dots (step 2 — round, one colour each or two for the families that hold two, a wheel
+  for All; each says its family's name to a screen reader), then two
+  rows of swatches scrolling sideways (recent first, then the Colour Combination Book's: the colours of its
   combinations of the room's kind, first colours first, none repeated from Recent; then the catalogue); a tap paints
-  the selected wall. Under it, on one line: **More shades** (→ C12, for search),
-  **Suggestions** (→ C13), **Save** (this combination) and the ⓘ. The dock is the same height
+  the selected wall. Under it, on one line: **3 Save** (this combination — the dock's one
+  brass button), then **More shades** (→ C12, for search) and **Ideas** (→ C13). The dock is the same height
   whatever it holds, so the room above keeps its size (a resize starts the GPU over).
-- Top bar: back, room name, **Compare** (→ C14), **Undo**, and the board tray button
+- Top bar: back, room name, **Undo** and **Redo** (each only while there is something to
+  undo or redo), **Compare** (→ C14), **Help**, and the board tray button
   with a count badge (→ C15).
+- **How it works:** a sheet with the three steps as a number, a picture and a line each,
+  one **Start** button, and the shade disclaimer at its foot. Opens by itself the first
+  time a phone has a room it can paint (`hv.paintHowTo` in AsyncStorage, set as it
+  opens); **Help** opens it after that. Not on a view-only room.
 - **Press and hold** anywhere on the photo to see the original underneath.
 - **Save this combination** — adds the current colours to the board tray (stored on
   the phone until the board is made; the website keeps the tray client-side too).
@@ -410,7 +422,8 @@ undoes a change still waiting to be saved (07, "The studio's state").
 - Access ending → banner "3 days left on this room".
 - GL not available (very old phone) → "Your phone can't show live colour. You can
   still pick shades and take a board." The rest of the screen keeps working.
-- The shade disclaimer is one tap away (ⓘ) and printed on the board.
+- The shade disclaimer is at the foot of How it works — read once on a phone's first
+  visit, one tap away (Help) after — and printed on the board.
 
 **Performance target:** colour change visible in < 100 ms, 60 fps pan/zoom on a
 mid-range Android (e.g. 4 GB RAM). Measured with the live-colour check (Settings → press
@@ -438,7 +451,7 @@ than tabbed.
 **Route** `room/[projectId]/suggestions.tsx` (sheet) · **Phase** 3 · **Web reference** `components/atelier/shade-grid.tsx` (`VistaAiPanel`, `ShadeBookPanel`)
 
 Two tabs under the title, as in the website's studio: **Vista AI** (opens first) and
-**Vista Shadebook**. Locks and the round survive a look at the other tab.
+**Vista Colour Combination Book**. Locks and the round survive a look at the other tab.
 
 **Vista AI.** Three named palettes, each a run of swatches mapped to the walls and one sentence
 on why. **Try this** paints the room with it (autosaves). **Suggest again** asks for a new set.
@@ -455,7 +468,7 @@ Free and instant.
   above the palettes says how many colours are kept and on which walls, with **Unlock all**.
   With every wall kept, Suggest again is off.
 
-**Vista Shadebook.** The Shade Book's combinations, offered on this room, and no AI suggestions:
+**Vista Colour Combination Book.** The Colour Combination Book's combinations, offered on this room, and no AI suggestions:
 chips for **Interior** / **Exterior** (opening on the room's own kind) and **Any** /
 **2 colours** / **3 colours**, then a card per combination with its colours, each labelled with
 the wall it will go on. **Try this** puts the colours on the walls being painted in order — the
@@ -464,10 +477,10 @@ main walls first, as the page lists its parts — and autosaves. Twelve at a tim
 
 - **API:** `GET /api/shade-book` — every page with a running pass, the free samples without one.
 - **The pass is sold on the tab**: a banner says how many are free and that one pass opens them
-  all — here and in the Shade Book (C34) — with the Shade Book's own buy button (`BuyButton`,
+  all — here and in the Colour Combination Book (C34) — with the Colour Combination Book's own buy button (`BuyButton`,
   `usePassPurchase` with `shadeBookPass`: Google Play in the store build, the website's checkout
   elsewhere), at its price ("Open all 239 · ₹49 for 24 hours"). Under the free ones, a line says
-  how many more the pass opens, with the same button and **Open the Shade Book**. With a running
+  how many more the pass opens, with the same button and **Open the Colour Combination Book**. With a running
   pass the banner says until when. Both screens read the same `keys.shadeBook`, so a pass bought
   on either opens both.
 
@@ -1077,22 +1090,22 @@ the server's own sentence. No new token comes back (the role is read on every re
 so the profile is read again and the guards hand over to `/painter`. Pressing again after
 a lost answer is safe: the server's call is idempotent.
 
-## The Shade Book
+## The Colour Combination Book
 
-### C34 · Shade Book
+### C34 · Colour Combination Book
 
-**Route** `(tabs)/shade-book.tsx`, in the **Catalogue** tab beside the shades: a **Shades · Shade Book** switch heads both screens, and the Catalogue tab stays lit (seven tabs would leave "Shade Book" about 45 dp on a 360–390 dp phone; it needs 63) · **Phase** 8 · **Web reference** `app/shade-book/page.tsx`, `components/shade-book/shade-book-view.tsx`, `lib/shade-book.ts`
+**Route** `(tabs)/shade-book.tsx`, in the **Catalogue** tab beside the shades: a **Shades · Colour Combination Book** switch heads both screens, and the Catalogue tab stays lit (seven tabs would leave "Colour Combination Book" about 45 dp on a 360–390 dp phone; it needs 63) · **Phase** 8 · **Web reference** `app/shade-book/page.tsx`, `components/shade-book/shade-book-view.tsx`, `lib/shade-book.ts`
 
 Every house. Combinations of our shades — two colours or three, for a house's outside or a
 room — each shown on every photo with as many parts as it has colours: the colour test's
 four (the living room and the sitting room, the town house and the modern house), the sitting
 room with its two walls alone (`interior-2w`, its ceiling left as photographed — a room's two
-wall colours), and every house and room the team adds on the website (Admin → Shade Book →
+wall colours), and every house and room the team adds on the website (Admin → Colour Combination Book →
 Houses: a photo with its parts drawn in the studio's mask tools, or one of the team's own rooms,
 cleaned and with its walls found the way any room is). A combination goes on a room whose
 ceiling it wasn't made for only when the colour that would go up there is light enough for a
 ceiling (LRV 60 or more). The team adds and removes
-combinations there too (Admin → Shade Book); the pictures are painted by the server, so the
+combinations there too (Admin → Colour Combination Book); the pictures are painted by the server, so the
 app, the website and a saved picture show the same colours. Older builds read `photos`, the
 colour test's four, and never see the team's houses.
 
@@ -1155,9 +1168,9 @@ this app right now".
 moment a running pass ends. Customers read Vista codes and colours only — the server sends
 no company, maker's code or maker's name.
 
-### C37 · A Shade Book picture
+### C37 · A Colour Combination Book picture
 
-**Route** `shade-book/[id].tsx`, pushed over the tabs from the Shade Book's grid · **Phase** 8 ·
+**Route** `shade-book/[id].tsx`, pushed over the tabs from the Colour Combination Book's grid · **Phase** 8 ·
 **Web reference** the large view in `components/shade-book/shade-book-view.tsx`
 
 One combination large: the picture, as wide as the screen and up to 62% of its height, painted
@@ -1182,7 +1195,7 @@ combination isn't in the book you can open" with **Back**.
 ### C35 · Colour finder
 
 **Route** `(tabs)/colour-finder.tsx`, in the **Catalogue** tab beside the shades and the Shade
-Book: the switch at the top of all three reads **Shades · Shade Book · Colour finder**, and the
+Book: the switch at the top of all three reads **Shades · Colour Combination Book · Colour finder**, and the
 Catalogue tab stays lit · **Phase** 8 · **Web reference** `app/(app)/find-a-colour/page.tsx`,
 `components/catalogue/customer-colour-finder.tsx`, `hooks/use-photo-sampler.ts`
 
@@ -1210,10 +1223,10 @@ lighting can be evened out first: the website's own reading (`lib/surface-sample
 `lib/palette.ts`, ported), so a wall reads the same in both.
 
 **Free and paid:** choosing a photo and picking a colour are free; the shades are what the
-pass opens — 24 hours, unlimited, ₹59 (priced by the server). Bought like the Shade Book's
+pass opens — 24 hours, unlimited, ₹59 (priced by the server). Bought like the Colour Combination Book's
 pass (C34): a Google Play product of its own in the store build (`playProductId`), Razorpay
 on the website elsewhere, on the rail every pass shares (`features/payments/day-pass.ts`),
-with D3 telling its order from the Shade Book's and the basket's on a cold start.
+with D3 telling its order from the Colour Combination Book's and the basket's on a cold start.
 
 **API:** `GET /api/colour-finder` · `GET /api/colour-finder/match?hex=&limit=` ·
 `POST /api/colour-finder/pass/order` · `POST /api/colour-finder/pass/verify`.

@@ -36,7 +36,7 @@ const NONE_KEPT: readonly (KeptColour | null)[] = [null, null, null];
 /** What a colour is known by, for telling two apart: its code, or its hex without one. */
 const colourKey = (c: SuggestedColour | null | undefined) => (c ? (c.code ?? c.hex).toUpperCase() : "");
 
-/** Shade Book combinations shown at a time; "Show more" adds the next ones. */
+/** Colour Combination Book combinations shown at a time; "Show more" adds the next ones. */
 const STEP = 12;
 
 /**
@@ -48,12 +48,12 @@ const STEP = 12;
  *   on why. Try this puts the main colour on the main wall, the accent on the accent wall and
  *   the trim on the trim, and saves. Suggest again asks for another set; a lock on a colour
  *   keeps it on its wall while the rest are suggested around it. Free and instant.
- * - **Vista Shadebook** — the Shade Book's combinations, offered on this room, and nothing the
+ * - **Vista Colour Combination Book** — the Colour Combination Book's combinations, offered on this room, and nothing the
  *   studio suggests itself. Every page with the pass, the free samples without it — and the pass
- *   is sold right here: the Shade Book's own, at its price, so one purchase opens the book in
+ *   is sold right here: the Colour Combination Book's own, at its price, so one purchase opens the book in
  *   both places.
  *
- * The locks and the round are held here rather than in the tab, so a look at the Shade Book and
+ * The locks and the round are held here rather than in the tab, so a look at the Colour Combination Book and
  * back keeps them.
  */
 export default function Suggestions() {
@@ -310,7 +310,7 @@ function VistaAi({
 }
 
 /**
- * Vista Shadebook: the Shade Book's combinations on this room — interior or exterior, opening on
+ * Vista Colour Combination Book: the Colour Combination Book's combinations on this room — interior or exterior, opening on
  * the room's own kind, and two colours or three. Try this puts a combination's colours on the
  * walls being painted in order — the main walls first, as the page lists its parts — and saves.
  */
@@ -450,8 +450,8 @@ function VistaShadebook({ projectId }: { projectId: string }) {
 }
 
 /**
- * Where this account stands with the Shade Book, on the Vista Shadebook tab: the pass and when it
- * ends, or what is free and the one pass that opens the rest. The pass is the Shade Book's own
+ * Where this account stands with the Colour Combination Book, on the Vista Colour Combination Book tab: the pass and when it
+ * ends, or what is free and the one pass that opens the rest. The pass is the Colour Combination Book's own
  * (shade-book/components.tsx, Standing), bought at its price — so a purchase here opens the book
  * there too, and one made there opens this tab: both read the same `keys.shadeBook`.
  */

@@ -27,9 +27,9 @@ const PICTURE_SHARE = 0.62;
 type Params = { id: string; on?: string; view?: string; kind?: string; colours?: string; families?: string; q?: string };
 
 /**
- * C37 · A Shade Book picture. Spec: docs/04-screens-customer.md — C37.
+ * C37 · A Colour Combination Book picture. Spec: docs/04-screens-customer.md — C37.
  *
- * One combination large, opened from the Shade Book's grid: painted on the house the grid
+ * One combination large, opened from the Colour Combination Book's grid: painted on the house the grid
  * showed it on, every part's Vista code, and with the pass its picture to keep — the house over
  * the codes — saved to the photos or sent. Under it, the same combination on every house with as
  * many parts, one press to paint it there; Previous and Next step through the grid it was opened
