@@ -6,7 +6,7 @@ import { keys } from "@/api/query-keys";
 import type { ShadeBrandSummary } from "@/api/types";
 import { useSession } from "@/auth/session";
 import { decodeShades, encodeShades } from "@/lib/shade-codec";
-import type { ShadeCodeScheme } from "@/lib/shade-codes";
+import { isEnamel, type ShadeCodeScheme } from "@/lib/shade-codes";
 import { mapToPaintShade } from "@/lib/shade-mapping";
 import type { PaintShade } from "@/lib/shade-types";
 
@@ -113,7 +113,8 @@ export function brandShown(scheme: ShadeCodeScheme): boolean {
 }
 
 export function shownName(scheme: ShadeCodeScheme, shade: Pick<PaintShade, "name" | "code" | "hvCode">): string | null {
-  if (!namesShown(scheme)) return null;
+  // An enamel keeps the name off its shade card, whoever is looking.
+  if (!namesShown(scheme) && !isEnamel(shade)) return null;
   const name = shade.name?.trim();
   if (!name || name === shade.code || name === shade.hvCode) return null;
   return name;

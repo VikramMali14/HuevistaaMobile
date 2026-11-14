@@ -12,6 +12,7 @@ import {
   EmptyState,
   ErrorState,
   Screen,
+  Segmented,
   Skeleton,
   SwatchTile,
   Text,
@@ -25,13 +26,14 @@ import {
   gridItems,
   type CatalogueFilter,
   type GridItem,
+  type Range,
 } from "@/features/catalogue/filter";
 import { namesShown, shownName, useCatalogue, useShadeScheme } from "@/features/catalogue/use-catalogue";
 import { shadeHref } from "@/features/catalogue/links";
 import { CatalogueSwitch } from "@/features/shade-book/CatalogueSwitch";
 import { useLibrary } from "@/features/library/use-library";
 import { t, type MessageKey } from "@/i18n";
-import { displayCodeOf } from "@/lib/shade-codes";
+import { displayCodeOf, isEnamel } from "@/lib/shade-codes";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { useTheme } from "@/theme";
 import { SHOW_SHOP_CODES } from "@/config/hidden-features";
@@ -62,11 +64,15 @@ export default function CatalogueScreen() {
   // themselves) are in view rather than wherever the last list was scrolled to.
   useEffect(() => {
     listRef.current?.scrollToOffset({ offset: 0, animated: false });
-  }, [query, filter.brand, filter.family, filter.tone]);
+  }, [query, filter.range, filter.brand, filter.family, filter.tone]);
 
   const shades = catalogue.data?.shades;
   const brands = catalogue.data?.brands ?? [];
-  const families = useMemo(() => familiesPresent(shades ?? []), [shades]);
+  // The catalogue has two sections once there are enamels in it: every colour, and the
+  // enamels alone. The family chips follow the section that is open.
+  const enamels = useMemo(() => (shades ?? []).filter(isEnamel), [shades]);
+  const enamelOpen = filter.range === "enamel";
+  const families = useMemo(() => familiesPresent(enamelOpen ? enamels : (shades ?? [])), [enamelOpen, enamels, shades]);
   const shown = useMemo(
     () => filterShades(shades ?? [], { ...filter, query }, { hideCodes: !scheme.showRealCodes, hideNames: !namesShown(scheme) }),
     [shades, filter, query, scheme],
@@ -143,7 +149,24 @@ export default function CatalogueScreen() {
           </View>
         </Card>
       ) : null}
-      {brands.length > 1
+      {enamels.length > 0 ? (
+        <Segmented<Range>
+          accessibilityLabel={t("catalogue.sections")}
+          options={[
+            { value: "all", label: t("catalogue.allColours") },
+            { value: "enamel", label: t("catalogue.enamelShades") },
+          ]}
+          value={enamelOpen ? "enamel" : "all"}
+          // A company or family chosen in one section may not exist in the other.
+          onChange={(next) => setFilter((f) => ({ ...NO_FILTER, query: f.query, range: next }))}
+        />
+      ) : null}
+      {enamelOpen ? (
+        <Text variant="small" tone="mute">
+          {t("catalogue.enamelNote")}
+        </Text>
+      ) : null}
+      {brands.length > 1 && !enamelOpen
         ? chipsRow(
             <>
               <Chip label={t("catalogue.allCompanies")} selected={!filter.brand} onPress={() => set({ brand: null })} />
@@ -186,7 +209,7 @@ export default function CatalogueScreen() {
           {shown.length === 1 ? t("catalogue.countOne") : t("catalogue.count", { n: shown.length.toLocaleString("en-IN") })}
         </Text>
         {filtered ? (
-          <Button variant="ghost" block={false} label={t("catalogue.clearFilters")} onPress={() => setFilter((f) => ({ ...NO_FILTER, query: f.query }))} />
+          <Button variant="ghost" block={false} label={t("catalogue.clearFilters")} onPress={() => setFilter((f) => ({ ...NO_FILTER, query: f.query, range: f.range }))} />
         ) : null}
       </View>
     </View>
@@ -198,7 +221,7 @@ export default function CatalogueScreen() {
         {t("catalogue.noMatch", { query: query.trim() })}
       </Text>
       {filtered ? (
-        <Button variant="secondary" block={false} label={t("catalogue.clearFilters")} onPress={() => setFilter((f) => ({ ...NO_FILTER, query: f.query }))} />
+        <Button variant="secondary" block={false} label={t("catalogue.clearFilters")} onPress={() => setFilter((f) => ({ ...NO_FILTER, query: f.query, range: f.range }))} />
       ) : null}
     </View>
   ) : (
@@ -206,7 +229,7 @@ export default function CatalogueScreen() {
       <Text variant="body" tone="soft">
         {t("catalogue.noMatchFilters")}
       </Text>
-      <Button variant="secondary" block={false} label={t("catalogue.clearFilters")} onPress={() => setFilter(NO_FILTER)} />
+      <Button variant="secondary" block={false} label={t("catalogue.clearFilters")} onPress={() => setFilter((f) => ({ ...NO_FILTER, range: f.range }))} />
     </View>
   );
 

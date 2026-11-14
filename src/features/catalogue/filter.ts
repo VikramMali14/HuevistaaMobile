@@ -1,5 +1,6 @@
 import { PARENT_FAMILIES, parentFamilyOf, type ParentFamily } from "@/lib/colour-families";
 import { parseColourSearch } from "@/lib/colour-search";
+import { isEnamel } from "@/lib/shade-codes";
 import type { PaintShade } from "@/lib/shade-types";
 
 /** Light / Medium / Dark, in LRV terms a painter would recognise (shade-grid.tsx). */
@@ -10,7 +11,12 @@ export function toneOf(lrv: number): Tone {
   return lrv >= 55 ? "Light" : lrv >= 25 ? "Medium" : "Dark";
 }
 
+/** The sections of the catalogue: every colour we have, or the enamels alone. */
+export type Range = "all" | "enamel";
+
 export interface CatalogueFilter {
+  /** Which section is open. Left out means every colour. */
+  range?: Range;
   query: string;
   /** A company's name, or null for all of them. */
   brand: string | null;
@@ -34,7 +40,8 @@ export function matchesText(
   const q = query.trim().toLowerCase();
   if (!q) return true;
   if (shade.hvCode && shade.hvCode.toLowerCase().includes(q)) return true;
-  if (!hideNames && shade.name.toLowerCase().includes(q)) return true;
+  // An enamel's name is printed for everyone, so everyone can search it.
+  if ((!hideNames || isEnamel(shade)) && shade.name.toLowerCase().includes(q)) return true;
   if (!hideCodes && shade.code.toLowerCase().includes(q)) return true;
   return shade.hex.toLowerCase().includes(q);
 }
@@ -53,6 +60,7 @@ export function filterShades(
   const colour = q ? parseColourSearch(q) : null;
   const hits: { s: PaintShade; rank: number }[] = [];
   for (const s of shades) {
+    if (filter.range === "enamel" && !isEnamel(s)) continue;
     if (filter.brand && s.brand !== filter.brand) continue;
     if (filter.family && parentFamilyOf(s.family) !== filter.family) continue;
     if (filter.tone && toneOf(s.lrv) !== filter.tone) continue;

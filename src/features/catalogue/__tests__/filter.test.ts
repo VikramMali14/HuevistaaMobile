@@ -1,6 +1,7 @@
 import type { PaintShade } from "@/lib/shade-types";
 
 import { familiesPresent, filterShades, gridItems, matchesText, NO_FILTER, toneOf } from "../filter";
+import { isEnamel } from "@/lib/shade-codes";
 
 const shade = (code: string, hex: string, family: string, lrv: number, brand = "Asian Paints"): PaintShade => ({
   code,
@@ -72,5 +73,22 @@ describe("gridItems", () => {
 
   it("has no headings for one company", () => {
     expect(gridItems(SHADES.slice(0, 3), 3).map((i) => i.kind)).toEqual(["row"]);
+  });
+});
+
+describe("the enamel section", () => {
+  const PISTA: PaintShade = { ...shade("HVE0001", "#DAEEBF", "greens", 80, "Apcolite Enamel"), hvCode: "HVE0001", name: "Pista" };
+  const ALL = [...SHADES, PISTA];
+
+  it("holds the enamels alone, and All colours holds everything", () => {
+    expect(filterShades(ALL, { ...NO_FILTER, range: "enamel" })).toEqual([PISTA]);
+    expect(filterShades(ALL, { ...NO_FILTER, range: "all" })).toHaveLength(ALL.length);
+    expect(filterShades(ALL, NO_FILTER)).toHaveLength(ALL.length);
+  });
+
+  it("searches an enamel by its name even where names are hidden", () => {
+    expect(matchesText(PISTA, "pista", { hideNames: true })).toBe(true);
+    expect(isEnamel(PISTA)).toBe(true);
+    expect(isEnamel(SHADES[0]!)).toBe(false);
   });
 });

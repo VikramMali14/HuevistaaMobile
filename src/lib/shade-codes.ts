@@ -93,3 +93,18 @@ export function displayCodeOf(
 export function codesAreUniversal(scheme: ShadeCodeScheme | null | undefined): boolean {
   return !scheme?.showRealCodes;
 }
+
+/**
+ * Whether a shade is an ENAMEL — paint for wood and metal — rather than a wall paint.
+ *
+ * Read off the code, because the code is the one thing every copy of a shade carries:
+ * enamels count from their own run, HVE0001 on, where a wall paint reads HV0001. That
+ * survives the catalogue kept on the phone, a saved board and a share link without any
+ * of them having to learn a new field.
+ *
+ * An enamel is also the one kind of shade whose NAME everybody is sent — it is sold by
+ * the name on its shade card.
+ */
+export function isEnamel(shade: { code?: string | null; hvCode?: string | null }): boolean {
+  return /^HVE\d/i.test(shade.hvCode ?? "") || /^HVE\d/i.test(shade.code ?? "");
+}
